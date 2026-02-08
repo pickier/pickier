@@ -1,3 +1,26 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.14...v0.1.15)
+
+### 🧹 Chores
+
+- release v0.1.15 ([ec5fbd5](https://github.com/pickier/pickier/commit/ec5fbd5)) _(by Chris <chrisbreuer93@gmail.com>)_
+- ensure to release bins ([1902201](https://github.com/pickier/pickier/commit/1902201)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor lint improvements ([aa62acc](https://github.com/pickier/pickier/commit/aa62acc)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.14...HEAD)
+
+### 🧹 Chores
+
+- ensure to release bins ([1902201](https://github.com/pickier/pickier/commit/1902201)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor lint improvements ([aa62acc](https://github.com/pickier/pickier/commit/aa62acc)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.13...v0.1.14)
 
 ### 🚀 Features
