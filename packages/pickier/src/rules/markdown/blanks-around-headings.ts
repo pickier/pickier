@@ -10,11 +10,21 @@ export const blanksAroundHeadingsRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFencedCodeBlock = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      // Track fenced code blocks to avoid false positives on comments like `# comment`
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFencedCodeBlock = !inFencedCodeBlock
+        continue
+      }
+
+      if (inFencedCodeBlock)
+        continue
 
       // Check for ATX style headings
       const isAtxHeading = /^#{1,6}\s/.test(line)
@@ -81,11 +91,24 @@ export const blanksAroundHeadingsRule: RuleModule = {
   fix: (text) => {
     const lines = text.split(/\r?\n/)
     const result: string[] = []
+    let inFencedCodeBlock = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFencedCodeBlock = !inFencedCodeBlock
+        result.push(line)
+        continue
+      }
+
+      if (inFencedCodeBlock) {
+        result.push(line)
+        continue
+      }
 
       const isAtxHeading = /^#{1,6}\s/.test(line)
       const isSetextHeading = i + 1 < lines.length && /^(=+|-+)\s*$/.test(nextLine) && line.trim().length > 0

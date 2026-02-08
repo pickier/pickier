@@ -11,10 +11,20 @@ export const singleTitleRule: RuleModule = {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
     let firstH1Line = -1
+    let inFencedCodeBlock = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      // Track fenced code blocks to avoid false positives on comments like `# comment`
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFencedCodeBlock = !inFencedCodeBlock
+        continue
+      }
+
+      if (inFencedCodeBlock)
+        continue
 
       let isH1 = false
 

@@ -28,9 +28,13 @@ export const defaultConfig: PickierConfig = {
     '**/.github/**',
     '**/*.test.ts',
     '**/*.spec.ts',
+    // Lock files are auto-generated and should not be linted
+    '**/*.lock',
+    '**/package-lock.json',
+    '**/pnpm-lock.yaml',
   ],
   lint: {
-    extensions: ['ts', 'js', 'html', 'css', 'json', 'jsonc', 'md', 'yaml', 'yml', 'stx', 'lock'],
+    extensions: ['ts', 'js', 'html', 'css', 'json', 'jsonc', 'md', 'yaml', 'yml', 'stx'],
     reporter: 'stylish',
     cache: false,
     maxWarnings: -1,
