@@ -59,9 +59,10 @@ export const noTopLevelAwaitRule: RuleModule = {
 
         if (!escape && ch === '\'') {
           inSQ = false
-          escape = false
-          continue
         }
+
+        escape = false
+        continue
       }
       if (inDQ) {
         if (!escape && ch === '\\') {
@@ -71,9 +72,10 @@ export const noTopLevelAwaitRule: RuleModule = {
 
         if (!escape && ch === '"') {
           inDQ = false
-          escape = false
-          continue
         }
+
+        escape = false
+        continue
       }
       if (inTQ) {
         if (!escape && ch === '\\') {

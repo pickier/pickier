@@ -10,9 +10,18 @@ export const noHardTabsRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks (tabs are often required, e.g. Makefiles)
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for hard tabs
       const tabIndex = line.indexOf('\t')

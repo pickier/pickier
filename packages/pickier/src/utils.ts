@@ -197,10 +197,11 @@ export async function loadConfigFromPath(pathLike: string | undefined): Promise<
       const { join } = await import('node:path')
       const configPath = join(process.cwd(), 'pickier.config.ts')
       if (existsSync(configPath)) {
-        // Load the bunfig-merged config
-        const { config } = await import('./config')
-        // Return a copy to avoid mutation of shared config
-        return mergeConfig(config, {})
+        // Load the bunfig-merged config (must use getConfig() for async bunfig loading)
+        const { getConfig } = await import('./config')
+        const cfg = await getConfig()
+        // Return merged with defaults to ensure all fields present
+        return mergeConfig(defaultConfig, cfg)
       }
     }
     catch {

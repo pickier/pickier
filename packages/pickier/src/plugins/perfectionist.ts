@@ -1,5 +1,6 @@
 import type { PickierPlugin } from '../types'
 import { sortImportsRule } from '../rules/sort/imports'
+import { codeOnly } from './utils'
 
 /**
  * Perfectionist plugin - provides compatibility with perfectionist ESLint plugin
@@ -8,6 +9,6 @@ import { sortImportsRule } from '../rules/sort/imports'
 export const perfectionistPlugin: PickierPlugin = {
   name: 'perfectionist',
   rules: {
-    'sort-imports': sortImportsRule, // alias for pickier/sort-imports
+    'sort-imports': codeOnly(sortImportsRule), // alias for pickier/sort-imports
   },
 }

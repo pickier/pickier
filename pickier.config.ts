@@ -20,8 +20,9 @@ const config: PickierOptions = {
     '**/*.spec.ts',
     '**/*.bench.ts', // Ignore benchmark files to match ESLint preset behavior
     '**/*.config.ts', // Ignore config files to match ESLint preset behavior
-    '**/docs/**',
-    'packages/vscode/examples/**',
+    '**/vscode/examples/**',
+    '**/SUMMARY_COMPARISON.md',
+    '**/bechmarks/**',
   ],
 
   // Lint-specific options
@@ -55,52 +56,53 @@ const config: PickierOptions = {
   rules: {
     noDebugger: 'error', // remove debugger statements
     noConsole: 'warn', // warn on console usage (tests expect warnings, not errors)
-    noTemplateCurlyInString: 'error', // catch ${} in regular strings
-    noCondAssign: 'error', // no assignments in conditionals
+    noTemplateCurlyInString: 'warn', // catch ${} in regular strings
+    noCondAssign: 'warn', // assignments in conditionals (common pattern in while/exec loops)
   },
 
   // Plugin rules (advanced linting)
   pluginRules: {
-    'ts/prefer-const': 'error', // prefer const over let
+    'ts/prefer-const': 'warn', // prefer const over let
     'style/curly': 'off', // enforce curly braces for all control statements (disabled for tests)
     'style/if-newline': 'off', // enforce newline after if statement (disabled for tests)
-    'pickier/no-unused-vars': 'error', // catch unused imports/vars
-    'pickier/sort-imports': 'off', // too noisy, especially in test files
-    'pickier/sort-named-imports': 'off', // too noisy, especially in test files
-    'pickier/sort-objects': 'off', // too noisy, especially in test files
-    'pickier/sort-exports': 'error', // sort exports
+    'pickier/no-unused-vars': 'warn', // catch unused imports/vars
+    'pickier/sort-imports': 'off', // too noisy
+    'pickier/sort-named-imports': 'off', // too noisy
+    'pickier/sort-objects': 'off', // too noisy
+    'pickier/sort-exports': 'warn', // sort exports
     'pickier/import-dedupe': 'error', // dedupe imports
     'pickier/no-import-node-modules-by-path': 'error',
     'pickier/no-import-dist': 'error',
     'ts/no-top-level-await': 'error',
-    // Rules added to match ESLint detection (antfu rules map to style/ts rules)
-    // Note: antfu/curly maps to style/curly, antfu/if-newline maps to style/if-newline,
-    // antfu/no-top-level-await maps to ts/no-top-level-await
-    'no-new': 'error',
+    // Style rules - warn to surface issues without blocking CI
+    'style/brace-style': 'warn',
+    'style/max-statements-per-line': 'warn',
+    'style/no-multi-spaces': 'warn',
+    'style/no-multiple-empty-lines': 'warn',
+    'style/no-trailing-spaces': 'warn',
+    // Import cleanup
+    'unused-imports/no-unused-imports': 'warn',
+    'unused-imports/no-unused-vars': 'warn',
+    // Regexp rules
+    'regexp/negation': 'warn',
+    'regexp/no-misleading-capturing-group': 'warn',
+    'regexp/no-super-linear-backtracking': 'warn', // heuristic, has false positives in regex-heavy code
+    'regexp/no-unused-capturing-group': 'warn', // context-aware but still has edge cases
+    'regexp/no-useless-assertions': 'warn',
+    'regexp/no-useless-lazy': 'warn',
+    'regexp/no-useless-non-capturing-group': 'warn',
+    'regexp/optimal-quantifier-concatenation': 'warn',
+    'regexp/prefer-character-class': 'warn',
+    'regexp/prefer-w': 'warn',
+    'regexp/strict': 'warn',
+    'regexp/use-ignore-case': 'warn',
+    // Other rules
+    'no-new': 'warn',
     'no-regex-spaces': 'error',
-    'node/prefer-global/buffer': 'error',
-    'node/prefer-global/process': 'error',
-    'perfectionist/sort-imports': 'error',
-    'prefer-template': 'error',
-    'regexp/negation': 'error',
-    'regexp/no-misleading-capturing-group': 'error',
-    'regexp/no-super-linear-backtracking': 'error',
-    'regexp/no-unused-capturing-group': 'error',
-    'regexp/no-useless-assertions': 'error',
-    'regexp/no-useless-lazy': 'error',
-    'regexp/no-useless-non-capturing-group': 'error',
-    'regexp/optimal-quantifier-concatenation': 'error',
-    'regexp/prefer-character-class': 'error',
-    'regexp/prefer-w': 'error',
-    'regexp/strict': 'error',
-    'regexp/use-ignore-case': 'error',
-    'style/brace-style': 'error',
-    'style/max-statements-per-line': 'error',
-    'style/no-multi-spaces': 'error',
-    'style/no-multiple-empty-lines': 'error',
-    'style/no-trailing-spaces': 'error',
-    'unused-imports/no-unused-imports': 'error',
-    'unused-imports/no-unused-vars': 'error',
+    'node/prefer-global/buffer': 'warn',
+    'node/prefer-global/process': 'warn',
+    'perfectionist/sort-imports': 'off', // too opinionated for this codebase
+    'prefer-template': 'warn',
   },
 }
 

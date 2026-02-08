@@ -10,12 +10,24 @@ export const noEmptyLinksRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Skip fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Replace inline code spans with placeholder text to avoid false matches
+      const stripped = line.replace(/`[^`]+`/g, m => 'x'.repeat(m.length))
+
       // Check for empty link URLs [text]()
-      const emptyUrlMatches = line.matchAll(/\[[^\]]+\]\(\s*\)/g)
+      const emptyUrlMatches = stripped.matchAll(/\[[^\]]+\]\(\s*\)/g)
 
       for (const match of emptyUrlMatches) {
         const column = match.index! + 1
@@ -30,7 +42,7 @@ export const noEmptyLinksRule: RuleModule = {
       }
 
       // Check for empty link text [](url)
-      const emptyTextMatches = line.matchAll(/\[\s*\]\([^)]+\)/g)
+      const emptyTextMatches = stripped.matchAll(/\[\s*\]\([^)]+\)/g)
 
       for (const match of emptyTextMatches) {
         const column = match.index! + 1

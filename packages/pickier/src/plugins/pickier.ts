@@ -15,29 +15,30 @@ import { sortKeysRule } from '../rules/sort/keys'
 import { sortNamedImportsRule } from '../rules/sort/named-imports'
 import { sortObjectsRule } from '../rules/sort/objects'
 import { topLevelFunctionRule } from '../rules/style/top-level-function'
+import { codeOnly } from './utils'
 
 export const pickierPlugin: PickierPlugin = {
   name: 'pickier',
   rules: {
     // Sort rules
-    'sort-exports': sortExportsRule,
-    'sort-objects': sortObjectsRule,
-    'sort-imports': sortImportsRule,
-    'sort-named-imports': sortNamedImportsRule,
-    'sort-heritage-clauses': sortHeritageClausesRule,
-    'sort-keys': sortKeysRule,
+    'sort-exports': codeOnly(sortExportsRule),
+    'sort-objects': codeOnly(sortObjectsRule),
+    'sort-imports': codeOnly(sortImportsRule),
+    'sort-named-imports': codeOnly(sortNamedImportsRule),
+    'sort-heritage-clauses': codeOnly(sortHeritageClausesRule),
+    'sort-keys': codeOnly(sortKeysRule),
 
     // Import rules
-    'import-dedupe': importDedupeRule,
-    'import-first': firstRule,
-    'import-named': namedRule,
-    'import-no-cycle': noCycleRule,
-    'import-no-unresolved': noUnresolvedRule,
-    'no-import-dist': noImportDistRule,
-    'no-import-node-modules-by-path': noImportNodeModulesByPathRule,
-    'no-duplicate-imports': noDuplicateImportsRule,
+    'import-dedupe': codeOnly(importDedupeRule),
+    'import-first': codeOnly(firstRule),
+    'import-named': codeOnly(namedRule),
+    'import-no-cycle': codeOnly(noCycleRule),
+    'import-no-unresolved': codeOnly(noUnresolvedRule),
+    'no-import-dist': codeOnly(noImportDistRule),
+    'no-import-node-modules-by-path': codeOnly(noImportNodeModulesByPathRule),
+    'no-duplicate-imports': codeOnly(noDuplicateImportsRule),
 
     // Style rules
-    'top-level-function': topLevelFunctionRule,
+    'top-level-function': codeOnly(topLevelFunctionRule),
   },
 }

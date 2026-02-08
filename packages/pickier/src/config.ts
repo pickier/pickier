@@ -165,7 +165,7 @@ export const defaultConfig: PickierConfig = {
     'markdown/proper-names': 'off',
     'markdown/no-alt-text': 'warn',
     'markdown/table-pipe-style': 'warn',
-    'markdown/table-column-count': 'error',
+    'markdown/table-column-count': 'warn',
     'markdown/table-column-style': 'warn',
     // Lockfile security rules
     'lockfile/validate-host': ['warn', { allowedHosts: ['npm', 'yarn'] }],

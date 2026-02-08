@@ -1,4 +1,4 @@
-import type { LintIssue, PickierPlugin, RuleContext, RuleModule } from '../types'
+import type { PickierPlugin } from '../types'
 import { arrayBracketSpacingRule } from '../rules/style/array-bracket-spacing'
 import { arrowParensRule } from '../rules/style/arrow-parens'
 import { arrowSpacingRule } from '../rules/style/arrow-spacing'
@@ -50,26 +50,7 @@ import { templateTagSpacingRule } from '../rules/style/template-tag-spacing'
 import { wrapIifeRule } from '../rules/style/wrap-iife'
 import { yieldStarSpacingRule } from '../rules/style/yield-star-spacing'
 
-const CODE_EXTS = /\.(ts|js|tsx|jsx|mts|mjs|cts|cjs)$/
-
-// Wrap rules so they only run on code files (ts/js), not markdown, json, etc.
-function codeOnly(rule: RuleModule): RuleModule {
-  return {
-    meta: rule.meta,
-    check: (content: string, context: RuleContext): LintIssue[] => {
-      if (!CODE_EXTS.test(context.filePath))
-        return []
-      return rule.check(content, context)
-    },
-    fix: rule.fix
-      ? (content: string, context: RuleContext): string => {
-          if (!CODE_EXTS.test(context.filePath))
-            return content
-          return rule.fix!(content, context)
-        }
-      : undefined,
-  }
-}
+import { codeOnly } from './utils'
 
 export const stylePlugin: PickierPlugin = {
   name: 'style',

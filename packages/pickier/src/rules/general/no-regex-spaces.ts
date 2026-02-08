@@ -20,6 +20,10 @@ export const noRegexSpaces: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Skip comment-only lines (// and ///)
+      if (/^\s*\/\//.test(line))
+        continue
+
       // Find regex literals: /.../ or new RegExp('...')
       // Pattern for regex literals
       const regexLiteralPattern = /\/(?![*/])((?:\\.|[^/\\])+)\/[gimsuvy]*/g

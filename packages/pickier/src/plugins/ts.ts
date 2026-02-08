@@ -12,22 +12,23 @@ import { preferOptionalChainRule } from '../rules/ts/prefer-optional-chain'
 import { typeAnnotationSpacingRule } from '../rules/ts/type-annotation-spacing'
 import { typeGenericSpacingRule } from '../rules/ts/type-generic-spacing'
 import { typeNamedTupleSpacingRule } from '../rules/ts/type-named-tuple-spacing'
+import { codeOnly } from './utils'
 
 export const tsPlugin: PickierPlugin = {
   name: 'ts',
   rules: {
-    'no-require-imports': noRequireImportsRule,
-    'no-top-level-await': noTopLevelAwaitRule,
-    'no-ts-export-equal': noTsExportEqualRule,
-    'no-explicit-any': noExplicitAnyRule,
-    'prefer-nullish-coalescing': preferNullishCoalescingRule,
-    'prefer-optional-chain': preferOptionalChainRule,
-    'no-floating-promises': noFloatingPromisesRule,
-    'no-misused-promises': noMisusedPromisesRule,
-    'no-unsafe-assignment': noUnsafeAssignmentRule,
-    'member-delimiter-style': memberDelimiterStyleRule,
-    'type-annotation-spacing': typeAnnotationSpacingRule,
-    'type-generic-spacing': typeGenericSpacingRule,
-    'type-named-tuple-spacing': typeNamedTupleSpacingRule,
+    'no-require-imports': codeOnly(noRequireImportsRule),
+    'no-top-level-await': codeOnly(noTopLevelAwaitRule),
+    'no-ts-export-equal': codeOnly(noTsExportEqualRule),
+    'no-explicit-any': codeOnly(noExplicitAnyRule),
+    'prefer-nullish-coalescing': codeOnly(preferNullishCoalescingRule),
+    'prefer-optional-chain': codeOnly(preferOptionalChainRule),
+    'no-floating-promises': codeOnly(noFloatingPromisesRule),
+    'no-misused-promises': codeOnly(noMisusedPromisesRule),
+    'no-unsafe-assignment': codeOnly(noUnsafeAssignmentRule),
+    'member-delimiter-style': codeOnly(memberDelimiterStyleRule),
+    'type-annotation-spacing': codeOnly(typeAnnotationSpacingRule),
+    'type-generic-spacing': codeOnly(typeGenericSpacingRule),
+    'type-named-tuple-spacing': codeOnly(typeNamedTupleSpacingRule),
   },
 }

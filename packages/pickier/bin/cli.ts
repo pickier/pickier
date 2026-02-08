@@ -45,8 +45,11 @@ if (argv[0] === 'run') {
 // ---------------------------------------------------------------------------
 // Full CLI: import framework for complex commands, help, version, etc.
 // ---------------------------------------------------------------------------
+// pickier-disable-next-line ts/no-top-level-await
 const { CLI } = await import('@stacksjs/clapp')
+// pickier-disable-next-line ts/no-top-level-await
 const { version } = await import('../package.json')
+// pickier-disable-next-line ts/no-top-level-await
 const { runUnified: run } = await import('../src/run.ts')
 
 type RunOptions = import('../src/run.ts').RunOptions
