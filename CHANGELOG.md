@@ -1,3 +1,28 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.15...v0.1.16)
+
+### 🧹 Chores
+
+- release v0.1.16 ([271e84a](https://github.com/pickier/pickier/commit/271e84a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- fix undefined tableStartLine variable in blanks-around-tables rule ([9c8f36a](https://github.com/pickier/pickier/commit/9c8f36a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- several markdown improvements ([4da91bc](https://github.com/pickier/pickier/commit/4da91bc)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor logic adjustments ([db1cf7b](https://github.com/pickier/pickier/commit/db1cf7b)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.15...HEAD)
+
+### 🧹 Chores
+
+- fix undefined tableStartLine variable in blanks-around-tables rule ([9c8f36a](https://github.com/pickier/pickier/commit/9c8f36a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- several markdown improvements ([4da91bc](https://github.com/pickier/pickier/commit/4da91bc)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor logic adjustments ([db1cf7b](https://github.com/pickier/pickier/commit/db1cf7b)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.14...v0.1.15)
 
 ### 🧹 Chores

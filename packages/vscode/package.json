@@ -3,7 +3,7 @@
   "name": "pickier-vscode",
   "displayName": "Pickier",
   "type": "module",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Format, lint and more in a fraction of seconds with Pickier",
   "license": "MIT",
   "homepage": "https://github.com/pickier/pickier#readme",
