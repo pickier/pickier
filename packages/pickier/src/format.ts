@@ -464,6 +464,7 @@ export function hasIndentIssue(
   leading: string,
   indentSize: number,
   indentStyle: 'spaces' | 'tabs' = 'spaces',
+  lineContent?: string,
 ): boolean {
   if (indentStyle === 'tabs') {
     // For tabs style, require leading indentation to be tabs only
@@ -472,6 +473,16 @@ export function hasIndentIssue(
   if (/\t/.test(leading))
     return true
   const spaces = leading.length
+
+  // Block comment continuation lines ( * ...) and closing ( */) use
+  // base_indent + 1 space for * alignment — this is standard convention
+  // in JS/TS/CSS and should not be flagged
+  if (lineContent && spaces % indentSize === 1) {
+    const trimmed = lineContent.trimStart()
+    if (trimmed.startsWith('* ') || trimmed.startsWith('*/') || trimmed === '*')
+      return false
+  }
+
   return spaces % indentSize !== 0
 }
 

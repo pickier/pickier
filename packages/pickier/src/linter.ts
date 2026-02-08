@@ -977,6 +977,20 @@ export function scanContentOptimized(
   const consoleCall = /\bconsole\.log\s*\(/
   const debuggerStmt = /^\s*debugger\b/
 
+  // Build a set of line numbers that are inside fenced code blocks (for markdown files)
+  const linesInFencedCodeBlock = new Set<number>()
+  if (fileExt === 'md') {
+    let inFence = false
+    for (let li = 0; li < lines.length; li++) {
+      if (/^(`{3,}|~{3,})/.test(lines[li].trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        linesInFencedCodeBlock.add(li + 1)
+    }
+  }
+
   // Build a set of line numbers that are inside multi-line template literals
   const linesInTemplate = new Set<number>()
   let inTemplate = false
@@ -1033,10 +1047,11 @@ export function scanContentOptimized(
         quotesReported = true
       }
     }
-    // indentation check: pass leading whitespace only
+    // indentation check: pass leading whitespace and line content for context
+    // Skip lines inside fenced code blocks in markdown (indentation is content, not style)
     const leadingMatch = line.match(/^[ \t]*/)
     const leading = leadingMatch ? leadingMatch[0] : ''
-    if (leading.length > 0 && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle)) {
+    if (leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }
