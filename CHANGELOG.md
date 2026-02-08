@@ -1,3 +1,50 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.13...v0.1.14)
+
+### 🚀 Features
+
+- add several new rules & improvements ([c0114a4](https://github.com/pickier/pickier/commit/c0114a4)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.14 ([6ad561c](https://github.com/pickier/pickier/commit/6ad561c)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([af87ee9](https://github.com/pickier/pickier/commit/af87ee9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor adjustments ([aaabc3a](https://github.com/pickier/pickier/commit/aaabc3a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add more tests ([d232711](https://github.com/pickier/pickier/commit/d232711)) _(by Chris <chrisbreuer93@gmail.com>)_
+- additional perf improvements ([9da797a](https://github.com/pickier/pickier/commit/9da797a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- perf improvements ([dc7bf53](https://github.com/pickier/pickier/commit/dc7bf53)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([02d2f04](https://github.com/pickier/pickier/commit/02d2f04)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([4d2c1f7](https://github.com/pickier/pickier/commit/4d2c1f7)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0c1cae6](https://github.com/pickier/pickier/commit/0c1cae6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([2b10031](https://github.com/pickier/pickier/commit/2b10031)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a58922a](https://github.com/pickier/pickier/commit/a58922a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.13...HEAD)
+
+### 🚀 Features
+
+- add several new rules & improvements ([c0114a4](https://github.com/pickier/pickier/commit/c0114a4)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- wip ([af87ee9](https://github.com/pickier/pickier/commit/af87ee9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor adjustments ([aaabc3a](https://github.com/pickier/pickier/commit/aaabc3a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add more tests ([d232711](https://github.com/pickier/pickier/commit/d232711)) _(by Chris <chrisbreuer93@gmail.com>)_
+- additional perf improvements ([9da797a](https://github.com/pickier/pickier/commit/9da797a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- perf improvements ([dc7bf53](https://github.com/pickier/pickier/commit/dc7bf53)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([02d2f04](https://github.com/pickier/pickier/commit/02d2f04)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([4d2c1f7](https://github.com/pickier/pickier/commit/4d2c1f7)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0c1cae6](https://github.com/pickier/pickier/commit/0c1cae6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([2b10031](https://github.com/pickier/pickier/commit/2b10031)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a58922a](https://github.com/pickier/pickier/commit/a58922a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.10...v0.1.11)
 
 ### 🧹 Chores
