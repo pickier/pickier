@@ -1,3 +1,24 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.16...v0.1.17)
+
+### 🧹 Chores
+
+- release v0.1.17 ([10245f6](https://github.com/pickier/pickier/commit/10245f6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([eccf6de](https://github.com/pickier/pickier/commit/eccf6de)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.16...HEAD)
+
+### 🧹 Chores
+
+- wip ([eccf6de](https://github.com/pickier/pickier/commit/eccf6de)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.15...v0.1.16)
 
 ### 🧹 Chores
