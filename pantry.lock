@@ -1,26 +1,26 @@
 {
   "version": "1.0.0",
   "lockfileVersion": 1,
-  "generatedAt": "1770408317",
+  "generatedAt": "1770570907",
   "packages": {
-    "auto:tinyglobby@^0.2.15": {
-      "name": "auto:tinyglobby",
-      "version": "^0.2.15",
-      "source": "pkgx"
-    },
-    "auto:p-limit@^7.2.0": {
-      "name": "auto:p-limit",
+    "p-limit@^7.2.0": {
+      "name": "p-limit",
       "version": "^7.2.0",
       "source": "pkgx"
     },
-    "auto:bunfig@^0.15.6": {
-      "name": "auto:bunfig",
-      "version": "^0.15.6",
+    "tinyglobby@^0.2.15": {
+      "name": "tinyglobby",
+      "version": "^0.2.15",
       "source": "pkgx"
     },
     "npm:@vscode/test-electron@^2.5.2": {
       "name": "npm:@vscode/test-electron",
       "version": "^2.5.2",
+      "source": "pkgx"
+    },
+    "bunfig@^0.15.6": {
+      "name": "bunfig",
+      "version": "^0.15.6",
       "source": "pkgx"
     },
     "npm:@vscode/vsce@^3.7.1": {
