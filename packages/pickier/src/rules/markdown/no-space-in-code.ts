@@ -10,35 +10,63 @@ export const noSpaceInCodeRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Check for spaces inside code spans: backtick(s) + space(s) + content + space(s) + backtick(s)
-      // Must have both leading AND trailing spaces to be an issue
-      const matches = line.matchAll(/(`+)\s+([^`]+?)\s+\1/g)
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
-      for (const match of matches) {
-        const column = match.index! + 1
-        issues.push({
-          filePath: ctx.filePath,
-          line: i + 1,
-          column,
-          ruleId: 'markdown/no-space-in-code',
-          message: 'Spaces inside code span elements',
-          severity: 'error',
-        })
+      // Find code spans by matching balanced backtick groups (lazy match finds shortest span)
+      const codeSpanPattern = /(`+)([\s\S]*?)\1/g
+      for (const match of line.matchAll(codeSpanPattern)) {
+        const content = match[2]
+        // Only flag if content has both leading and trailing spaces and non-empty trimmed content
+        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0) {
+          issues.push({
+            filePath: ctx.filePath,
+            line: i + 1,
+            column: match.index! + 1,
+            ruleId: 'markdown/no-space-in-code',
+            message: 'Spaces inside code span elements',
+            severity: 'error',
+          })
+        }
       }
     }
 
     return issues
   },
   fix: (text) => {
-    // Remove spaces inside code spans: backtick(s) + space(s) + content + space(s) + backtick(s)
-    // This matches the check pattern - requires both leading and trailing spaces
-    return text.replace(/(`+)\s+([^`]+?)\s+\1/g, (match, backticks, content) => {
-      // Trim the content and rebuild
-      return `${backticks}${content.trim()}${backticks}`
-    })
+    const lines = text.split(/\r?\n/)
+    let inFence = false
+    const result: string[] = []
+
+    for (const line of lines) {
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        result.push(line)
+        continue
+      }
+      if (inFence) {
+        result.push(line)
+        continue
+      }
+
+      // Fix spaces inside code spans
+      result.push(line.replace(/(`+)([\s\S]*?)\1/g, (match, backticks: string, content: string) => {
+        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0)
+          return `${backticks}${content.trim()}${backticks}`
+        return match
+      }))
+    }
+
+    return result.join('\n')
   },
 }

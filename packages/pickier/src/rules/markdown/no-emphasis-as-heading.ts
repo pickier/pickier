@@ -10,11 +10,20 @@ export const noEmphasisAsHeadingRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for lines that are entirely bold or italic and standalone
       const isBoldLine = /^\*\*[^*]+\*\*\s*$/.test(line) || /^__[^_]+__\s*$/.test(line)

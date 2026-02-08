@@ -11,9 +11,18 @@ export const noDuplicateHeadingRule: RuleModule = {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
     const headings = new Map<string, number>()
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for ATX style headings
       const atxMatch = line.match(/^#{1,6}\s+(.+?)(?:\s*#+\s*)?$/)

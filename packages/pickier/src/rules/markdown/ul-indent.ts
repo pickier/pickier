@@ -13,9 +13,18 @@ export const ulIndentRule: RuleModule = {
 
     const options = (ctx.options as { indent?: number }) || {}
     const expectedIndent = options.indent || 2
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for unordered list item
       const match = line.match(/^(\s*)([*\-+])\s+/)

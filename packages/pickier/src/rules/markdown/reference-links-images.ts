@@ -21,27 +21,53 @@ export const referenceLinksImagesRule: RuleModule = {
       }
     }
 
+    let inFence = false
+    let inHtmlComment = false
+
     // Check for reference links and images
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Track HTML comments (multi-line)
+      if (line.includes('<!--'))
+        inHtmlComment = true
+      if (line.includes('-->')) {
+        inHtmlComment = false
+        continue
+      }
+      if (inHtmlComment)
+        continue
+
+      // Skip definition lines
+      if (/^\[([^\]]+)\]:\s*\S+/.test(line))
+        continue
+
+      // Strip inline code spans before checking
+      const stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
       // Find reference links [text][label] or [label]
-      const linkMatches = line.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)
+      const linkMatches = stripped.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)
 
       for (const match of linkMatches) {
         const label = (match[2] || match[1]).toLowerCase()
 
-        // Skip if this is a definition line
-        if (line.match(/^\[([^\]]+)\]:\s*\S+/)) {
+        // Skip checkbox patterns [x], [ ], [X]
+        if (/^[xX ]$/.test(label))
           continue
-        }
 
         if (!definitions.has(label)) {
-          const column = match.index! + 1
           issues.push({
             filePath: ctx.filePath,
             line: i + 1,
-            column,
+            column: match.index! + 1,
             ruleId: 'markdown/reference-links-images',
             message: `Reference link '[${label}]' is not defined`,
             severity: 'error',

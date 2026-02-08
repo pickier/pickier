@@ -12,12 +12,21 @@ export const blanksAroundTablesRule: RuleModule = {
     const lines = text.split(/\r?\n/)
 
     let inTable = false
-    let tableStartLine = -1
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
-      const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        if (inTable)
+          inTable = false
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check if line is part of a table (contains |)
       const isTableLine = /\|/.test(line) && line.trim().length > 0

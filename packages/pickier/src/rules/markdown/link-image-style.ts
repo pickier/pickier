@@ -15,9 +15,29 @@ export const linkImageStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: 'inline' | 'reference' | null = null
+    let inFence = false
+    let inHtmlComment = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Track HTML comments
+      if (line.includes('<!--'))
+        inHtmlComment = true
+      if (line.includes('-->')) {
+        inHtmlComment = false
+        continue
+      }
+      if (inHtmlComment)
+        continue
 
       // Skip definition lines
       if (line.match(/^\[([^\]]+)\]:\s*\S+/)) {

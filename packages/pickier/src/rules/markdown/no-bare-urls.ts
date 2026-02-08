@@ -10,25 +10,46 @@ export const noBareUrlsRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    let inFence = false
+    let inHtmlComment = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Skip code blocks and inline code
-      if (line.trim().startsWith('```') || line.trim().startsWith('~~~')) {
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
         continue
       }
+      if (inFence)
+        continue
 
-      // Simple URL pattern (not inside <> or [](url) or `code`)
-      const urlPattern = /(?<![<`(])https?:\/\/[^\s<>`)\]]+(?![>\])`])/g
-      const matches = line.matchAll(urlPattern)
+      // Track HTML comments (multi-line)
+      if (line.includes('<!--'))
+        inHtmlComment = true
+      if (line.includes('-->')) {
+        inHtmlComment = false
+        continue
+      }
+      if (inHtmlComment)
+        continue
+
+      // Skip reference link definition lines: [label]: url
+      if (/^\[([^\]]+)\]:\s*\S+/.test(line))
+        continue
+
+      // Strip inline code spans before checking
+      const stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
+      // Simple URL pattern (not inside <>, [](url), or HTML attributes like src="url")
+      const urlPattern = /(?<![<(="'])https?:\/\/[^\s<>`)\]"']+(?![>\])"'])/g
+      const matches = stripped.matchAll(urlPattern)
 
       for (const match of matches) {
-        const column = match.index! + 1
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
-          column,
+          column: match.index! + 1,
           ruleId: 'markdown/no-bare-urls',
           message: 'Bare URL used. Wrap in angle brackets: <url>',
           severity: 'error',
@@ -40,14 +61,30 @@ export const noBareUrlsRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
+    let inFence = false
+    let inHtmlComment = false
     const fixedLines = lines.map((line) => {
-      // Skip code blocks
-      if (line.trim().startsWith('```') || line.trim().startsWith('~~~')) {
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
         return line
       }
+      if (inFence)
+        return line
 
-      // Wrap bare URLs in angle brackets
-      return line.replace(/(?<![<`(])https?:\/\/[^\s<>`)\]]+(?![>\])`])/g, '<$&>')
+      if (line.includes('<!--'))
+        inHtmlComment = true
+      if (line.includes('-->')) {
+        inHtmlComment = false
+        return line
+      }
+      if (inHtmlComment)
+        return line
+
+      // Skip reference link definition lines
+      if (/^\[([^\]]+)\]:\s*\S+/.test(line))
+        return line
+
+      return line.replace(/(?<![<(="'])https?:\/\/[^\s<>`)\]"']+(?![>\])"'])/g, '<$&>')
     })
     return fixedLines.join('\n')
   },

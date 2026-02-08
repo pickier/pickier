@@ -12,19 +12,29 @@ export const blanksAroundListsRule: RuleModule = {
     const lines = text.split(/\r?\n/)
 
     let inList = false
-    let listStartLine = -1
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
 
-      // Check if this is a list item
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        if (inList)
+          inList = false
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Check if this is a list item or a continuation of one (indented text following a list item)
       const isListItem = /^(\s*)([*\-+]|\d+\.)\s+/.test(line)
+      const isListContinuation = inList && !isListItem && line.trim().length > 0 && /^\s+/.test(line)
 
       if (isListItem && !inList) {
         // Start of a new list
         inList = true
-        listStartLine = i
 
         // Check if previous line exists and is not blank
         if (i > 0 && prevLine.trim().length > 0) {
@@ -38,8 +48,8 @@ export const blanksAroundListsRule: RuleModule = {
           })
         }
       }
-      else if (!isListItem && inList && line.trim().length > 0) {
-        // End of list (non-blank, non-list line)
+      else if (!isListItem && !isListContinuation && inList && line.trim().length > 0) {
+        // End of list (non-blank, non-list, non-continuation line)
         inList = false
 
         // Check if previous line was a list item

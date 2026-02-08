@@ -13,9 +13,18 @@ export const tablePipeStyleRule: RuleModule = {
 
     const options = (ctx.options as { style?: 'leading_only' | 'trailing_only' | 'leading_and_trailing' | 'no_leading_or_trailing' }) || {}
     const style = options.style || 'leading_and_trailing'
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check if line is a table row
       if (/\|/.test(line) && line.trim().length > 0) {

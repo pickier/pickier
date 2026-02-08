@@ -13,12 +13,24 @@ export const noInlineHtmlRule: RuleModule = {
 
     const options = (ctx.options as { allowed_elements?: string[] }) || {}
     const allowedElements = options.allowed_elements || []
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Strip inline code spans
+      const stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
       // Simple HTML tag detection
-      const matches = line.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)
+      const matches = stripped.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)
 
       for (const match of matches) {
         const tagName = match[1].toLowerCase()

@@ -69,22 +69,60 @@ import { ulIndentRule } from '../rules/markdown/ul-indent'
 // List rules
 import { ulStyleRule } from '../rules/markdown/ul-style'
 
+/**
+ * Strip YAML frontmatter from markdown content, replacing it with blank lines
+ * to preserve line numbers. Returns the stripped text, original frontmatter,
+ * and the end line number of the frontmatter (1-indexed).
+ */
+function stripFrontmatter(content: string): { text: string, frontmatter: string[] | null, frontmatterEndLine: number } {
+  const lines = content.split(/\r?\n/)
+  if (lines[0]?.trim() !== '---')
+    return { text: content, frontmatter: null, frontmatterEndLine: 0 }
+
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      const frontmatter = lines.slice(0, i + 1)
+      const blanked = frontmatter.map(() => '')
+      return {
+        text: [...blanked, ...lines.slice(i + 1)].join('\n'),
+        frontmatter,
+        frontmatterEndLine: i + 1,
+      }
+    }
+  }
+  return { text: content, frontmatter: null, frontmatterEndLine: 0 }
+}
+
+function restoreFrontmatter(content: string, frontmatter: string[] | null): string {
+  if (!frontmatter)
+    return content
+  const lines = content.split(/\r?\n/)
+  return [...frontmatter, ...lines.slice(frontmatter.length)].join('\n')
+}
+
 // Helper function to wrap markdown rules so they only run on .md files
+// Also strips YAML frontmatter so rules don't flag frontmatter content
 function markdownOnly(rule: RuleModule): RuleModule {
   return {
     meta: rule.meta,
     check: (content: string, context: RuleContext): LintIssue[] => {
-      // Only run on .md files
       if (!context.filePath.endsWith('.md'))
         return []
-      return rule.check(content, context)
+      const { text, frontmatterEndLine } = stripFrontmatter(content)
+      const issues = rule.check(text, context)
+      // Filter out issues on frontmatter lines and the boundary line after
+      // (frontmatter stripping creates blank lines that can trigger false positives)
+      if (frontmatterEndLine > 0)
+        return issues.filter(issue => issue.line > frontmatterEndLine + 1)
+      return issues
     },
     fix: rule.fix
       ? (content: string, context: RuleContext): string => {
-          // Only run on .md files
           if (!context.filePath.endsWith('.md'))
             return content
-          return rule.fix!(content, context)
+          const { text, frontmatter } = stripFrontmatter(content)
+          const fixed = rule.fix!(text, context)
+          return restoreFrontmatter(fixed, frontmatter)
         }
       : undefined,
   }
