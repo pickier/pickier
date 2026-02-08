@@ -34,7 +34,6 @@ export const blanksAroundTablesRule: RuleModule = {
       if (isTableLine && !inTable) {
         // Start of table
         inTable = true
-        tableStartLine = i
 
         // Check previous line
         if (i > 0 && prevLine.trim().length > 0) {
