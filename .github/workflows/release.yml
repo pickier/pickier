@@ -35,5 +35,12 @@ jobs:
 
       - name: Create GitHub Release
         uses: stacksjs/action-releaser@v1.2.6
+        with:
+          files: |
+            packages/pickier/bin/pickier-linux-x64.zip
+            packages/pickier/bin/pickier-linux-arm64.zip
+            packages/pickier/bin/pickier-windows-x64.zip
+            packages/pickier/bin/pickier-darwin-x64.zip
+            packages/pickier/bin/pickier-darwin-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
