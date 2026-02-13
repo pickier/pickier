@@ -1,3 +1,27 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.17...v0.1.18)
+
+### 🐛 Bug Fixes
+
+- ensure all config paths are loaded ([a01633a](https://github.com/pickier/pickier/commit/a01633a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.18 ([1531e1a](https://github.com/pickier/pickier/commit/1531e1a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.17...HEAD)
+
+### 🐛 Bug Fixes
+
+- ensure all config paths are loaded ([a01633a](https://github.com/pickier/pickier/commit/a01633a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.16...v0.1.17)
 
 ### 🧹 Chores
