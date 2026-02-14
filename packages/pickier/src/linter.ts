@@ -601,6 +601,9 @@ export async function applyPlugins(filePath: string, content: string, cfg: Picki
 
   const baseCtx: RuleContext = { filePath, config: cfg }
 
+  // Track which bare rule names have been executed to avoid running duplicate implementations
+  const executedRules = new Set<string>()
+
   for (const plugin of pluginDefs) {
     const r = plugin.rules
     for (const ruleName in r) {
@@ -608,6 +611,12 @@ export async function applyPlugins(filePath: string, content: string, cfg: Picki
       const setting = getRuleSetting(rulesConfig, fullRuleId)
       if (!setting.enabled)
         continue
+
+      // Skip if this bare rule name was already executed by another plugin
+      if (executedRules.has(ruleName)) {
+        continue
+      }
+      executedRules.add(ruleName)
       const rule = r[ruleName]!
       const overrideSeverity = setting.severity
       if (!rule || typeof (rule as any).check !== 'function') {
@@ -1227,12 +1236,17 @@ export function scanContent(filePath: string, content: string, cfg: PickierConfi
       }
 
       const ctx: RuleContext = { filePath, config: cfg }
+      const executedRulesInScan = new Set<string>()
       for (const plugin of pluginDefs) {
         const r = plugin.rules
         for (const ruleName in r) {
           const fullRuleId = `${plugin.name}/${ruleName}`
           if (!isRuleEnabled(fullRuleId))
             continue
+          // Skip if this bare rule name was already executed by another plugin
+          if (executedRulesInScan.has(ruleName))
+            continue
+          executedRulesInScan.add(ruleName)
           const rule = r[ruleName]!
           if (!rule || typeof (rule as any).check !== 'function')
             continue

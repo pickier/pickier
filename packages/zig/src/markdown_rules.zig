@@ -730,29 +730,45 @@ fn checkNoBareUrls(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: 
 }
 
 fn checkFencedCodeLanguage(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
-    var it = LineIter{ .content = md };
-    var line_no: u32 = fm + 1;
-    var in_fence = false;
-    while (it.next()) |line| {
-        defer line_no += 1;
+    // Collect all lines into a list for backward-walk (matching TS approach)
+    var lines_list = std.ArrayList([]const u8){};
+    defer lines_list.deinit(alloc);
+    var liter = LineIter{ .content = md };
+    while (liter.next()) |l| {
+        lines_list.append(alloc, l) catch return;
+    }
+    const lines = lines_list.items;
+
+    for (lines, 0..) |line, idx| {
+        const line_no: u32 = fm + @as(u32, @intCast(idx)) + 1;
         const t = std.mem.trimStart(u8, line, " \t");
-        if (isFenceStart(t)) {
-            if (in_fence) {
-                // Closing fence — skip
-                in_fence = false;
-                continue;
-            }
-            // Opening fence — check for language
-            in_fence = true;
-            // Extract what comes after the fence markers
-            var fence_len: usize = 0;
-            const fence_char = t[0];
-            while (fence_len < t.len and t[fence_len] == fence_char) fence_len += 1;
-            const after = std.mem.trim(u8, t[fence_len..], " \t");
-            if (after.len == 0) {
-                if (!directives_mod.isSuppressed("markdown/fenced-code-language", line_no, sup)) {
-                    try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/fenced-code-language", .message = "Fenced code block should have a language specified", .severity = sev });
+
+        // Match fences with NO language (only fence markers + optional whitespace)
+        if (!isFenceStart(t)) continue;
+        // Check there's nothing meaningful after the fence markers
+        var fence_len: usize = 0;
+        const fence_char = t[0];
+        while (fence_len < t.len and t[fence_len] == fence_char) fence_len += 1;
+        const after = std.mem.trim(u8, t[fence_len..], " \t\r");
+        if (after.len > 0) continue; // Has language, skip
+
+        // Backward walk: is this an opening fence?
+        var is_opening = true;
+        if (idx > 0) {
+            var j: usize = idx;
+            while (j > 0) {
+                j -= 1;
+                const prev_t = std.mem.trimStart(u8, lines[j], " \t");
+                if (isFenceStart(prev_t)) {
+                    is_opening = false;
+                    break;
                 }
+            }
+        }
+
+        if (is_opening) {
+            if (!directives_mod.isSuppressed("markdown/fenced-code-language", line_no, sup)) {
+                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/fenced-code-language", .message = "Fenced code block should have a language specified", .severity = sev });
             }
         }
     }

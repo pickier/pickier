@@ -15,17 +15,18 @@ export const codeBlockStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: 'fenced' | 'indented' | null = null
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Check for fenced code block
+      // Check for fenced code block marker (opening or closing)
       const isFenced = /^(`{3,}|~{3,})/.test(line)
 
-      // Check for indented code block (4 spaces or tab)
-      const isIndented = /^( {4}|\t)/.test(line) && line.trim().length > 0
-
       if (isFenced) {
+        // Toggle fence state
+        inFence = !inFence
+
         if (style === 'indented') {
           issues.push({
             filePath: ctx.filePath,
@@ -51,8 +52,19 @@ export const codeBlockStyleRule: RuleModule = {
             })
           }
         }
+        continue
       }
-      else if (isIndented) {
+
+      // Skip lines inside fenced code blocks - indented content
+      // inside a fence is not an "indented code block"
+      if (inFence) {
+        continue
+      }
+
+      // Check for indented code block (4 spaces or tab)
+      const isIndented = /^( {4}|\t)/.test(line) && line.trim().length > 0
+
+      if (isIndented) {
         // Need to verify it's actually a code block, not just indented text in a list
         const prevLine = i > 0 ? lines[i - 1] : ''
         const isAfterBlankLine = prevLine.trim().length === 0 || i === 0

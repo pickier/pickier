@@ -16,8 +16,8 @@ export const preferGlobalProcess: RuleModule = {
     const issues: LintIssue[] = []
     const lines = content.split(/\r?\n/)
 
-    // Check if process is imported from "process" module
-    const hasProcessImport = content.match(/(?:import|require)\s*\(?.*?['"]process['"]/)
+    // Check if process is imported from "process" or "node:process" module
+    const hasProcessImport = content.match(/(?:import|require)\s*\(?.*?['"](?:node:)?process['"]/)
 
     // If no import, check for process usage
     if (!hasProcessImport) {

@@ -34,6 +34,10 @@ pub fn runPluginRules(
         if (mapSeverity(cfg.getPluginRuleSeverity("style/max-statements-per-line"))) |sev| {
             try checkMaxStatementsPerLine(file_path, content, sev, suppress, issues, allocator);
         }
+    }
+
+    // Style rules (all files including markdown)
+    if (is_code or is_md) {
         if (mapSeverity(cfg.getPluginRuleSeverity("style/no-multi-spaces"))) |sev| {
             try checkNoMultiSpaces(file_path, content, sev, suppress, issues, allocator);
         }
@@ -81,6 +85,23 @@ pub fn runPluginRules(
             mapSeverity(cfg.getPluginRuleSeverity("eslint/no-new"));
         if (no_new_sev) |sev| {
             try checkNoNew(file_path, content, sev, suppress, issues, allocator);
+        }
+    }
+
+    // Node rules (code files only)
+    if (is_code) {
+        // node/prefer-global-process can be configured as "node/prefer-global-process" or "node/prefer-global/process"
+        const pgp_sev = mapSeverity(cfg.getPluginRuleSeverity("node/prefer-global-process")) orelse
+            mapSeverity(cfg.getPluginRuleSeverity("node/prefer-global/process"));
+        if (pgp_sev) |sev| {
+            try checkPreferGlobalProcess(file_path, content, sev, suppress, issues, allocator);
+        }
+    }
+
+    // Style rules (code files - additional)
+    if (is_code) {
+        if (mapSeverity(cfg.getPluginRuleSeverity("style/no-multiple-empty-lines"))) |sev| {
+            try checkNoMultipleEmptyLines(file_path, content, sev, suppress, issues, allocator);
         }
     }
 
@@ -279,6 +300,7 @@ fn countStatements(line: []const u8) u32 {
     var escaped = false;
     var paren_depth: u32 = 0;
     var in_for = false;
+    var effective_end: usize = line.len;
 
     // Check if line starts with for
     const trimmed = std.mem.trimStart(u8, line, " \t");
@@ -286,7 +308,7 @@ fn countStatements(line: []const u8) u32 {
         in_for = true;
     }
 
-    for (line) |ch| {
+    for (line, 0..) |ch, idx| {
         if (escaped) {
             escaped = false;
             continue;
@@ -316,17 +338,20 @@ fn countStatements(line: []const u8) u32 {
                 if (!in_for or paren_depth == 0) semicolons += 1;
             },
             '/' => {
-                // Skip rest if line comment
-                // (can't check next char easily in a for loop, handled elsewhere)
+                // Strip // line comments
+                if (idx + 1 < line.len and line[idx + 1] == '/') {
+                    effective_end = idx;
+                    break;
+                }
             },
             else => {},
         }
     }
 
     if (semicolons == 0) return 1;
-    // If line ends with semicolon, count = semicolons, else semicolons + 1
-    const last = line[line.len - 1];
-    if (last == ';') return semicolons;
+    // If line ends with semicolon (ignoring comment), count = semicolons, else semicolons + 1
+    const code_end = std.mem.trim(u8, line[0..effective_end], " \t\r");
+    if (code_end.len > 0 and code_end[code_end.len - 1] == ';') return semicolons;
     return semicolons + 1;
 }
 
@@ -626,7 +651,8 @@ fn hasStringConcatenation(line: []const u8) bool {
             .template => {
                 if (ch == '`') {
                     state = .code;
-                    had_string = true;
+                    // Don't set had_string for template literals — they already support interpolation
+                    // TS only flags single/double quoted string concatenation
                 }
             },
         }
@@ -1142,21 +1168,52 @@ fn checkNoUnusedVars(
             }
         }
 
-        // 2. Check function parameters: function foo(a, b) { ... }
+        // 2. Check function parameters: function foo(a, b) { ... } or function(a, b) { ... }
+        // Also handles multi-line parameter lists
         if (std.mem.indexOf(u8, trimmed, "function ") != null or std.mem.indexOf(u8, trimmed, "function(") != null) {
             // Skip complex functions that cause false positives
             if (std.mem.indexOf(u8, trimmed, "scanContent") == null and std.mem.indexOf(u8, trimmed, "findMatching") == null) {
-                if (std.mem.indexOfScalar(u8, trimmed, '(')) |open_paren| {
-                    if (std.mem.indexOfScalarPos(u8, trimmed, open_paren + 1, ')')) |close_paren| {
+                // Find the ( that belongs to function params (not some enclosing call)
+                var func_paren: ?usize = null;
+                if (std.mem.indexOf(u8, trimmed, "function(")) |fp| {
+                    func_paren = fp + 8;
+                } else if (std.mem.indexOf(u8, trimmed, "function ")) |fp| {
+                    var np = fp + 9;
+                    while (np < trimmed.len and isIdentChar(trimmed[np])) np += 1;
+                    while (np < trimmed.len and (trimmed[np] == ' ' or trimmed[np] == '\t')) np += 1;
+                    if (np < trimmed.len and trimmed[np] == '(') func_paren = np;
+                }
+                if (func_paren) |open_paren| {
+                    // Find matching ) respecting nesting — scan current line first
+                    var pdepth: i32 = 1;
+                    var cp = open_paren + 1;
+                    while (cp < trimmed.len and pdepth > 0) : (cp += 1) {
+                        if (trimmed[cp] == '(') pdepth += 1;
+                        if (trimmed[cp] == ')') pdepth -= 1;
+                    }
+                    if (pdepth == 0) {
+                        const close_paren = cp - 1;
                         if (close_paren > open_paren + 1) {
                             const param_str = trimmed[open_paren + 1 .. close_paren];
-                            // Find function body
-                            const body_start_pos = line_end + 1;
-                            if (body_start_pos < content.len) {
-                                const body_text = findFunctionBody(content, pos, line_end);
-                                if (body_text.len > 0) {
-                                    try checkParamNames(param_str, body_text, file_path, line_no, severity, suppress, issues, allocator);
-                                }
+                            const body_text = findFunctionBody(content, pos, line_end);
+                            if (body_text.len > 0) {
+                                try checkParamNames(param_str, body_text, file_path, line_no, severity, suppress, issues, allocator);
+                            }
+                        }
+                    } else {
+                        // Multi-line: scan content from open_paren position across lines
+                        const abs_open = pos + @as(usize, @intCast(@as(isize, @intCast(line.len)) - @as(isize, @intCast(trimmed.len)))) + open_paren;
+                        var scan = abs_open + 1;
+                        var pd: i32 = 1;
+                        while (scan < content.len and pd > 0) : (scan += 1) {
+                            if (content[scan] == '(') pd += 1;
+                            if (content[scan] == ')') pd -= 1;
+                        }
+                        if (pd == 0 and scan > abs_open + 2) {
+                            const param_str = content[abs_open + 1 .. scan - 1];
+                            const body_text = findFunctionBody(content, scan, @min(scan + 10000, content.len));
+                            if (body_text.len > 0) {
+                                try checkParamNames(param_str, body_text, file_path, line_no, severity, suppress, issues, allocator);
                             }
                         }
                     }
@@ -1165,81 +1222,123 @@ fn checkNoUnusedVars(
         }
 
         // 3. Check arrow function params: (a, b) => ... or x => ...
-        if (decl == null) { // Don't double-check lines already handled as declarations
-            if (std.mem.indexOf(u8, trimmed, "=>")) |arrow_idx| {
-                // Parenthesized params: look for (...) before =>
-                if (arrow_idx > 0) {
-                    // Walk back from => to find )
-                    var rp = arrow_idx;
-                    while (rp > 0) {
-                        rp -= 1;
-                        if (trimmed[rp] == ')') break;
-                        if (trimmed[rp] != ' ' and trimmed[rp] != '\t') {
-                            rp = 0;
-                            break;
-                        }
+        // Loop over ALL => occurrences on this line (handles multiple callbacks per line)
+        {
+            // First, find effective end of code (strip // comments outside strings)
+            var code_end: usize = trimmed.len;
+            {
+                var in_sq = false;
+                var in_dq = false;
+                var in_tl = false;
+                var esc = false;
+                var ci: usize = 0;
+                while (ci < trimmed.len) : (ci += 1) {
+                    const cc = trimmed[ci];
+                    if (esc) { esc = false; continue; }
+                    if (cc == '\\' and (in_sq or in_dq or in_tl)) { esc = true; continue; }
+                    if (!in_sq and !in_dq and !in_tl) {
+                        if (cc == '\'') { in_sq = true; } else if (cc == '"') { in_dq = true; } else if (cc == '`') { in_tl = true; } else if (cc == '/' and ci + 1 < trimmed.len and trimmed[ci + 1] == '/') { code_end = ci; break; }
+                    } else {
+                        if (in_sq and cc == '\'') { in_sq = false; } else if (in_dq and cc == '"') { in_dq = false; } else if (in_tl and cc == '`') { in_tl = false; }
                     }
-                    if (rp > 0 and trimmed[rp] == ')') {
-                        // Find matching (
-                        var depth: i32 = 1;
-                        var lp = rp;
-                        while (lp > 0 and depth > 0) {
-                            lp -= 1;
-                            if (trimmed[lp] == ')') depth += 1;
-                            if (trimmed[lp] == '(') depth -= 1;
+                }
+            }
+            const code_trimmed = trimmed[0..code_end];
+
+            var search_from: usize = 0;
+            while (std.mem.indexOfPos(u8, code_trimmed, search_from, "=>")) |arrow_idx| {
+                // Advance search position for next iteration
+                search_from = arrow_idx + 2;
+
+                if (arrow_idx == 0) continue;
+
+                // Parenthesized params: look for (...) before =>
+                var rp = arrow_idx;
+                var found_close_paren = false;
+                while (rp > 0) {
+                    rp -= 1;
+                    if (code_trimmed[rp] == ')') { found_close_paren = true; break; }
+                    // Allow whitespace and type annotation chars between ) and =>
+                    if (code_trimmed[rp] != ' ' and code_trimmed[rp] != '\t' and
+                        code_trimmed[rp] != ':' and code_trimmed[rp] != '>' and
+                        !isIdentChar(code_trimmed[rp]))
+                    {
+                        break;
+                    }
+                }
+
+                if (found_close_paren and rp > 0) {
+                    // Find matching (
+                    var depth: i32 = 1;
+                    var lp = rp;
+                    while (lp > 0 and depth > 0) {
+                        lp -= 1;
+                        if (code_trimmed[lp] == ')') depth += 1;
+                        if (code_trimmed[lp] == '(') depth -= 1;
+                    }
+                    if (depth == 0 and lp < rp) {
+                        // Check it's not a type signature (colon before open paren)
+                        var is_type_sig = false;
+                        if (lp > 0) {
+                            var tp = lp - 1;
+                            while (tp > 0 and (code_trimmed[tp] == ' ' or code_trimmed[tp] == '\t')) tp -= 1;
+                            if (code_trimmed[tp] == ':') is_type_sig = true;
                         }
-                        if (depth == 0 and lp < rp) {
-                            // Check it's not a type signature (colon before open paren)
-                            var is_type_sig = false;
-                            if (lp > 0) {
-                                var tp = lp - 1;
-                                while (tp > 0 and (trimmed[tp] == ' ' or trimmed[tp] == '\t')) tp -= 1;
-                                if (trimmed[tp] == ':') is_type_sig = true;
-                            }
-                            if (!is_type_sig) {
-                                const param_str = trimmed[lp + 1 .. rp];
-                                if (param_str.len > 0) {
-                                    // Body is everything after =>
-                                    const body_text = if (arrow_idx + 2 < trimmed.len) trimmed[arrow_idx + 2 ..] else "";
-                                    const full_body = findArrowBody(content, pos, line_end, arrow_idx);
-                                    const search_text = if (full_body.len > 0) full_body else body_text;
-                                    if (search_text.len > 0) {
-                                        try checkParamNames(param_str, search_text, file_path, line_no, severity, suppress, issues, allocator);
-                                    }
+                        if (!is_type_sig) {
+                            const param_str = code_trimmed[lp + 1 .. rp];
+                            if (param_str.len > 0) {
+                                // Calculate absolute position of => in content
+                                const line_offset = @as(usize, @intCast(@as(isize, @intCast(line.len)) - @as(isize, @intCast(trimmed.len))));
+                                const abs_arrow = pos + line_offset + arrow_idx;
+                                const full_body = findArrowBodyAt(content, abs_arrow);
+                                if (full_body.len > 0) {
+                                    try checkParamNames(param_str, full_body, file_path, line_no, severity, suppress, issues, allocator);
                                 }
                             }
                         }
-                    } else {
-                        // Single-param arrow: x => ...
-                        // Walk back from => to find identifier
-                        var ep = arrow_idx;
-                        while (ep > 0 and (trimmed[ep - 1] == ' ' or trimmed[ep - 1] == '\t')) ep -= 1;
-                        var sp = ep;
-                        while (sp > 0 and isIdentChar(trimmed[sp - 1])) sp -= 1;
-                        if (sp < ep) {
-                            const name = trimmed[sp..ep];
-                            if (name.len > 0 and !std.mem.startsWith(u8, name, "_") and
-                                !std.mem.eql(u8, name, "async") and
-                                !std.mem.eql(u8, name, "return") and
-                                !std.mem.eql(u8, name, "const") and
-                                !std.mem.eql(u8, name, "let"))
-                            {
-                                // Check if preceded by a valid context char
-                                if (sp == 0 or !isIdentChar(trimmed[sp - 1])) {
-                                    const body_text = if (arrow_idx + 2 < trimmed.len) trimmed[arrow_idx + 2 ..] else "";
-                                    const full_body = findArrowBody(content, pos, line_end, arrow_idx);
-                                    const search_text = if (full_body.len > 0) full_body else body_text;
-                                    if (search_text.len > 0 and !hasWordReference(name, search_text)) {
-                                        if (!directives_mod.isSuppressed("pickier/no-unused-vars", line_no, suppress)) {
-                                            try issues.append(allocator, .{
-                                                .file_path = file_path,
-                                                .line = line_no,
-                                                .column = 1,
-                                                .rule_id = "pickier/no-unused-vars",
-                                                .message = "Variable is declared but never used",
-                                                .severity = severity,
-                                            });
-                                        }
+                    }
+                } else {
+                    // Single-param arrow: x => ...
+                    var ep = arrow_idx;
+                    while (ep > 0 and (code_trimmed[ep - 1] == ' ' or code_trimmed[ep - 1] == '\t')) ep -= 1;
+                    var sp = ep;
+                    while (sp > 0 and isIdentChar(code_trimmed[sp - 1])) sp -= 1;
+                    if (sp < ep) {
+                        const name = code_trimmed[sp..ep];
+                        if (name.len > 0 and !std.mem.startsWith(u8, name, "_") and
+                            !std.mem.eql(u8, name, "async") and
+                            !std.mem.eql(u8, name, "return") and
+                            !std.mem.eql(u8, name, "const") and
+                            !std.mem.eql(u8, name, "let") and
+                            !std.mem.eql(u8, name, "var") and
+                            !std.mem.eql(u8, name, "new") and
+                            !std.mem.eql(u8, name, "typeof") and
+                            !std.mem.eql(u8, name, "void") and
+                            !std.mem.eql(u8, name, "delete") and
+                            !std.mem.eql(u8, name, "throw") and
+                            !std.mem.eql(u8, name, "yield") and
+                            !std.mem.eql(u8, name, "in") and
+                            !std.mem.eql(u8, name, "of") and
+                            !std.mem.eql(u8, name, "case"))
+                        {
+                            // Check if preceded by a valid context char: start, =, ,, (, {, [, :, space/tab or non-ident
+                            if (sp == 0 or !isIdentChar(code_trimmed[sp - 1])) {
+                                // Calculate absolute position of this => in content
+                                const line_offset = @as(usize, @intCast(@as(isize, @intCast(line.len)) - @as(isize, @intCast(trimmed.len))));
+                                const abs_arrow = pos + line_offset + arrow_idx;
+                                const abs_arrow_body = findArrowBodyAt(content, abs_arrow);
+                                const fallback_body = if (arrow_idx + 2 < code_trimmed.len) code_trimmed[arrow_idx + 2 ..] else "";
+                                const search_text = if (abs_arrow_body.len > 0) abs_arrow_body else fallback_body;
+                                if (search_text.len > 0 and !hasWordReference(name, search_text)) {
+                                    if (!directives_mod.isSuppressed("pickier/no-unused-vars", line_no, suppress)) {
+                                        try issues.append(allocator, .{
+                                            .file_path = file_path,
+                                            .line = line_no,
+                                            .column = 1,
+                                            .rule_id = "pickier/no-unused-vars",
+                                            .message = "Variable is declared but never used",
+                                            .severity = severity,
+                                        });
                                     }
                                 }
                             }
@@ -1365,20 +1464,25 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
 }
 
 /// Find the body of an arrow function (handles both { body } and expression body)
+/// arrow_offset is unused — we find => by searching from line_start in content
+/// For multiple arrows on the same line, callers should use findArrowBodyAt
 fn findArrowBody(content: []const u8, line_start: usize, line_end: usize, arrow_offset: usize) []const u8 {
-    _ = line_start;
-    // Start from after => on the line
-    const start = line_end; // We search from the next line
-    if (start >= content.len) return "";
-
-    // Collect a reasonable amount of content after the arrow (up to 5000 chars or matching })
-    const max_scan = @min(content.len, line_end + 5000);
-    var i = line_end + 1;
     _ = arrow_offset;
+    // Find => in the actual content line, then scan from after it
+    const line = content[line_start..@min(line_end, content.len)];
+    const arrow_in_line = std.mem.indexOf(u8, line, "=>") orelse return "";
+    return findArrowBodyAt(content, line_start + arrow_in_line);
+}
 
-    // Check if body starts with {
+/// Find the body of an arrow function starting from a known => position in content
+fn findArrowBodyAt(content: []const u8, arrow_pos: usize) []const u8 {
+    var i = arrow_pos + 2; // Position after =>
+    const max_scan = @min(content.len, arrow_pos + 10000);
+
+    // Skip whitespace (including newlines)
     while (i < max_scan and (content[i] == ' ' or content[i] == '\t' or content[i] == '\n' or content[i] == '\r')) i += 1;
 
+    // Check if body starts with {
     if (i < max_scan and content[i] == '{') {
         var depth: i32 = 0;
         const body_start = i + 1;
@@ -1391,13 +1495,17 @@ fn findArrowBody(content: []const u8, line_start: usize, line_end: usize, arrow_
         }
     }
 
-    // Expression body — take until end of statement (next newline at depth 0)
-    const expr_start = if (line_end + 1 < content.len) line_end + 1 else content.len;
+    // Expression body — take until end of statement
+    // Continue past newlines while paren/bracket/brace depth > 0 (multi-line expressions)
+    const expr_start = i;
     var depth: i32 = 0;
     var j = expr_start;
     while (j < max_scan) : (j += 1) {
         if (content[j] == '(' or content[j] == '[' or content[j] == '{') depth += 1;
-        if (content[j] == ')' or content[j] == ']' or content[j] == '}') depth -= 1;
+        if (content[j] == ')' or content[j] == ']' or content[j] == '}') {
+            depth -= 1;
+            if (depth < 0) return content[expr_start..j]; // Closed a surrounding scope
+        }
         if (content[j] == '\n' and depth <= 0) return content[expr_start..j];
     }
     return if (expr_start < max_scan) content[expr_start..max_scan] else "";
@@ -1513,8 +1621,8 @@ fn checkNoMultiSpaces(
                                 .severity = severity,
                             });
                         }
-                        // Skip past this multi-space run — report only once per line
-                        break;
+                        // Skip past this multi-space run, continue scanning for more on same line
+                        while (i + 1 < code.len and code[i + 1] == ' ') i += 1;
                     }
                     i += 1;
                 }
@@ -1546,38 +1654,201 @@ fn checkNoNew(
         const line = content[pos..line_end];
         const trimmed = std.mem.trimStart(u8, line, " \t");
 
-        // Match lines starting with `new ` followed by an identifier and (
-        if (std.mem.startsWith(u8, trimmed, "new ")) {
-            // Check that the rest has identifier + (
-            const after_new = trimmed[4..];
-            var name_end: usize = 0;
-            while (name_end < after_new.len and isIdentChar(after_new[name_end])) name_end += 1;
-            if (name_end > 0) {
-                // Skip whitespace after identifier
-                var paren_pos = name_end;
-                while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
-                if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
-                    // Check that nothing before `new` on the line has = or :
-                    const before_new = std.mem.trimStart(u8, line, " \t");
-                    _ = before_new;
-                    // The trimmed starts with "new " so nothing is before it on the code portion
-                    if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
-                        // Calculate the column of `new`
-                        const col = @as(u32, @intCast(line.len - trimmed.len + 1));
-                        try issues.append(allocator, .{
-                            .file_path = file_path,
-                            .line = line_no,
-                            .column = col,
-                            .rule_id = "eslint/no-new",
-                            .message = "Do not use 'new' for side effects",
-                            .severity = severity,
-                        });
+        // Skip comment lines
+        if (std.mem.startsWith(u8, trimmed, "//") or std.mem.startsWith(u8, trimmed, "/*") or std.mem.startsWith(u8, trimmed, "*")) {
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+
+        // Find all occurrences of `new ` on this line
+        if (std.mem.indexOf(u8, trimmed, "new ")) |_| {
+            // Check the TS-style patterns:
+            // isAssignment: line starts with const/let/var/this.xxx = ... new
+            const is_assignment = std.mem.startsWith(u8, trimmed, "const ") or
+                std.mem.startsWith(u8, trimmed, "let ") or
+                std.mem.startsWith(u8, trimmed, "var ") or
+                (std.mem.startsWith(u8, trimmed, "this.") and std.mem.indexOf(u8, trimmed, " = ") != null);
+            // isReturn: line starts with return/throw/yield
+            const is_return = std.mem.startsWith(u8, trimmed, "return ") or
+                std.mem.startsWith(u8, trimmed, "throw ") or
+                std.mem.startsWith(u8, trimmed, "yield ");
+            // isInExpression: new preceded by = : ( , on the line
+            var is_in_expression = false;
+            if (std.mem.indexOf(u8, trimmed, "new ")) |new_pos| {
+                if (new_pos > 0) {
+                    // Check characters before `new`
+                    var bp = new_pos;
+                    while (bp > 0 and (trimmed[bp - 1] == ' ' or trimmed[bp - 1] == '\t')) bp -= 1;
+                    if (bp > 0) {
+                        const ch = trimmed[bp - 1];
+                        if (ch == '=' or ch == ':' or ch == '(' or ch == ',' or ch == '[' or ch == '?' or ch == '&' or ch == '|') {
+                            is_in_expression = true;
+                        }
+                    }
+                }
+            }
+
+            if (!is_assignment and !is_return and !is_in_expression) {
+                // Verify there's actually `new Identifier(` pattern
+                if (std.mem.indexOf(u8, trimmed, "new ")) |new_pos| {
+                    const after_new = trimmed[new_pos + 4 ..];
+                    var name_end: usize = 0;
+                    // Handle dotted names like `new vscode.DiagnosticRelatedInformation(`
+                    while (name_end < after_new.len and (isIdentChar(after_new[name_end]) or after_new[name_end] == '.')) name_end += 1;
+                    if (name_end > 0) {
+                        var paren_pos = name_end;
+                        while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
+                        if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
+                            if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
+                                const col = @as(u32, @intCast(line.len - trimmed.len + 1));
+                                try issues.append(allocator, .{
+                                    .file_path = file_path,
+                                    .line = line_no,
+                                    .column = col,
+                                    .rule_id = "eslint/no-new",
+                                    .message = "Do not use 'new' for side effects",
+                                    .severity = severity,
+                                });
+                            }
+                        }
                     }
                 }
             }
         }
 
         pos = if (line_end < content.len) line_end + 1 else content.len;
+        line_no += 1;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// node/prefer-global-process — require explicit import of 'process'
+// ---------------------------------------------------------------------------
+
+fn checkPreferGlobalProcess(
+    file_path: []const u8,
+    content: []const u8,
+    severity: Severity,
+    suppress: *const directives_mod.DisableDirectives,
+    issues: *std.ArrayList(LintIssue),
+    allocator: Allocator,
+) !void {
+    // If file has an explicit import/require of 'process' or 'node:process', skip
+    if (std.mem.indexOf(u8, content, "from 'process'") != null or
+        std.mem.indexOf(u8, content, "from \"process\"") != null or
+        std.mem.indexOf(u8, content, "from 'node:process'") != null or
+        std.mem.indexOf(u8, content, "from \"node:process\"") != null or
+        std.mem.indexOf(u8, content, "require('process')") != null or
+        std.mem.indexOf(u8, content, "require(\"process\")") != null or
+        std.mem.indexOf(u8, content, "require('node:process')") != null or
+        std.mem.indexOf(u8, content, "require(\"node:process\")") != null)
+    {
+        return;
+    }
+
+    var line_no: u32 = 1;
+    var pos: usize = 0;
+
+    while (pos < content.len) {
+        const line_end = std.mem.indexOfScalarPos(u8, content, pos, '\n') orelse content.len;
+        const line = content[pos..line_end];
+        const trimmed = std.mem.trimStart(u8, line, " \t");
+
+        // Skip comments
+        if (std.mem.startsWith(u8, trimmed, "//") or std.mem.startsWith(u8, trimmed, "/*") or std.mem.startsWith(u8, trimmed, "*")) {
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+
+        // Find `process.` on this line
+        var search: usize = 0;
+        while (search < line.len) {
+            if (std.mem.indexOfPos(u8, line, search, "process.")) |found| {
+                // Check word boundary before
+                if (found > 0 and isIdentChar(line[found - 1])) {
+                    search = found + 8;
+                    continue;
+                }
+                // Check it's not in a string (simple heuristic: count quotes before)
+                const before = line[0..found];
+                var singles: u32 = 0;
+                var doubles: u32 = 0;
+                var backticks: u32 = 0;
+                for (before) |ch| {
+                    if (ch == '\'') singles += 1;
+                    if (ch == '"') doubles += 1;
+                    if (ch == '`') backticks += 1;
+                }
+                if (singles % 2 == 1 or doubles % 2 == 1 or backticks % 2 == 1) {
+                    search = found + 8;
+                    continue;
+                }
+                // Check it's not after // comment
+                if (std.mem.indexOf(u8, before, "//") != null) break;
+
+                if (!directives_mod.isSuppressed("node/prefer-global/process", line_no, suppress)) {
+                    const col = @as(u32, @intCast(found + 1));
+                    try issues.append(allocator, .{
+                        .file_path = file_path,
+                        .line = line_no,
+                        .column = col,
+                        .rule_id = "node/prefer-global/process",
+                        .message = "Unexpected use of the global variable 'process'. Use 'require(\"process\")' instead",
+                        .severity = severity,
+                    });
+                }
+                break; // Only report once per line
+            } else break;
+        }
+
+        pos = if (line_end < content.len) line_end + 1 else content.len;
+        line_no += 1;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// style/no-multiple-empty-lines — disallow more than 1 consecutive blank line
+// ---------------------------------------------------------------------------
+
+fn checkNoMultipleEmptyLines(
+    file_path: []const u8,
+    content: []const u8,
+    severity: Severity,
+    suppress: *const directives_mod.DisableDirectives,
+    issues: *std.ArrayList(LintIssue),
+    allocator: Allocator,
+) !void {
+    var line_no: u32 = 1;
+    var pos: usize = 0;
+    var consecutive_empty: u32 = 0;
+
+    while (pos <= content.len) {
+        const line_end = if (pos < content.len) (std.mem.indexOfScalarPos(u8, content, pos, '\n') orelse content.len) else content.len;
+        const line = if (pos < content.len) content[pos..line_end] else "";
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+
+        if (trimmed.len == 0) {
+            consecutive_empty += 1;
+            if (consecutive_empty > 1) {
+                if (!directives_mod.isSuppressed("style/no-multiple-empty-lines", line_no, suppress)) {
+                    try issues.append(allocator, .{
+                        .file_path = file_path,
+                        .line = line_no,
+                        .column = 1,
+                        .rule_id = "style/no-multiple-empty-lines",
+                        .message = "More than 1 blank line not allowed",
+                        .severity = severity,
+                    });
+                }
+            }
+        } else {
+            consecutive_empty = 0;
+        }
+
+        if (pos >= content.len) break;
+        pos = if (line_end < content.len) line_end + 1 else content.len + 1;
         line_no += 1;
     }
 }
