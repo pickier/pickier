@@ -299,25 +299,19 @@ pub const default_config = PickierConfig{};
 // Config parsing (pure logic, no I/O — file loading is in main.zig)
 // ---------------------------------------------------------------------------
 
-/// Config file names to search for (in priority order)
-pub const config_file_names = [_][]const u8{
-    "pickier.config.json",
-    ".pickierrc.json",
-    ".pickierrc",
-};
-
-/// Parse JSON config content into PickierConfig
-/// Only overrides fields that are present in the JSON
-pub fn parseJsonConfig(content: []const u8) !PickierConfig {
-    const parsed = std.json.parseFromSlice(std.json.Value, std.heap.page_allocator, content, .{
-        .allocate = .alloc_always,
-    }) catch return default_config;
-    defer parsed.deinit();
-
-    if (parsed.value != .object) return default_config;
+/// Parse a std.json.Value object into PickierConfig.
+/// Merges with defaults: user values override, default ignores/pluginRules are kept
+/// unless explicitly overridden.
+pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfig {
+    if (value != .object) return default_config;
 
     var cfg = default_config;
-    const root = parsed.value.object;
+    const root = value.object;
+
+    // Parse verbose
+    if (root.get("verbose")) |v| {
+        if (v == .bool) cfg.verbose = v.bool;
+    }
 
     // Parse format section
     if (root.get("format")) |fmt| {
@@ -355,21 +349,22 @@ pub fn parseJsonConfig(content: []const u8) !PickierConfig {
     }
 
     // Parse rules section
-    if (root.get("rules")) |rules| {
-        if (rules == .object) {
-            const r = rules.object;
+    if (root.get("rules")) |rules_val| {
+        if (rules_val == .object) {
+            const r = rules_val.object;
             if (r.get("noDebugger")) |v| {
                 if (v == .string) cfg.rules.no_debugger = RuleSeverity.fromString(v.string);
             }
             if (r.get("noConsole")) |v| {
                 if (v == .string) cfg.rules.no_console = RuleSeverity.fromString(v.string);
             }
+            if (r.get("noCondAssign")) |v| {
+                if (v == .string) cfg.rules.no_cond_assign = RuleSeverity.fromString(v.string);
+            }
+            if (r.get("noTemplateCurlyInString")) |v| {
+                if (v == .string) cfg.rules.no_template_curly_in_string = RuleSeverity.fromString(v.string);
+            }
         }
-    }
-
-    // Parse verbose
-    if (root.get("verbose")) |v| {
-        if (v == .bool) cfg.verbose = v.bool;
     }
 
     // Parse lint section
@@ -388,7 +383,83 @@ pub fn parseJsonConfig(content: []const u8) !PickierConfig {
         }
     }
 
+    // Parse ignores — merge with defaults (like TS mergeConfig)
+    if (root.get("ignores")) |ignores_val| {
+        if (ignores_val == .array) {
+            // Build a set of all ignores: defaults + user
+            var list = std.ArrayList([]const u8){};
+            // Add defaults first
+            for (&default_ignores) |ig| {
+                try list.append(allocator, ig);
+            }
+            // Add user ignores (dedup)
+            for (ignores_val.array.items) |item| {
+                if (item == .string) {
+                    var found = false;
+                    for (list.items) |existing| {
+                        if (std.mem.eql(u8, existing, item.string)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        try list.append(allocator, try allocator.dupe(u8, item.string));
+                    }
+                }
+            }
+            cfg.ignores = try list.toOwnedSlice(allocator);
+        }
+    }
+
+    // Parse pluginRules — merge with defaults (user overrides take precedence)
+    if (root.get("pluginRules")) |pr_val| {
+        if (pr_val == .object) {
+            var list = std.ArrayList(PluginRuleEntry){};
+            // Copy defaults
+            for (&default_plugin_rules) |entry| {
+                try list.append(allocator, entry);
+            }
+            // Apply overrides from config
+            var it = pr_val.object.iterator();
+            while (it.next()) |kv| {
+                const key = kv.key_ptr.*;
+                const val = kv.value_ptr.*;
+                const sev = if (val == .string)
+                    RuleSeverity.fromString(val.string)
+                else
+                    continue;
+
+                // Update existing entry or add new one
+                var found = false;
+                for (list.items) |*entry| {
+                    if (std.mem.eql(u8, entry.rule_id, key)) {
+                        entry.severity = sev;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    try list.append(allocator, .{
+                        .rule_id = try allocator.dupe(u8, key),
+                        .severity = sev,
+                    });
+                }
+            }
+            cfg.plugin_rules = try list.toOwnedSlice(allocator);
+        }
+    }
+
     return cfg;
+}
+
+/// Parse JSON string content into PickierConfig (convenience wrapper)
+pub fn parseJsonConfig(content: []const u8) !PickierConfig {
+    const parsed = std.json.parseFromSlice(std.json.Value, std.heap.page_allocator, content, .{
+        .allocate = .alloc_always,
+    }) catch return default_config;
+    defer parsed.deinit();
+
+    return parseJsonValue(parsed.value, std.heap.page_allocator) catch default_config;
 }
 
 // ---------------------------------------------------------------------------
@@ -449,7 +520,7 @@ test "toFormatConfig converts correctly" {
 
 test "getPluginRuleSeverity" {
     const cfg = default_config;
-    try std.testing.expect(cfg.getPluginRuleSeverity("general/prefer-const") == .@"error");
+    try std.testing.expect(cfg.getPluginRuleSeverity("pickier/prefer-const") == .@"error");
     try std.testing.expect(cfg.getPluginRuleSeverity("style/brace-style") == .warn);
     try std.testing.expect(cfg.getPluginRuleSeverity("nonexistent/rule") == .off);
 }

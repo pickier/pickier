@@ -118,7 +118,7 @@ describe('runUnified mode routing', () => {
   describe('mode: auto', () => {
     it('defaults to auto when mode is not specified', async () => {
       const file = join(dir, 'test.ts')
-      writeFileSync(file, "const x = 'hello'\n", 'utf8')
+      writeFileSync(file, "const _x = 'hello'\n", 'utf8')
 
       const { runUnified } = await import('../../src/run')
       const code = await runUnified([file], {})
@@ -128,7 +128,7 @@ describe('runUnified mode routing', () => {
 
     it('auto mode routes to lint when --fix is present', async () => {
       const file = join(dir, 'test.ts')
-      writeFileSync(file, 'debugger\nconst x = 1\n', 'utf8')
+      writeFileSync(file, 'debugger\nconst _x = 1\n', 'utf8')
 
       const { runUnified } = await import('../../src/run')
       const code = await runUnified([file], { mode: 'auto', fix: true })
@@ -140,7 +140,7 @@ describe('runUnified mode routing', () => {
 
     it('auto mode routes to lint when --reporter is present', async () => {
       const file = join(dir, 'test.ts')
-      writeFileSync(file, "const x = 'hello'\n", 'utf8')
+      writeFileSync(file, "const _x = 'hello'\n", 'utf8')
 
       const { runUnified } = await import('../../src/run')
       const code = await runUnified([file], { mode: 'auto', reporter: 'json' })
@@ -150,7 +150,7 @@ describe('runUnified mode routing', () => {
 
     it('auto mode routes to lint when --max-warnings is present', async () => {
       const file = join(dir, 'test.ts')
-      writeFileSync(file, "const x = 'hello'\n", 'utf8')
+      writeFileSync(file, "const _x = 'hello'\n", 'utf8')
 
       const { runUnified } = await import('../../src/run')
       const code = await runUnified([file], { mode: 'auto', maxWarnings: 10 })
@@ -160,7 +160,7 @@ describe('runUnified mode routing', () => {
 
     it('auto mode defaults to format-via-lint path', async () => {
       const file = join(dir, 'test.ts')
-      writeFileSync(file, 'const x = "hello"\n', 'utf8')
+      writeFileSync(file, 'const _x = "hello"\n', 'utf8')
 
       const { runUnified } = await import('../../src/run')
       // No lint-specific flags → defaults to format path

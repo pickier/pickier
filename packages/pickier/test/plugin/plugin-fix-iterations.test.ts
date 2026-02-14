@@ -15,7 +15,7 @@ describe('plugin fix iterations', () => {
     const configFile = join(dir, 'pickier.config.json')
 
     // Unsorted object that needs multiple passes to fully sort
-    writeFileSync(file, 'const obj = { z: 1, a: 2, m: 3 }\n', 'utf8')
+    writeFileSync(file, 'const _obj = { z: 1, a: 2, m: 3 }\n', 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
       ignores: [],
@@ -38,7 +38,7 @@ describe('plugin fix iterations', () => {
     const file = join(dir, 'test.ts')
     const configFile = join(dir, 'pickier.config.json')
 
-    writeFileSync(file, 'const x = { b: 1, a: 2 }\nconst y = { d: 3, c: 4 }\n', 'utf8')
+    writeFileSync(file, 'const _x = { b: 1, a: 2 }\nconst _y = { d: 3, c: 4 }\n', 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
       ignores: [],
@@ -58,7 +58,7 @@ describe('plugin fix iterations', () => {
     const file = join(dir, 'test.ts')
     const configFile = join(dir, 'pickier.config.json')
 
-    writeFileSync(file, 'const x = 1\n', 'utf8')
+    writeFileSync(file, 'const _x = 1\n', 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
       ignores: [],
@@ -77,7 +77,7 @@ describe('plugin fix iterations', () => {
     const file = join(dir, 'test.ts')
     const configFile = join(dir, 'pickier.config.json')
 
-    writeFileSync(file, 'const obj = { z: 1, a: 2 }\nconst arr = [3, 1, 2]\n', 'utf8')
+    writeFileSync(file, 'const _obj = { z: 1, a: 2 }\nconst _arr = [3, 1, 2]\n', 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
       ignores: [],
@@ -98,7 +98,7 @@ describe('plugin fix iterations', () => {
     const file = join(dir, 'test.ts')
     const configFile = join(dir, 'pickier.config.json')
 
-    const original = 'const obj = { z: 1, a: 2 }\n'
+    const original = 'const _obj = { z: 1, a: 2 }\n'
     writeFileSync(file, original, 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
@@ -135,7 +135,7 @@ describe('plugin fix iterations', () => {
   it('removes debugger statements when fix is enabled', async () => {
     const dir = tmp()
     const file = join(dir, 'test.ts')
-    writeFileSync(file, 'debugger\nconst x = 1\ndebugger\n', 'utf8')
+    writeFileSync(file, 'debugger\nconst _x = 1\ndebugger\n', 'utf8')
 
     const code = await runLint([dir], { fix: true })
     expect(code).toBe(0)
@@ -149,7 +149,7 @@ describe('plugin fix iterations', () => {
     const file = join(dir, 'test.ts')
     const configFile = join(dir, 'pickier.config.json')
 
-    writeFileSync(file, 'debugger\nconst x = 1\n', 'utf8')
+    writeFileSync(file, 'debugger\nconst _x = 1\n', 'utf8')
     writeFileSync(configFile, JSON.stringify({
       verbose: false,
       ignores: [],

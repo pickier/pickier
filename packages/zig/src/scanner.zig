@@ -258,46 +258,66 @@ fn isDebuggerStatement(line: []const u8) bool {
 }
 
 /// Find console.log( in line, checking it's not in a comment or string.
+/// Only matches console.log(...) to match TS scanner behavior.
 /// Returns the 0-based column of "console." or null.
 fn findConsoleCall(line: []const u8) ?u32 {
-    // First check if line has console. at all
-    const idx = std.mem.indexOf(u8, line, "console.") orelse return null;
+    // Match TS regex: /\bconsole\.log\s*\(/
+    // Find "console.log" followed by optional whitespace and "("
+    var search_start: usize = 0;
+    while (search_start < line.len) {
+        const idx = std.mem.indexOfPos(u8, line, search_start, "console.log") orelse return null;
 
-    // Check if it's after a // comment
-    if (std.mem.indexOf(u8, line, "//")) |comment_idx| {
-        if (comment_idx < idx) return null;
-    }
-
-    // Check it's not inside a string using a state machine
-    const State = enum { code, single, double, template };
-    var state: State = .code;
-    var prev: u8 = 0;
-
-    for (line, 0..) |ch, i| {
-        switch (state) {
-            .code => {
-                if (ch == '/' and i + 1 < line.len and line[i + 1] == '/') return null; // rest is comment
-                if (ch == '\'') {
-                    state = .single;
-                } else if (ch == '"') {
-                    state = .double;
-                } else if (ch == '`') {
-                    state = .template;
-                } else if (i == idx) {
-                    return @intCast(i);
-                }
-            },
-            .single => {
-                if (ch == '\'' and prev != '\\') state = .code;
-            },
-            .double => {
-                if (ch == '"' and prev != '\\') state = .code;
-            },
-            .template => {
-                if (ch == '`' and prev != '\\') state = .code;
-            },
+        // Check word boundary before "console"
+        if (idx > 0) {
+            const prev_ch = line[idx - 1];
+            if (std.ascii.isAlphanumeric(prev_ch) or prev_ch == '_' or prev_ch == '.') {
+                search_start = idx + 11;
+                continue;
+            }
         }
-        prev = ch;
+
+        // Check that "log" is followed by optional whitespace then "("
+        var j = idx + 11; // after "console.log"
+        while (j < line.len and (line[j] == ' ' or line[j] == '\t')) : (j += 1) {}
+        if (j >= line.len or line[j] != '(') {
+            search_start = idx + 11;
+            continue;
+        }
+
+        // Now verify it's not inside a string or comment using state machine
+        const State = enum { code, single, double, template };
+        var state: State = .code;
+        var prev: u8 = 0;
+
+        for (line[0..idx]) |ch| {
+            switch (state) {
+                .code => {
+                    if (ch == '/' and prev == '/') return null; // rest is comment
+                    if (ch == '\'') {
+                        state = .single;
+                    } else if (ch == '"') {
+                        state = .double;
+                    } else if (ch == '`') {
+                        state = .template;
+                    }
+                },
+                .single => {
+                    if (ch == '\'' and prev != '\\') state = .code;
+                },
+                .double => {
+                    if (ch == '"' and prev != '\\') state = .code;
+                },
+                .template => {
+                    if (ch == '`' and prev != '\\') state = .code;
+                },
+            }
+            prev = ch;
+        }
+
+        // If we're in code context at the match position, it's a real console.log call
+        if (state == .code) return @intCast(idx);
+
+        search_start = idx + 11;
     }
     return null;
 }
@@ -443,7 +463,7 @@ fn detectQuoteIssue(line: []const u8, preferred: format.Config.QuoteStyle) ?u32 
         return null;
     }
 
-    const State = enum { code, single, double, template };
+    const State = enum { code, single, double, template, regex };
     var state: State = .code;
     var escaped = false;
 
@@ -453,8 +473,10 @@ fn detectQuoteIssue(line: []const u8, preferred: format.Config.QuoteStyle) ?u32 
             continue;
         }
         if (ch == '\\') {
-            escaped = true;
-            continue;
+            if (state != .code) {
+                escaped = true;
+                continue;
+            }
         }
         switch (state) {
             .code => {
@@ -468,6 +490,27 @@ fn detectQuoteIssue(line: []const u8, preferred: format.Config.QuoteStyle) ?u32 
                     state = .template;
                 } else if (ch == '/' and i + 1 < line.len and line[i + 1] == '/') {
                     break; // rest is comment
+                } else if (ch == '/') {
+                    // Check if this is a regex literal by looking at preceding context
+                    // Regex can appear after: = ( [ { , : ; ! & | ? or at line start
+                    if (i == 0) {
+                        state = .regex;
+                    } else {
+                        // Walk back skipping whitespace to find the preceding token
+                        var k = i;
+                        while (k > 0 and (line[k - 1] == ' ' or line[k - 1] == '\t')) k -= 1;
+                        if (k == 0) {
+                            state = .regex;
+                        } else {
+                            const prev = line[k - 1];
+                            if (prev == '=' or prev == '(' or prev == '[' or prev == '{' or
+                                prev == ',' or prev == ':' or prev == ';' or prev == '!' or
+                                prev == '&' or prev == '|' or prev == '?')
+                            {
+                                state = .regex;
+                            }
+                        }
+                    }
                 }
             },
             .single => {
@@ -478,6 +521,9 @@ fn detectQuoteIssue(line: []const u8, preferred: format.Config.QuoteStyle) ?u32 
             },
             .template => {
                 if (ch == '`') state = .code;
+            },
+            .regex => {
+                if (ch == '/') state = .code;
             },
         }
     }

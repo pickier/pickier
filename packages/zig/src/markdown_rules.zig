@@ -446,16 +446,23 @@ fn checkUlStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *co
 }
 
 fn checkListIndent(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
-    // List items should be indented consistently (2 spaces per level)
+    // MD005: List items at the same level should have consistent indentation
+    // Track the first-seen indentation for each level and flag mismatches
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     var in_fence = false;
+    var in_list = false;
+
+    // Track expected indentation per level (up to 10 levels)
+    var level_indents: [10]i32 = .{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+
     while (it.next()) |line| {
         defer line_no += 1;
         const t = std.mem.trimStart(u8, line, " \t");
         if (isFenceStart(t)) in_fence = !in_fence;
         if (in_fence) continue;
         if (isListItem(t)) {
+            in_list = true;
             // Count leading spaces
             var spaces: usize = 0;
             for (line) |ch| {
@@ -465,11 +472,22 @@ fn checkListIndent(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: 
                     spaces += 4;
                 } else break;
             }
-            if (spaces > 0 and spaces % 2 != 0) {
-                if (!directives_mod.isSuppressed("markdown/list-indent", line_no, sup)) {
-                    try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/list-indent", .message = "Inconsistent list indentation", .severity = sev });
+            const level = spaces / 2; // Assume 2-space per level
+            if (level < 10) {
+                if (level_indents[level] < 0) {
+                    // First item at this level — record expected indent
+                    level_indents[level] = @intCast(spaces);
+                } else if (level_indents[level] != @as(i32, @intCast(spaces))) {
+                    if (!directives_mod.isSuppressed("markdown/list-indent", line_no, sup)) {
+                        try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/list-indent", .message = "Inconsistent list indentation", .severity = sev });
+                    }
                 }
             }
+        } else if (std.mem.trim(u8, line, " \t\r").len == 0 and in_list) {
+            // Blank line — check if list continues
+            // Simple heuristic: reset if the list seems done
+            // (next non-blank line is not a list item)
+            // For simplicity, just continue tracking
         }
     }
 }
@@ -659,19 +677,54 @@ fn checkNoBareUrls(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: 
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     var in_fence = false;
+    var in_html_comment = false;
     while (it.next()) |line| {
         defer line_no += 1;
         if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
         if (in_fence) continue;
-        // Look for bare https:// or http:// not inside []() or <>
-        if (std.mem.indexOf(u8, line, "http://") orelse std.mem.indexOf(u8, line, "https://")) |url_start| {
-            // Check if it's already in a link or auto-link
-            if (url_start > 0 and line[url_start - 1] == '(') continue;
-            if (url_start > 0 and line[url_start - 1] == '<') continue;
-            if (url_start >= 2 and line[url_start - 1] == '(' and line[url_start - 2] == ']') continue;
-            if (!directives_mod.isSuppressed("markdown/no-bare-urls", line_no, sup)) {
-                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(url_start + 1), .rule_id = "markdown/no-bare-urls", .message = "Bare URL used, should be wrapped in angle brackets or a link", .severity = sev });
+
+        // Track HTML comments
+        if (std.mem.indexOf(u8, line, "<!--") != null) in_html_comment = true;
+        if (std.mem.indexOf(u8, line, "-->") != null) {
+            in_html_comment = false;
+            continue;
+        }
+        if (in_html_comment) continue;
+
+        // Skip reference link definitions: [label]: url
+        const trimmed = std.mem.trimStart(u8, line, " \t");
+        if (trimmed.len > 0 and trimmed[0] == '[' and std.mem.indexOf(u8, trimmed, "]:") != null) continue;
+
+        // Find all URL occurrences on the line
+        var search_start: usize = 0;
+        while (search_start < line.len) {
+            const http_pos = std.mem.indexOfPos(u8, line, search_start, "http://") orelse
+                std.mem.indexOfPos(u8, line, search_start, "https://") orelse break;
+
+            // Check if inside inline code span
+            var in_code = false;
+            var bi: usize = 0;
+            while (bi < http_pos) : (bi += 1) {
+                if (line[bi] == '`') in_code = !in_code;
             }
+            if (in_code) {
+                search_start = http_pos + 7;
+                continue;
+            }
+
+            // Check if it's already in a link or auto-link
+            if (http_pos > 0 and (line[http_pos - 1] == '(' or line[http_pos - 1] == '<' or
+                line[http_pos - 1] == '"' or line[http_pos - 1] == '\''))
+            {
+                search_start = http_pos + 7;
+                continue;
+            }
+
+            if (!directives_mod.isSuppressed("markdown/no-bare-urls", line_no, sup)) {
+                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(http_pos + 1), .rule_id = "markdown/no-bare-urls", .message = "Bare URL used, should be wrapped in angle brackets or a link", .severity = sev });
+            }
+            // Only report once per line
+            break;
         }
     }
 }
@@ -767,21 +820,50 @@ fn checkNoInlineHtml(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup
         defer line_no += 1;
         if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
         if (in_fence) continue;
-        // Check for HTML tags (simple heuristic)
-        if (std.mem.indexOf(u8, line, "<")) |lt| {
-            if (lt + 1 < line.len and line[lt + 1] != '!' and line[lt + 1] != ' ') {
-                // Skip markdown image alt text and comparison operators
-                if (lt > 0 and line[lt - 1] == '!') continue;
-                // Check for closing >
-                if (std.mem.indexOfScalarPos(u8, line, lt + 1, '>')) |_| {
-                    // Looks like an HTML tag — but skip common markdown uses
-                    // Allow <!-- comments -->
-                    if (std.mem.startsWith(u8, line[lt..], "<!--")) continue;
-                    if (!directives_mod.isSuppressed("markdown/no-inline-html", line_no, sup)) {
-                        try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(lt + 1), .rule_id = "markdown/no-inline-html", .message = "Inline HTML", .severity = sev });
+        // Strip inline code spans before checking
+        // We scan without actually modifying the line — just skip backtick regions
+        var search_pos: usize = 0;
+        while (search_pos < line.len) {
+            // Skip inline code spans
+            if (line[search_pos] == '`') {
+                const code_start = search_pos + 1;
+                if (std.mem.indexOfScalarPos(u8, line, code_start, '`')) |code_end| {
+                    search_pos = code_end + 1;
+                    continue;
+                }
+            }
+            // Look for < that could be an HTML tag
+            if (line[search_pos] == '<') {
+                const lt = search_pos;
+                // Allow <!-- comments -->
+                if (lt + 3 < line.len and std.mem.startsWith(u8, line[lt..], "<!--")) {
+                    search_pos = lt + 4;
+                    continue;
+                }
+                // Check for valid HTML tag: <tagname or </tagname
+                var tag_start = lt + 1;
+                if (tag_start < line.len and line[tag_start] == '/') tag_start += 1;
+                // Tag name must start with a-z (case insensitive)
+                if (tag_start < line.len and ((line[tag_start] >= 'a' and line[tag_start] <= 'z') or (line[tag_start] >= 'A' and line[tag_start] <= 'Z'))) {
+                    // Tag name: [a-zA-Z][a-zA-Z0-9]*
+                    var tag_end = tag_start + 1;
+                    while (tag_end < line.len and (
+                        (line[tag_end] >= 'a' and line[tag_end] <= 'z') or
+                        (line[tag_end] >= 'A' and line[tag_end] <= 'Z') or
+                        (line[tag_end] >= '0' and line[tag_end] <= '9'))) tag_end += 1;
+                    // After tag name, must hit a word boundary (non-alphanumeric char)
+                    // Then allow any chars until closing >
+                    if (tag_end < line.len and !isTagNameChar(line[tag_end])) {
+                        // Find the closing >
+                        if (std.mem.indexOfScalarPos(u8, line, tag_end, '>')) |_| {
+                            if (!directives_mod.isSuppressed("markdown/no-inline-html", line_no, sup)) {
+                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(lt + 1), .rule_id = "markdown/no-inline-html", .message = "Inline HTML", .severity = sev });
+                            }
+                        }
                     }
                 }
             }
+            search_pos += 1;
         }
     }
 }
@@ -790,55 +872,52 @@ fn checkNoInlineHtml(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup
 // markdown/code-block-style — enforce fenced code block style
 // ---------------------------------------------------------------------------
 fn checkCodeBlockStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
+    // MD046 — consistent code block style (default: consistent)
+    // Detect first style used, then flag any blocks of the other style
+    const Style = enum { fenced, indented };
+    var detected_style: ?Style = null;
+
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     var in_fence = false;
     var prev_blank = false;
-    var in_list = false;
-    var indented_block_start: u32 = 0;
-    var in_indented_block = false;
+
     while (it.next()) |line| {
         defer line_no += 1;
         const t = std.mem.trimStart(u8, line, " \t");
-        const is_blank = t.len == 0;
+        const is_blank = std.mem.trim(u8, line, " \t\r").len == 0;
+
+        // Check for fenced code block
         if (isFenceStart(t)) {
             in_fence = !in_fence;
+            if (detected_style == null) {
+                detected_style = .fenced;
+            } else if (detected_style == .indented) {
+                if (!directives_mod.isSuppressed("markdown/code-block-style", line_no, sup)) {
+                    try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/code-block-style", .message = "Code block style should be consistent throughout document", .severity = sev });
+                }
+            }
             prev_blank = false;
-            in_indented_block = false;
             continue;
         }
         if (in_fence) {
             prev_blank = false;
             continue;
         }
-        if (isListItem(t)) in_list = true;
-        if (is_blank) {
-            in_list = false;
-            if (in_indented_block) {
-                // End of indented block — report it (only once for the start line)
-                if (!directives_mod.isSuppressed("markdown/code-block-style", indented_block_start, sup)) {
-                    try issues.append(alloc, .{ .file_path = fp, .line = indented_block_start, .column = 1, .rule_id = "markdown/code-block-style", .message = "Expected fenced code block, found indented code block", .severity = sev });
+
+        // Check for indented code block (4 spaces or tab, after blank line, non-empty)
+        const is_indented = (line.len >= 4 and std.mem.startsWith(u8, line, "    ")) or
+            (line.len >= 1 and line[0] == '\t');
+        if (is_indented and !is_blank and prev_blank) {
+            if (detected_style == null) {
+                detected_style = .indented;
+            } else if (detected_style == .fenced) {
+                if (!directives_mod.isSuppressed("markdown/code-block-style", line_no, sup)) {
+                    try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/code-block-style", .message = "Expected fenced code block style", .severity = sev });
                 }
-                in_indented_block = false;
             }
-        }
-        // Indented code block: 4+ spaces, preceded by blank, not in list, not heading
-        const is_indented = line.len >= 4 and std.mem.startsWith(u8, line, "    ") and !is_blank;
-        if (is_indented and prev_blank and !in_list and !isHeadingLine(t) and !isListItem(t)) {
-            if (!in_indented_block) {
-                in_indented_block = true;
-                indented_block_start = line_no;
-            }
-        } else if (!is_indented and !is_blank) {
-            in_indented_block = false;
         }
         prev_blank = is_blank;
-    }
-    // Handle indented block at end of file
-    if (in_indented_block) {
-        if (!directives_mod.isSuppressed("markdown/code-block-style", indented_block_start, sup)) {
-            try issues.append(alloc, .{ .file_path = fp, .line = indented_block_start, .column = 1, .rule_id = "markdown/code-block-style", .message = "Expected fenced code block, found indented code block", .severity = sev });
-        }
     }
 }
 
@@ -1276,6 +1355,7 @@ fn checkReferenceLinksImages(fp: []const u8, md: []const u8, fm: u32, sev: Sever
     it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     in_fence = false;
+    var in_html_comment = false;
     while (it.next()) |line| {
         defer line_no += 1;
         const t = std.mem.trimStart(u8, line, " \t");
@@ -1284,11 +1364,29 @@ fn checkReferenceLinksImages(fp: []const u8, md: []const u8, fm: u32, sev: Sever
             continue;
         }
         if (in_fence) continue;
+
+        // Track HTML comments (multi-line)
+        if (std.mem.indexOf(u8, line, "<!--") != null) in_html_comment = true;
+        if (std.mem.indexOf(u8, line, "-->") != null) {
+            in_html_comment = false;
+            continue;
+        }
+        if (in_html_comment) continue;
+
         // Skip reference definitions themselves
         if (t.len > 2 and t[0] == '[' and std.mem.indexOf(u8, t, "]:") != null) continue;
-        // Find reference links: [text][label] or [label]
+
+        // Find reference links: [text][label] or [text] (shortcut)
         var i: usize = 0;
         while (i < line.len) {
+            // Skip inline code spans
+            if (line[i] == '`') {
+                const cs = i + 1;
+                if (std.mem.indexOfScalarPos(u8, line, cs, '`')) |ce| {
+                    i = ce + 1;
+                    continue;
+                }
+            }
             if (line[i] == '[') {
                 // Find closing ]
                 if (std.mem.indexOfScalarPos(u8, line, i + 1, ']')) |close1| {
@@ -1305,21 +1403,21 @@ fn checkReferenceLinksImages(fp: []const u8, md: []const u8, fm: u32, sev: Sever
                             continue;
                         }
                     }
-                    // Check for [label] (shortcut reference) — only if not followed by (
+
+                    // Not followed by ( (inline link) — check as reference
                     if (close1 + 1 >= line.len or line[close1 + 1] != '(') {
-                        // Skip if it looks like [text](url) inline link
-                        const label = toLowerAscii(line[i + 1 .. close1]);
-                        // Only flag if it looks like a reference (no spaces that would make it prose)
-                        if (label.len > 0 and label.len < 50 and !std.mem.eql(u8, label, " ")) {
-                            // Check it's not just text in brackets — look for [label][] form
-                            if (close1 + 2 < line.len and line[close1 + 1] == '[' and line[close1 + 2] == ']') {
-                                if (!isDefinedRef(label, definitions[0..def_count])) {
-                                    if (!directives_mod.isSuppressed("markdown/reference-links-images", line_no, sup)) {
-                                        try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/reference-links-images", .message = "Undefined reference link/image", .severity = sev });
-                                    }
-                                }
-                                i = close1 + 3;
-                                continue;
+                        const label_text = line[i + 1 .. close1];
+                        const label = toLowerAscii(label_text);
+
+                        // Skip checkbox patterns: [x], [ ], [X]
+                        if (label.len == 1 and (label[0] == 'x' or label[0] == ' ')) {
+                            i = close1 + 1;
+                            continue;
+                        }
+
+                        if (label.len > 0 and !isDefinedRef(label, definitions[0..def_count])) {
+                            if (!directives_mod.isSuppressed("markdown/reference-links-images", line_no, sup)) {
+                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/reference-links-images", .message = "Undefined reference link/image", .severity = sev });
                             }
                         }
                     }
@@ -1481,6 +1579,10 @@ fn checkNoAltText(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *
             }
         }
     }
+}
+
+fn isTagNameChar(ch: u8) bool {
+    return (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or (ch >= '0' and ch <= '9');
 }
 
 fn isListItem(t: []const u8) bool {

@@ -6,6 +6,7 @@ const scanner = @import("scanner.zig");
 const dir_mod = @import("directives.zig");
 const reporter = @import("reporter.zig");
 const rules = @import("rules.zig");
+const zig_config = @import("zig-config");
 
 const version = "0.1.0";
 const max_file_size = 50 * 1024 * 1024; // 50 MB
@@ -233,10 +234,10 @@ fn runCommandSlice(args: []const []const u8, allocator: std.mem.Allocator, io: s
 }
 
 // ---------------------------------------------------------------------------
-// Config loading (using std.Io for file access)
+// Config loading (using zig-config for file discovery + JSONC support)
 // ---------------------------------------------------------------------------
 fn loadConfig(config_path: ?[]const u8, allocator: std.mem.Allocator, io: std.Io) cfg_mod.PickierConfig {
-    // If explicit path provided, try to load it
+    // If explicit path provided, try to load it directly
     if (config_path) |path| {
         if (readSmallFile(path, allocator, io)) |content| {
             defer allocator.free(content);
@@ -245,33 +246,17 @@ fn loadConfig(config_path: ?[]const u8, allocator: std.mem.Allocator, io: std.Io
         return cfg_mod.default_config;
     }
 
-    // Search for config files in cwd and parent directories
-    var cwd_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const cwd_len = std.process.currentPath(io, &cwd_buf) catch return cfg_mod.default_config;
-    const cwd = cwd_buf[0..cwd_len];
+    // Use zig-config for automatic file discovery
+    // Searches: ./pickier.json, ./config/pickier.json, ./.config/pickier.json, ~/.config/pickier.json
+    // Also supports .jsonc (JSON with comments)
+    var result = zig_config.config_loader.loadConfigUntyped(allocator, .{
+        .name = "pickier",
+        .env_prefix = "PICKIER",
+        .cache = false,
+    }) catch return cfg_mod.default_config;
+    defer result.deinit();
 
-    var dir: []const u8 = cwd;
-    while (true) {
-        for (cfg_mod.config_file_names) |name| {
-            var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-            const full_path = std.fmt.bufPrint(&path_buf, "{s}/{s}", .{ dir, name }) catch continue;
-
-            if (readSmallFile(full_path, allocator, io)) |content| {
-                defer allocator.free(content);
-                if (cfg_mod.parseJsonConfig(content)) |cfg| {
-                    return cfg;
-                } else |_| {}
-            }
-        }
-
-        // Go up one directory
-        if (std.mem.lastIndexOfScalar(u8, dir, '/')) |slash| {
-            if (slash == 0) break;
-            dir = dir[0..slash];
-        } else break;
-    }
-
-    return cfg_mod.default_config;
+    return cfg_mod.parseJsonValue(result.config, allocator) catch cfg_mod.default_config;
 }
 
 /// Read a small file (< 1MB) using std.Io, returns null on failure
