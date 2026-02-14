@@ -19,7 +19,7 @@
     },
     "packages/pickier": {
       "name": "pickier",
-      "version": "0.1.13",
+      "version": "0.1.18",
       "bin": {
         "pickier": "./dist/bin/cli.js",
       },
@@ -34,7 +34,7 @@
     },
     "packages/vscode": {
       "name": "pickier-vscode",
-      "version": "0.1.13",
+      "version": "0.1.18",
       "dependencies": {
         "pickier": "workspace:*",
       },
@@ -44,6 +44,10 @@
         "@vscode/test-electron": "^2.5.2",
         "@vscode/vsce": "^3.7.1",
       },
+    },
+    "packages/zig": {
+      "name": "@pickier/zig",
+      "version": "0.1.0",
     },
   },
   "packages": {
@@ -88,6 +92,8 @@
     "@nodelib/fs.stat": ["@nodelib/fs.stat@2.0.5", "", {}, "sha512-RkhPPp2zrqDAQA/2jNhnztcPAlv64XdhIp7a7454A5ovI7Bukxgt7MX7udwAu3zg1DcpPU0rz3VV1SeaqvY4+A=="],
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
+
+    "@pickier/zig": ["@pickier/zig@workspace:packages/zig"],
 
     "@secretlint/config-creator": ["@secretlint/config-creator@10.2.2", "", { "dependencies": { "@secretlint/types": "^10.2.2" } }, "sha512-BynOBe7Hn3LJjb3CqCHZjeNB09s/vgf0baBaHVw67w7gHF0d25c3ZsZ5+vv8TgwSchRdUCRrbbcq5i2B1fJ2QQ=="],
 

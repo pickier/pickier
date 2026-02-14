@@ -1,7 +1,7 @@
 /**
  * Pickier vs oxfmt vs Biome vs Prettier — Formatting Benchmark
  *
- * All four tools compared in every group:
+ * All tools compared in every group:
  *
  *   1. Programmatic / In-memory
  *      Pickier formatCode() — in-memory, no process spawn
@@ -11,6 +11,7 @@
  *
  *   2. CLI (single file)
  *      All tools spawn a subprocess.
+ *      Pickier uses its Zig-compiled native binary for max speed.
  *
  *   3. CLI Batch (all fixtures sequentially)
  *
@@ -65,7 +66,7 @@ const biomeGlobal = which('biome')
 const biomeCmd = biomeGlobal ?? 'npx --yes @biomejs/biome'
 const prettierGlobal = which('prettier')
 const prettierCmd = prettierGlobal ?? 'npx --yes prettier'
-const pickierBin = resolve(__dirname, '../../packages/pickier/bin/pickier')
+const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
 // Warm up npx cache so the first bench iteration isn't penalised
 try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
@@ -124,9 +125,8 @@ function cliPrettier(filePath: string): void {
 
 function cliPickier(filePath: string): void {
   try {
-    execSync(`${pickierBin} run ${filePath} --mode format --check`, {
+    execSync(`${pickierZigBin} run ${filePath} --mode format --check`, {
       stdio: 'ignore',
-      env: { ...process.env, PICKIER_NO_AUTO_CONFIG: '1' },
     })
   }
   catch { /* non-zero exit expected */ }
@@ -136,7 +136,7 @@ function cliPickier(filePath: string): void {
 // Header
 // ---------------------------------------------------------------------------
 console.log(`\n${'='.repeat(80)}`)
-console.log('     PICKIER vs OXFMT vs BIOME vs PRETTIER — Formatting Benchmark')
+console.log('     PICKIER (Zig) vs OXFMT vs BIOME vs PRETTIER — Formatting Benchmark')
 console.log('='.repeat(80))
 console.log('\nFixtures:')
 console.log(`  Small:  ${stats.small.lines} lines  (${(stats.small.bytes / 1024).toFixed(1)} KB)`)
@@ -144,7 +144,7 @@ console.log(`  Medium: ${stats.medium.lines} lines  (${(stats.medium.bytes / 102
 console.log(`  Large:  ${stats.large.lines} lines  (${(stats.large.bytes / 1024).toFixed(1)} KB)`)
 console.log()
 console.log('Tools:')
-console.log(`  Pickier:   formatCode() in-memory  +  compiled binary CLI`)
+console.log(`  Pickier:   formatCode() in-memory  +  Zig-compiled native binary CLI`)
 console.log(`  oxfmt:     ${oxfmtGlobal ?? '(via npx)'}  — stdin pipe + CLI  (no JS API)`)
 console.log(`  Biome:     ${biomeGlobal ?? '(via npx)'}  — stdin pipe + CLI  (no JS formatting API)`)
 console.log(`  Prettier:  format() in-memory  +  ${prettierGlobal ?? 'npx'} CLI`)
@@ -180,7 +180,7 @@ for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large',
 
 for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large', 'large']] as const) {
   group(`CLI — ${label} File (${stats[size].lines} lines)`, () => {
-    bench('Pickier', () => {
+    bench('Pickier (Zig)', () => {
       cliPickier(fixturePaths[size])
     })
 
@@ -203,7 +203,7 @@ for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large',
 // ===================================================================
 
 group('CLI Batch — All Files', () => {
-  bench('Pickier', () => {
+  bench('Pickier (Zig)', () => {
     for (const fp of Object.values(fixturePaths)) cliPickier(fp)
   })
 
