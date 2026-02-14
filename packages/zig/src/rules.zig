@@ -53,7 +53,7 @@ pub fn runPluginRules(
         if (mapSeverity(cfg.getPluginRuleSeverity("pickier/prefer-const"))) |sev| {
             try checkPreferConst(file_path, content, sev, suppress, issues, allocator);
         }
-        if (mapSeverity(cfg.getPluginRuleSeverity("pickier/no-unused-vars"))) |sev| {
+        if (mapSeverity(cfg.getPluginRuleSeverity("general/no-unused-vars"))) |sev| {
             try checkNoUnusedVars(file_path, content, sev, suppress, issues, allocator);
         }
     }
@@ -1072,12 +1072,12 @@ fn checkNoUnusedVars(
                     const rest_start = if (line_end < content.len) line_end + 1 else content.len;
                     const rest = content[rest_start..];
                     if (rest.len > 0 and !hasWordReference(var_name, rest)) {
-                        if (!directives_mod.isSuppressed("pickier/no-unused-vars", line_no, suppress)) {
+                        if (!directives_mod.isSuppressed("general/no-unused-vars", line_no, suppress)) {
                             try issues.append(allocator, .{
                                 .file_path = file_path,
                                 .line = line_no,
                                 .column = 1,
-                                .rule_id = "pickier/no-unused-vars",
+                                .rule_id = "general/no-unused-vars",
                                 .message = "Variable is declared but never used",
                                 .severity = severity,
                             });

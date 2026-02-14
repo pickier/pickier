@@ -15,9 +15,18 @@ export const ulStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: '*' | '-' | '+' | null = null
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for unordered list item
       const match = line.match(/^(\s*)([*\-+])\s+/)
@@ -103,7 +112,14 @@ export const ulStyleRule: RuleModule = {
       }
     }
 
+    let inFence = false
     const fixedLines = lines.map((line) => {
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence)
+        return line
       return line.replace(/^(\s*)([*\-+])(\s+)/, `$1${targetMarker}$3`)
     })
     return fixedLines.join('\n')

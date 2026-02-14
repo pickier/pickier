@@ -449,7 +449,7 @@ test "toFormatConfig converts correctly" {
 
 test "getPluginRuleSeverity" {
     const cfg = default_config;
-    try std.testing.expect(cfg.getPluginRuleSeverity("pickier/prefer-const") == .@"error");
+    try std.testing.expect(cfg.getPluginRuleSeverity("general/prefer-const") == .@"error");
     try std.testing.expect(cfg.getPluginRuleSeverity("style/brace-style") == .warn);
     try std.testing.expect(cfg.getPluginRuleSeverity("nonexistent/rule") == .off);
 }

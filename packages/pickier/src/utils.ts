@@ -93,7 +93,21 @@ export const UNIVERSAL_IGNORES = [
  * Handles both string format ('error', 'warn', 'off') and array format (['error', options]).
  */
 export function getRuleSetting(rulesConfig: RulesConfigMap, ruleId: string): { enabled: boolean, severity?: 'error' | 'warning', options?: any } {
-  const raw = rulesConfig[ruleId as keyof RulesConfigMap] as any
+  let raw = rulesConfig[ruleId as keyof RulesConfigMap] as any
+  // Fallback: try alternative prefix (general/ <-> pickier/) for backward compatibility
+  if (raw === undefined) {
+    const slash = ruleId.indexOf('/')
+    if (slash > 0) {
+      const prefix = ruleId.slice(0, slash)
+      const name = ruleId.slice(slash + 1)
+      const altPrefix = prefix === 'general' ? 'pickier' : prefix === 'pickier' ? 'general' : null
+      if (altPrefix)
+        raw = rulesConfig[`${altPrefix}/${name}` as keyof RulesConfigMap] as any
+      // Also try bare rule name
+      if (raw === undefined)
+        raw = rulesConfig[name as keyof RulesConfigMap] as any
+    }
+  }
   let sev: 'error' | 'warning' | undefined
   let opts: any
   if (typeof raw === 'string') {

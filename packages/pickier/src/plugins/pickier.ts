@@ -1,5 +1,8 @@
 import type { PickierPlugin } from '../types'
 // Import rules
+import { noUnusedVarsRule } from '../rules/general/no-unused-vars'
+import { preferConstRule } from '../rules/general/prefer-const'
+import { preferTemplate } from '../rules/general/prefer-template'
 import { firstRule } from '../rules/imports/first'
 import { importDedupeRule } from '../rules/imports/import-dedupe'
 import { namedRule } from '../rules/imports/named'
@@ -40,5 +43,10 @@ export const pickierPlugin: PickierPlugin = {
 
     // Style rules
     'top-level-function': codeOnly(topLevelFunctionRule),
+
+    // General rules (also registered in general plugin for backward compat)
+    'prefer-const': codeOnly(preferConstRule),
+    'prefer-template': codeOnly(preferTemplate),
+    'no-unused-vars': codeOnly(noUnusedVarsRule),
   },
 }
