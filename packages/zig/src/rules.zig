@@ -2054,19 +2054,32 @@ fn checkSortExports(
         }
 
         if (block_len > 1) {
-            // Check if lines are sorted
-            var first_unsorted: usize = 0;
-            var is_sorted = true;
-            for (1..block_len) |k| {
-                if (strCmpLessThan(block_lines[k], block_lines[k - 1])) {
-                    is_sorted = false;
-                    first_unsorted = k;
+            // Sort a copy and find the first position where original differs from sorted
+            // (matches TS behavior which sorts the block then reports first mismatch position)
+            var sorted_indices: [64]usize = undefined;
+            for (0..block_len) |k| sorted_indices[k] = k;
+            // Simple insertion sort on indices by line content
+            for (1..block_len) |ii| {
+                var j = ii;
+                while (j > 0 and strCmpLessThan(block_lines[sorted_indices[j]], block_lines[sorted_indices[j - 1]])) {
+                    const tmp = sorted_indices[j];
+                    sorted_indices[j] = sorted_indices[j - 1];
+                    sorted_indices[j - 1] = tmp;
+                    j -= 1;
+                }
+            }
+
+            // Find first position where original differs from sorted
+            var first_mismatch: ?usize = null;
+            for (0..block_len) |k| {
+                if (sorted_indices[k] != k) {
+                    first_mismatch = k;
                     break;
                 }
             }
 
-            if (!is_sorted) {
-                const report_line = block_line_nos[first_unsorted];
+            if (first_mismatch) |mis_idx| {
+                const report_line = block_line_nos[mis_idx];
                 if (!directives_mod.isSuppressed("pickier/sort-exports", report_line, suppress)) {
                     try issues.append(allocator, .{
                         .file_path = file_path,

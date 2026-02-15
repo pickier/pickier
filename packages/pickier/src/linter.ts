@@ -1062,7 +1062,7 @@ export function scanContentOptimized(
   if (fileExt === 'md') {
     let inFence = false
     for (let li = 0; li < lines.length; li++) {
-      if (/^(`{3,}|~{3,})/.test(lines[li].trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(lines[li].trim())) {
         inFence = !inFence
         continue
       }

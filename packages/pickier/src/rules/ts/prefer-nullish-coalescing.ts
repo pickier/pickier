@@ -236,7 +236,7 @@ export const preferNullishCoalescingRule: RuleModule = {
         /(\b[\w$]+(?:\.[\w$]+)*)\s*\|\|\s*([^|&]+?)(?=\s*[;,)\]}]|$)/g,
         (match, left, right) => {
           // Don't replace if right side looks like boolean
-          if (/\b(true|false)\b/.test(right.trim())) {
+          if (/\b(?:true|false)\b/.test(right.trim())) {
             return match
           }
           return `${left} ?? ${right}`

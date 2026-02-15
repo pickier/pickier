@@ -191,6 +191,58 @@ fn isFenceStart(trimmed: []const u8) bool {
         (trimmed.len >= 3 and trimmed[0] == '~' and trimmed[1] == '~' and trimmed[2] == '~');
 }
 
+/// Strip inline code spans from a line (replace with spaces).
+/// Matches TS: line.replace(/``[^`]+``/g, '  ').replace(/`[^`]+`/g, ' ')
+/// First strips double-backtick spans, then single-backtick spans.
+fn stripInlineCode(line: []const u8, buf: *[4096]u8) []const u8 {
+    const len = @min(line.len, buf.len);
+    @memcpy(buf[0..len], line[0..len]);
+    // Pass 1: strip double-backtick spans ``...``
+    {
+        var i: usize = 0;
+        while (i + 3 < len) {
+            if (buf[i] == '`' and buf[i + 1] == '`') {
+                var j = i + 2;
+                var found = false;
+                while (j + 1 < len) : (j += 1) {
+                    if (buf[j] == '`' and buf[j + 1] == '`') {
+                        // Replace entire span with spaces
+                        @memset(buf[i .. j + 2], ' ');
+                        i = j + 2;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) i += 1;
+            } else {
+                i += 1;
+            }
+        }
+    }
+    // Pass 2: strip single-backtick spans `...`
+    {
+        var i: usize = 0;
+        while (i + 2 < len) {
+            if (buf[i] == '`') {
+                var j = i + 1;
+                var found = false;
+                while (j < len) : (j += 1) {
+                    if (buf[j] == '`') {
+                        @memset(buf[i .. j + 1], ' ');
+                        i = j + 1;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) i += 1;
+            } else {
+                i += 1;
+            }
+        }
+    }
+    return buf[0..len];
+}
+
 // ---------------------------------------------------------------------------
 // Rule implementations
 // ---------------------------------------------------------------------------
@@ -1233,18 +1285,30 @@ fn findClosingBackticks(line: []const u8, start: usize, count: usize) ?usize {
 fn checkEmphasisStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
     // Consistent mode (matching TS): first emphasis style wins, flag any different style.
     // TS regex: (?<!\*)\*(?!\*)([^*]+)\*(?!\*) for asterisk, (?<!_)_(?!_)([^_]+)_(?!_) for underscore.
-    // TS does NOT skip fenced code blocks or inline code spans.
+    // Both TS and Zig skip fenced code blocks and strip inline code spans.
     const Style = enum { asterisk, underscore };
     var detected_style: ?Style = null;
+    var in_fence = false;
 
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     while (it.next()) |line| {
         defer line_no += 1;
 
+        // Track fenced code blocks
+        if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) {
+            in_fence = !in_fence;
+            continue;
+        }
+        if (in_fence) continue;
+
+        // Strip inline code spans to avoid matching emphasis markers inside code
+        var strip_buf: [4096]u8 = undefined;
+        const sline = stripInlineCode(line, &strip_buf);
+
         // Find asterisk emphasis *text*
         var search: usize = 0;
-        while (findSingleEmphasis(line, '*', search)) |m| {
+        while (findSingleEmphasis(sline, '*', search)) |m| {
             search = m.close + 1;
             if (detected_style) |ds| {
                 if (ds == .underscore) {
@@ -1259,7 +1323,7 @@ fn checkEmphasisStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, su
 
         // Find underscore emphasis _text_
         search = 0;
-        while (findSingleEmphasis(line, '_', search)) |m| {
+        while (findSingleEmphasis(sline, '_', search)) |m| {
             search = m.close + 1;
             if (detected_style) |ds| {
                 if (ds == .asterisk) {

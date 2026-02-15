@@ -15,12 +15,24 @@ export const emphasisStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: 'asterisk' | 'underscore' | null = null
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Track fenced code blocks
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
+
+      // Strip inline code spans to avoid matching emphasis markers inside code
+      const stripped = line.replace(/``[^`]+``/g, '  ').replace(/`[^`]+`/g, ' ')
+
       // Find single asterisk emphasis (not double **)
-      const asteriskMatches = line.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)
+      const asteriskMatches = stripped.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)
 
       for (const match of asteriskMatches) {
         if (style === 'underscore') {
@@ -51,7 +63,7 @@ export const emphasisStyleRule: RuleModule = {
       }
 
       // Find single underscore emphasis (not double __)
-      const underscoreMatches = line.matchAll(/(?<!_)_(?!_)([^_]+)_(?!_)/g)
+      const underscoreMatches = stripped.matchAll(/(?<!_)_(?!_)([^_]+)_(?!_)/g)
 
       for (const match of underscoreMatches) {
         if (style === 'asterisk') {
