@@ -221,6 +221,17 @@ export async function runLintProgrammatic(
     }
     catch {}
 
+    // Dedup issues by (line, column, ruleId) to handle aliased rules pointing to the same implementation
+    {
+      const seen = new Set<string>()
+      issues = issues.filter((i) => {
+        const key = `${i.line}:${i.column}:${i.ruleId}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    }
+
     if (options.fix) {
       const dbgLine = /^\s*debugger\b/
       let fixed = src
@@ -1509,6 +1520,17 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       }
       catch {
         // Already surfaced via applyPlugins error path; keep going
+      }
+
+      // Dedup issues by (filePath, line, column, ruleId) to handle aliased rules pointing to the same implementation
+      {
+        const seen = new Set<string>()
+        issues = issues.filter((i) => {
+          const key = `${i.line}:${i.column}:${i.ruleId}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
       }
 
       if (options.fix) {

@@ -775,29 +775,39 @@ fn checkFencedCodeLanguage(fp: []const u8, md: []const u8, fm: u32, sev: Severit
 }
 
 fn checkNoEmphasisAsHeading(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
+    // Collect all lines first so we can peek at the next line
+    var lines_list = std.ArrayList([]const u8){};
+    defer lines_list.deinit(alloc);
     var it = LineIter{ .content = md };
-    var line_no: u32 = fm + 1;
-    var in_fence = false;
-    var prev_blank = true;
     while (it.next()) |line| {
-        defer line_no += 1;
+        lines_list.append(alloc, line) catch return;
+    }
+    const lines = lines_list.items;
+
+    var in_fence = false;
+    for (lines, 0..) |line, idx| {
+        const line_no: u32 = fm + 1 + @as(u32, @intCast(idx));
         const t = std.mem.trim(u8, line, " \t\r");
         if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
-        if (in_fence) {
-            prev_blank = false;
-            continue;
-        }
-        // Bold text used as heading: **text** or __text__ on its own line after blank
-        if (prev_blank and t.len > 4) {
-            if ((std.mem.startsWith(u8, t, "**") and std.mem.endsWith(u8, t, "**")) or
-                (std.mem.startsWith(u8, t, "__") and std.mem.endsWith(u8, t, "__")))
-            {
+        if (in_fence) continue;
+
+        // Bold/italic text used as heading: **text**/__text__/*text*/_text_ on standalone line
+        // TS checks: previous line blank AND next line blank (or start/end of file)
+        const prev_blank = if (idx == 0) true else std.mem.trim(u8, lines[idx - 1], " \t\r").len == 0;
+        const next_blank = if (idx + 1 >= lines.len) true else std.mem.trim(u8, lines[idx + 1], " \t\r").len == 0;
+
+        if (prev_blank and next_blank and t.len > 2) {
+            const is_emphasis = (t.len > 4 and ((std.mem.startsWith(u8, t, "**") and std.mem.endsWith(u8, t, "**")) or
+                (std.mem.startsWith(u8, t, "__") and std.mem.endsWith(u8, t, "__")))) or
+                (t.len > 2 and ((t[0] == '*' and t[t.len - 1] == '*' and t[1] != '*' and t[t.len - 2] != '*') or
+                (t[0] == '_' and t[t.len - 1] == '_' and t[1] != '_' and t[t.len - 2] != '_')));
+
+            if (is_emphasis) {
                 if (!directives_mod.isSuppressed("markdown/no-emphasis-as-heading", line_no, sup)) {
                     try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = 1, .rule_id = "markdown/no-emphasis-as-heading", .message = "Emphasis used instead of a heading", .severity = sev });
                 }
             }
         }
-        prev_blank = t.len == 0;
     }
 }
 
@@ -809,23 +819,45 @@ fn checkNoSpaceInEmphasis(fp: []const u8, md: []const u8, fm: u32, sev: Severity
         defer line_no += 1;
         if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
         if (in_fence) continue;
-        // Check for * text * or _ text _
+        // Only check double markers ** and __ (single * and _ are too ambiguous without a full parser)
         var i: usize = 0;
-        while (i < line.len) : (i += 1) {
-            if ((line[i] == '*' or line[i] == '_') and i + 2 < line.len and line[i + 1] == ' ') {
-                // Look for closing marker
-                const marker = line[i];
-                if (std.mem.indexOfScalarPos(u8, line, i + 2, marker)) |close| {
-                    if (close > 0 and line[close - 1] == ' ') {
+        while (i + 3 < line.len) : (i += 1) {
+            // Check for ** marker with space after opening
+            if (line[i] == '*' and line[i + 1] == '*' and line[i + 2] == ' ') {
+                // Look for closing **
+                if (findDoubleMarker(line, i + 3, '*')) |close| {
+                    if (close >= 2 and line[close - 1] == ' ') {
                         if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
                             try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
                         }
-                        i = close;
                     }
+                    i = close + 1;
+                }
+            }
+            // Check for __ marker with space after opening
+            else if (line[i] == '_' and line[i + 1] == '_' and line[i + 2] == ' ') {
+                // Look for closing __
+                if (findDoubleMarker(line, i + 3, '_')) |close| {
+                    if (close >= 2 and line[close - 1] == ' ') {
+                        if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
+                            try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
+                        }
+                    }
+                    i = close + 1;
                 }
             }
         }
     }
+}
+
+/// Find position of double marker (e.g. ** or __) starting from `start` in `line`.
+/// Returns the index of the first character of the closing marker, or null.
+fn findDoubleMarker(line: []const u8, start: usize, marker: u8) ?usize {
+    var j = start;
+    while (j + 1 < line.len) : (j += 1) {
+        if (line[j] == marker and line[j + 1] == marker) return j;
+    }
+    return null;
 }
 
 fn checkNoInlineHtml(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
@@ -1039,89 +1071,89 @@ fn findClosingBackticks(line: []const u8, start: usize, count: usize) ?usize {
 // markdown/emphasis-style — enforce asterisk or underscore emphasis
 // ---------------------------------------------------------------------------
 fn checkEmphasisStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
-    // Default: asterisk style. Flag _text_ emphasis (not __text__).
+    // Consistent mode (matching TS): first emphasis style wins, flag any different style.
+    // TS regex: (?<!\*)\*(?!\*)([^*]+)\*(?!\*) for asterisk, (?<!_)_(?!_)([^_]+)_(?!_) for underscore.
+    // TS does NOT skip fenced code blocks or inline code spans.
+    const Style = enum { asterisk, underscore };
+    var detected_style: ?Style = null;
+
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
-    var in_fence = false;
     while (it.next()) |line| {
         defer line_no += 1;
-        const t = std.mem.trimStart(u8, line, " \t");
-        if (isFenceStart(t)) {
-            in_fence = !in_fence;
-            continue;
-        }
-        if (in_fence) continue;
-        // Skip lines in inline code
-        if (std.mem.indexOf(u8, line, "`") != null) continue;
-        // Look for underscore emphasis: _text_ (not __text__ or snake_case)
-        var i: usize = 0;
-        while (i < line.len) {
-            if (line[i] == '_') {
-                // Skip __ (strong emphasis)
-                if (i + 1 < line.len and line[i + 1] == '_') {
-                    i += 2;
-                    while (i + 1 < line.len) {
-                        if (line[i] == '_' and line[i + 1] == '_') {
-                            i += 2;
-                            break;
-                        }
-                        i += 1;
+
+        // Find asterisk emphasis *text*
+        var search: usize = 0;
+        while (findSingleEmphasis(line, '*', search)) |m| {
+            search = m.close + 1;
+            if (detected_style) |ds| {
+                if (ds == .underscore) {
+                    if (!directives_mod.isSuppressed("markdown/emphasis-style", line_no, sup)) {
+                        try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(m.open + 1), .rule_id = "markdown/emphasis-style", .message = "Emphasis style should be consistent throughout document", .severity = sev });
                     }
-                    continue;
                 }
-                // Must not have word char before (to exclude snake_case)
-                if (i > 0 and isIdentCharMd(line[i - 1])) {
-                    i += 1;
-                    continue;
-                }
-                // Must have non-space after opening _
-                if (i + 1 >= line.len or line[i + 1] == ' ' or line[i + 1] == '_') {
-                    i += 1;
-                    continue;
-                }
-                // Find closing _ that is not preceded by space and not followed by word char
-                var j = i + 2; // at least 1 char between
-                while (j < line.len) {
-                    if (line[j] == '_') {
-                        // Closing _ must not be preceded by space
-                        if (line[j - 1] == ' ') {
-                            j += 1;
-                            continue;
-                        }
-                        // Must not be followed by word char (snake_case)
-                        if (j + 1 < line.len and isIdentCharMd(line[j + 1])) {
-                            j += 1;
-                            continue;
-                        }
-                        // Must not be __ (strong)
-                        if (j + 1 < line.len and line[j + 1] == '_') {
-                            j += 2;
-                            continue;
-                        }
-                        // Valid underscore emphasis found
-                        // But skip if content contains special chars (URLs, emails, code)
-                        const inner = line[i + 1 .. j];
-                        const has_special = std.mem.indexOf(u8, inner, "<") != null or
-                            std.mem.indexOf(u8, inner, ">") != null or
-                            std.mem.indexOf(u8, inner, "@") != null or
-                            std.mem.indexOf(u8, inner, "://") != null or
-                            std.mem.indexOf(u8, inner, "(") != null;
-                        if (!has_special) {
-                            if (!directives_mod.isSuppressed("markdown/emphasis-style", line_no, sup)) {
-                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/emphasis-style", .message = "Expected asterisk emphasis, found underscore", .severity = sev });
-                            }
-                        }
-                        i = j + 1;
-                        break;
-                    }
-                    j += 1;
-                }
-                if (j >= line.len) i = j;
             } else {
-                i += 1;
+                detected_style = .asterisk;
+            }
+        }
+
+        // Find underscore emphasis _text_
+        search = 0;
+        while (findSingleEmphasis(line, '_', search)) |m| {
+            search = m.close + 1;
+            if (detected_style) |ds| {
+                if (ds == .asterisk) {
+                    if (!directives_mod.isSuppressed("markdown/emphasis-style", line_no, sup)) {
+                        try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(m.open + 1), .rule_id = "markdown/emphasis-style", .message = "Emphasis style should be consistent throughout document", .severity = sev });
+                    }
+                }
+            } else {
+                detected_style = .underscore;
             }
         }
     }
+}
+
+/// Find single emphasis marker pattern: marker + non-marker content + marker
+/// Matches TS regex: (?<!M)M(?!M)([^M]+)M(?!M) where M is the marker char.
+fn findSingleEmphasis(line: []const u8, marker: u8, start: usize) ?struct { open: usize, close: usize } {
+    var i = start;
+    while (i < line.len) {
+        if (line[i] != marker) {
+            i += 1;
+            continue;
+        }
+        // Check: not preceded by marker
+        if (i > 0 and line[i - 1] == marker) {
+            i += 1;
+            continue;
+        }
+        // Check: not followed by marker
+        if (i + 1 >= line.len or line[i + 1] == marker) {
+            i += 1;
+            continue;
+        }
+        // Opening marker at i. Content starts at i+1. Find closing marker.
+        var j = i + 1;
+        while (j < line.len) : (j += 1) {
+            if (line[j] == marker) {
+                // Check: not followed by marker (closing must be single)
+                if (j + 1 < line.len and line[j + 1] == marker) {
+                    // Content contains doubled marker — TS regex [^M]+ wouldn't match past this.
+                    // Abort this opening, resume search after the double.
+                    i = j + 2;
+                    break;
+                }
+                // Valid closing found. Content [i+1..j] has no marker.
+                return .{ .open = i, .close = j };
+            }
+        }
+        if (j >= line.len) {
+            // No closing found. Try next potential opening after i.
+            i += 1;
+        }
+    }
+    return null;
 }
 
 fn isIdentCharMd(ch: u8) bool {
@@ -1475,10 +1507,13 @@ fn eqlIgnoreCase(a: []const u8, b: []const u8) bool {
 // markdown/link-image-style — enforce inline link style
 // ---------------------------------------------------------------------------
 fn checkLinkImageStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
-    // Default: inline style. Flag reference-style links.
+    // Consistent mode (matching TS): first link style wins, flag any different style.
+    const Style = enum { inline_style, reference };
+    var detected_style: ?Style = null;
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
     var in_fence = false;
+    var in_html_comment = false;
     while (it.next()) |line| {
         defer line_no += 1;
         const t = std.mem.trimStart(u8, line, " \t");
@@ -1487,17 +1522,49 @@ fn checkLinkImageStyle(fp: []const u8, md: []const u8, fm: u32, sev: Severity, s
             continue;
         }
         if (in_fence) continue;
-        // Skip reference definitions
+
+        // Track HTML comments (matching TS)
+        if (std.mem.indexOf(u8, line, "<!--") != null) in_html_comment = true;
+        if (std.mem.indexOf(u8, line, "-->") != null) {
+            in_html_comment = false;
+            continue;
+        }
+        if (in_html_comment) continue;
+
+        // Skip reference definitions: [label]: url
         if (t.len > 2 and t[0] == '[' and std.mem.indexOf(u8, t, "]:") != null) continue;
-        // Find reference-style links: [text][label]
+
+        // Scan for links
         var i: usize = 0;
         while (i < line.len) {
             if (line[i] == '[') {
                 if (std.mem.indexOfScalarPos(u8, line, i + 1, ']')) |close1| {
-                    if (close1 + 1 < line.len and line[close1 + 1] == '[') {
-                        if (std.mem.indexOfScalarPos(u8, line, close1 + 2, ']')) |_| {
-                            if (!directives_mod.isSuppressed("markdown/link-image-style", line_no, sup)) {
-                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/link-image-style", .message = "Expected inline link style, found reference style", .severity = sev });
+                    if (close1 + 1 < line.len) {
+                        if (line[close1 + 1] == '(') {
+                            // Inline link: [text](url)
+                            if (std.mem.indexOfScalarPos(u8, line, close1 + 2, ')')) |_| {
+                                if (detected_style) |ds| {
+                                    if (ds == .reference) {
+                                        if (!directives_mod.isSuppressed("markdown/link-image-style", line_no, sup)) {
+                                            try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/link-image-style", .message = "Link style should be consistent throughout document", .severity = sev });
+                                        }
+                                    }
+                                } else {
+                                    detected_style = .inline_style;
+                                }
+                            }
+                        } else if (line[close1 + 1] == '[') {
+                            // Reference link: [text][label]
+                            if (std.mem.indexOfScalarPos(u8, line, close1 + 2, ']')) |_| {
+                                if (detected_style) |ds| {
+                                    if (ds == .inline_style) {
+                                        if (!directives_mod.isSuppressed("markdown/link-image-style", line_no, sup)) {
+                                            try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/link-image-style", .message = "Link style should be consistent throughout document", .severity = sev });
+                                        }
+                                    }
+                                } else {
+                                    detected_style = .reference;
+                                }
                             }
                         }
                     }

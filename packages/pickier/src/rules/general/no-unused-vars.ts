@@ -391,7 +391,13 @@ export const noUnusedVarsRule: RuleModule = {
           let angleDepth = 0
           let braceDepth = 0
           let sawBracePair = false // Track if we've seen and closed a brace pair (e.g., in return type)
-          const searchStart = typeof startColFrom === 'number' ? startColFrom : 0
+          let searchStart = typeof startColFrom === 'number' ? startColFrom : 0
+          // If searchStart is past lineToProcess (can happen when regex stripping shortens the line),
+          // find => in the processed line and search from there instead
+          if (searchStart >= lineToProcess.length) {
+            const arrowInProcessed = lineToProcess.indexOf('=>')
+            searchStart = arrowInProcessed >= 0 ? arrowInProcessed + 2 : 0
+          }
           for (let i = searchStart; i < lineToProcess.length; i++) {
             const c = lineToProcess[i]
             if (esc) {
@@ -619,9 +625,11 @@ export const noUnusedVarsRule: RuleModule = {
         return result
       }
       const codeNoRegex = stripRegex(codeOnly)
+      // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
+      const codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
 
       // function declarations or expressions
-      const m = codeNoRegex.match(/\bfunction\b/)
+      const m = codeClean.match(/\bfunction\b/)
       if (m) {
         // Skip known complex functions with deep nesting that cause false positives
         if (line.includes('function scanContent') || line.includes('function findMatching')) {
@@ -715,7 +723,7 @@ export const noUnusedVarsRule: RuleModule = {
       // arrow functions (parenthesized params) - match patterns like: const f = (a,b) => ..., or standalone (a,b) => ...
       // Find arrow first, then work backwards to find the parameters
       const arrowIdx = line.indexOf('=>')
-      if (arrowIdx !== -1 && codeNoRegex.includes('=>')) {
+      if (arrowIdx !== -1 && codeClean.includes('=>')) {
         // Work backwards from => to find the closing ) of parameters
         let closeParenIdx = -1
         for (let k = arrowIdx - 1; k >= 0; k--) {
@@ -873,7 +881,7 @@ export const noUnusedVarsRule: RuleModule = {
         const reSingleArrow = /(?:^|[=,:({\s])\s*([$A-Z_][\w$]*)\s*=>/gi
         let match: RegExpExecArray | null
         // eslint-disable-next-line no-cond-assign
-        while ((match = reSingleArrow.exec(codeNoRegex)) !== null) {
+        while ((match = reSingleArrow.exec(codeClean)) !== null) {
           const name = match[1]
           if (!name || argIgnoreRe.test(name))
             continue

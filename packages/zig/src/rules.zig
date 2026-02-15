@@ -98,11 +98,9 @@ pub fn runPluginRules(
         }
     }
 
-    // Style rules (code files - additional)
-    if (is_code) {
-        if (mapSeverity(cfg.getPluginRuleSeverity("style/no-multiple-empty-lines"))) |sev| {
-            try checkNoMultipleEmptyLines(file_path, content, sev, suppress, issues, allocator);
-        }
+    // Style rules — no-multiple-empty-lines runs for ALL file types (matches TS behavior)
+    if (mapSeverity(cfg.getPluginRuleSeverity("style/no-multiple-empty-lines"))) |sev| {
+        try checkNoMultipleEmptyLines(file_path, content, sev, suppress, issues, allocator);
     }
 
     // TS rules (ts/js files only)
@@ -267,11 +265,36 @@ fn checkMaxStatementsPerLine(
 ) !void {
     var line_no: u32 = 1;
     var pos: usize = 0;
+    var in_block_comment = false;
 
     while (pos < content.len) {
         const line_end = std.mem.indexOfScalarPos(u8, content, pos, '\n') orelse content.len;
         const line = content[pos..line_end];
         const trimmed = std.mem.trim(u8, line, " \t\r");
+
+        // Track block comments (/* ... */)
+        if (in_block_comment) {
+            if (std.mem.indexOf(u8, trimmed, "*/") != null) {
+                in_block_comment = false;
+            }
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+        if (trimmed.len >= 2 and trimmed[0] == '/' and trimmed[1] == '*') {
+            if (std.mem.indexOf(u8, trimmed[2..], "*/") == null) {
+                in_block_comment = true;
+            }
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+        // Skip JSDoc/block comment continuation lines (start with *)
+        if (trimmed.len > 0 and trimmed[0] == '*') {
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
 
         if (trimmed.len > 0) {
             const count = countStatements(trimmed);
@@ -308,7 +331,19 @@ fn countStatements(line: []const u8) u32 {
         in_for = true;
     }
 
-    for (line, 0..) |ch, idx| {
+    // Skip leading semicolons (expression guards like ;(cfg...) = value)
+    var start_idx: usize = 0;
+    if (trimmed.len > 0 and trimmed[0] == ';') {
+        // Find where the leading ; is in the original line
+        for (line, 0..) |c, si| {
+            if (c == ';') {
+                start_idx = si + 1;
+                break;
+            }
+        }
+    }
+
+    for (line[start_idx..], start_idx..) |ch, idx| {
         if (escaped) {
             escaped = false;
             continue;
@@ -1177,9 +1212,69 @@ fn checkNoUnusedVars(
             }
         }
 
+        // Build a masked version of the line where string/regex/template contents are replaced with spaces.
+        // This is used for checks 2 and 3 to avoid false positives from keywords inside strings.
+        var code_end: usize = trimmed.len;
+        var code_mask_buf: [4096]u8 = undefined;
+        const mask_len = @min(trimmed.len, code_mask_buf.len);
+        @memcpy(code_mask_buf[0..mask_len], trimmed[0..mask_len]);
+        {
+            var in_sq = false;
+            var in_dq = false;
+            var in_tl = false;
+            var in_rx = false;
+            var esc = false;
+            var ci: usize = 0;
+            while (ci < mask_len) : (ci += 1) {
+                const cc = trimmed[ci];
+                if (esc) {
+                    esc = false;
+                    if (in_sq or in_dq or in_tl or in_rx) code_mask_buf[ci] = ' ';
+                    continue;
+                }
+                if (cc == '\\' and (in_sq or in_dq or in_tl or in_rx)) {
+                    esc = true;
+                    code_mask_buf[ci] = ' ';
+                    continue;
+                }
+                if (in_sq) {
+                    if (cc == '\'') { in_sq = false; } else { code_mask_buf[ci] = ' '; }
+                    continue;
+                }
+                if (in_dq) {
+                    if (cc == '"') { in_dq = false; } else { code_mask_buf[ci] = ' '; }
+                    continue;
+                }
+                if (in_tl) {
+                    if (cc == '`') { in_tl = false; } else { code_mask_buf[ci] = ' '; }
+                    continue;
+                }
+                if (in_rx) {
+                    if (cc == '/') { in_rx = false; } else { code_mask_buf[ci] = ' '; }
+                    continue;
+                }
+                if (cc == '\'') {
+                    in_sq = true;
+                } else if (cc == '"') {
+                    in_dq = true;
+                } else if (cc == '`') {
+                    in_tl = true;
+                } else if (cc == '/' and ci + 1 < mask_len and trimmed[ci + 1] == '/') {
+                    code_end = ci;
+                    break;
+                } else if (cc == '/' and ci + 1 < mask_len and trimmed[ci + 1] != '/' and trimmed[ci + 1] != '*') {
+                    if (ci == 0 or (!isIdentChar(trimmed[ci - 1]) and trimmed[ci - 1] != ')')) {
+                        in_rx = true;
+                    }
+                }
+            }
+        }
+        const code_masked = code_mask_buf[0..code_end];
+
         // 2. Check function parameters: function foo(a, b) { ... } or function(a, b) { ... }
         // Also handles multi-line parameter lists
-        if (std.mem.indexOf(u8, trimmed, "function ") != null or std.mem.indexOf(u8, trimmed, "function(") != null) {
+        // Use masked version to avoid matching 'function' inside strings
+        if (std.mem.indexOf(u8, code_masked, "function ") != null or std.mem.indexOf(u8, code_masked, "function(") != null) {
             // Skip complex functions that cause false positives
             if (std.mem.indexOf(u8, trimmed, "scanContent") == null and std.mem.indexOf(u8, trimmed, "findMatching") == null) {
                 // Find the ( that belongs to function params (not some enclosing call)
@@ -1232,30 +1327,13 @@ fn checkNoUnusedVars(
 
         // 3. Check arrow function params: (a, b) => ... or x => ...
         // Loop over ALL => occurrences on this line (handles multiple callbacks per line)
+        // Uses code_masked and code_end already computed above.
         {
-            // First, find effective end of code (strip // comments outside strings)
-            var code_end: usize = trimmed.len;
-            {
-                var in_sq = false;
-                var in_dq = false;
-                var in_tl = false;
-                var esc = false;
-                var ci: usize = 0;
-                while (ci < trimmed.len) : (ci += 1) {
-                    const cc = trimmed[ci];
-                    if (esc) { esc = false; continue; }
-                    if (cc == '\\' and (in_sq or in_dq or in_tl)) { esc = true; continue; }
-                    if (!in_sq and !in_dq and !in_tl) {
-                        if (cc == '\'') { in_sq = true; } else if (cc == '"') { in_dq = true; } else if (cc == '`') { in_tl = true; } else if (cc == '/' and ci + 1 < trimmed.len and trimmed[ci + 1] == '/') { code_end = ci; break; }
-                    } else {
-                        if (in_sq and cc == '\'') { in_sq = false; } else if (in_dq and cc == '"') { in_dq = false; } else if (in_tl and cc == '`') { in_tl = false; }
-                    }
-                }
-            }
             const code_trimmed = trimmed[0..code_end];
 
             var search_from: usize = 0;
-            while (std.mem.indexOfPos(u8, code_trimmed, search_from, "=>")) |arrow_idx| {
+            // Search in the MASKED version to skip => inside strings/regex
+            while (std.mem.indexOfPos(u8, code_masked, search_from, "=>")) |arrow_idx| {
                 // Advance search position for next iteration
                 search_from = arrow_idx + 2;
 
@@ -1670,30 +1748,26 @@ fn checkNoNew(
             continue;
         }
 
-        // Only flag `new` at start of statement (matches TS: /^\s*new\s+\w+/)
+        // Only flag `new` at start of statement (matches TS quality/no-new: /^\s*new\s+\w+\s*\(/)
         if (std.mem.startsWith(u8, trimmed, "new ")) {
-            // TS isArgument check: /^\s*new\s+\w[^;]*,/ — skip if line has comma (likely argument list)
-            const has_comma = std.mem.indexOfScalar(u8, trimmed, ',') != null;
-            if (!has_comma) {
-                const after_new = trimmed[4..];
-                var name_end: usize = 0;
-                // Handle dotted names like `new vscode.DiagnosticRelatedInformation(`
-                while (name_end < after_new.len and (isIdentChar(after_new[name_end]) or after_new[name_end] == '.')) name_end += 1;
-                if (name_end > 0) {
-                    var paren_pos = name_end;
-                    while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
-                    if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
-                        if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
-                            const col = @as(u32, @intCast(line.len - trimmed.len + 1));
-                            try issues.append(allocator, .{
-                                .file_path = file_path,
-                                .line = line_no,
-                                .column = col,
-                                .rule_id = "eslint/no-new",
-                                .message = "Do not use 'new' for side effects",
-                                .severity = severity,
-                            });
-                        }
+            const after_new = trimmed[4..];
+            var name_end: usize = 0;
+            // Only match simple identifiers (no dots) — matches TS \w+
+            while (name_end < after_new.len and isIdentChar(after_new[name_end])) name_end += 1;
+            if (name_end > 0) {
+                var paren_pos = name_end;
+                while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
+                if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
+                    if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
+                        const col = @as(u32, @intCast(line.len - trimmed.len + 1));
+                        try issues.append(allocator, .{
+                            .file_path = file_path,
+                            .line = line_no,
+                            .column = col,
+                            .rule_id = "eslint/no-new",
+                            .message = "Do not use 'new' for side effects",
+                            .severity = severity,
+                        });
                     }
                 }
             }

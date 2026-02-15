@@ -55,7 +55,7 @@ export const blanksAroundTablesRule: RuleModule = {
         if (line.trim().length > 0) {
           issues.push({
             filePath: ctx.filePath,
-            line: i,
+            line: i + 1,
             column: 1,
             ruleId: 'markdown/blanks-around-tables',
             message: 'Tables should be surrounded by blank lines',

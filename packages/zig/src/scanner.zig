@@ -83,6 +83,31 @@ pub fn scanContent(
 
         const in_template = template_lines.get(line_no) != null;
 
+        // Rule: indent (runs for ALL file types, matching TS behavior)
+        {
+            const leading = getLeadingWhitespace(line);
+            if (leading.len > 0) {
+                const in_fenced = if (fenced_lines) |fl| fl.get(line_no) != null else false;
+                if (!in_fenced) {
+                    if (hasIndentIssue(leading, cfg.format.indent, cfg.format.indent_style, line)) {
+                        if (!directives.isSuppressed("indent", line_no, suppress)) {
+                            try issues.append(allocator, .{
+                                .file_path = file_path,
+                                .line = line_no,
+                                .column = 1,
+                                .rule_id = "indent",
+                                .message = if (cfg.format.indent_style == .tabs)
+                                    "Expected tab indentation"
+                                else
+                                    "Expected consistent indentation",
+                                .severity = .warning,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         if (is_code) {
             // Rule: quotes
             if (!skip_quotes and !in_template and !quotes_reported) {
@@ -100,31 +125,6 @@ pub fn scanContent(
                             .severity = .warning,
                         });
                         quotes_reported = true;
-                    }
-                }
-            }
-
-            // Rule: indent
-            {
-                const leading = getLeadingWhitespace(line);
-                if (leading.len > 0) {
-                    const in_fenced = if (fenced_lines) |fl| fl.get(line_no) != null else false;
-                    if (!in_fenced) {
-                        if (hasIndentIssue(leading, cfg.format.indent, cfg.format.indent_style, line)) {
-                            if (!directives.isSuppressed("indent", line_no, suppress)) {
-                                try issues.append(allocator, .{
-                                    .file_path = file_path,
-                                    .line = line_no,
-                                    .column = 1,
-                                    .rule_id = "indent",
-                                    .message = if (cfg.format.indent_style == .tabs)
-                                        "Expected tab indentation"
-                                    else
-                                        "Expected consistent indentation",
-                                    .severity = .warning,
-                                });
-                            }
-                        }
                     }
                 }
             }
@@ -203,26 +203,7 @@ pub fn scanContent(
             }
         }
 
-        // Markdown-specific rules
-        if (is_md) {
-            const in_fenced = if (fenced_lines) |fl| fl.get(line_no) != null else false;
-            if (!in_fenced) {
-                // indent check for markdown too
-                const leading = getLeadingWhitespace(line);
-                if (leading.len > 0 and hasIndentIssue(leading, cfg.format.indent, cfg.format.indent_style, line)) {
-                    if (!directives.isSuppressed("indent", line_no, suppress)) {
-                        try issues.append(allocator, .{
-                            .file_path = file_path,
-                            .line = line_no,
-                            .column = 1,
-                            .rule_id = "indent",
-                            .message = "Expected consistent indentation",
-                            .severity = .warning,
-                        });
-                    }
-                }
-            }
-        }
+        // (Markdown indent check removed — now handled by the unified indent check above)
 
         pos = if (line_end < content.len) line_end + 1 else content.len;
         line_no += 1;
@@ -644,6 +625,10 @@ fn computeFencedCodeBlockLines(content: []const u8, allocator: Allocator) !std.A
                 (line[0] == '~' and line[1] == '~' and line[2] == '~'))
             {
                 in_fence = !in_fence;
+                // Don't add fence lines themselves to the set (match TS continue behavior)
+                pos = if (line_end < content.len) line_end + 1 else content.len;
+                line_no += 1;
+                continue;
             }
         }
 
