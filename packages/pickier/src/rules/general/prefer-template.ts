@@ -6,6 +6,20 @@ import type { LintIssue, RuleContext, RuleModule } from '../../types'
  * Flags cases like: 'hello ' + name + '!'
  * Suggests: `hello ${name}!`
  */
+function isInsideString(line: string, pos: number): boolean {
+  let inSingle = false
+  let inDouble = false
+  let inTemplate = false
+  for (let i = 0; i < pos; i++) {
+    const c = line[i]
+    if (c === '\\') { i++; continue }
+    if (c === '\'' && !inDouble && !inTemplate) inSingle = !inSingle
+    else if (c === '"' && !inSingle && !inTemplate) inDouble = !inDouble
+    else if (c === '`' && !inSingle && !inDouble) inTemplate = !inTemplate
+  }
+  return inSingle || inDouble || inTemplate
+}
+
 export const preferTemplate: RuleModule = {
   meta: {
     docs: 'Prefer template literals over string concatenation',
@@ -40,6 +54,10 @@ export const preferTemplate: RuleModule = {
         const commentIdx = line.indexOf('//')
         const matchIdx = line.indexOf(match[0])
         if (commentIdx >= 0 && matchIdx > commentIdx)
+          continue
+
+        // Skip if the match is inside a string literal (e.g., help text describing the pattern)
+        if (isInsideString(line, matchIdx))
           continue
 
         issues.push({

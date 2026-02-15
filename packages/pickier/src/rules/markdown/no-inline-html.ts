@@ -26,14 +26,18 @@ export const noInlineHtmlRule: RuleModule = {
       if (inFence)
         continue
 
-      // Strip inline code spans
-      const stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+      // Strip inline code spans (including multi-backtick spans like `` `code` ``)
+      const stripped = line.replace(/`{1,3}[^`]+`{1,3}/g, m => ' '.repeat(m.length))
 
       // Simple HTML tag detection
       const matches = stripped.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)
 
       for (const match of matches) {
         const tagName = match[1].toLowerCase()
+
+        // Skip URL autolinks like <https://...>, <http://...>, <mailto:...>
+        const afterTag = stripped.slice(match.index! + 1 + tagName.length)
+        if (afterTag.startsWith('://') || (tagName === 'mailto' && afterTag.startsWith(':'))) continue
 
         if (!allowedElements.includes(tagName)) {
           const column = match.index! + 1

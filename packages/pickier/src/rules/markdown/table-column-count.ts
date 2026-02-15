@@ -14,9 +14,21 @@ export const tableColumnCountRule: RuleModule = {
     let inTable = false
     let expectedColumns = -1
     let tableStartLine = -1
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      // Track fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        if (inTable) {
+          inTable = false
+          expectedColumns = -1
+        }
+        continue
+      }
+      if (inFence) continue
 
       // Check if line is part of a table
       const isTableLine = /\|/.test(line) && line.trim().length > 0

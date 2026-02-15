@@ -1522,23 +1522,45 @@ fn stripTypeAnnotation(param: []const u8) []const u8 {
     return trimmed_param;
 }
 
-/// Find the body of a function by matching braces from the current position
+/// Find the body of a function by matching braces from the current position.
+/// Handles TypeScript return type annotations like `: Promise<{ errors: number }>` by
+/// tracking angle bracket depth and skipping { } inside < ... >.
 fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []const u8 {
-    // Look for opening { from line_end onwards
+    // Look for opening { from line_start onwards
     var i = line_start;
     var depth: i32 = 0;
+    var angle_depth: i32 = 0;
     var body_start: usize = 0;
     var found_open = false;
 
     while (i < content.len) : (i += 1) {
         const ch = content[i];
+        // Only track angle brackets before the function body opens.
+        // This handles TypeScript return type annotations like `: Promise<{ errors: number }>`.
+        if (!found_open) {
+            if (ch == '<') {
+                angle_depth += 1;
+                continue;
+            } else if (ch == '>' and angle_depth > 0) {
+                angle_depth -= 1;
+                continue;
+            }
+        }
         if (ch == '{') {
+            if (angle_depth > 0) {
+                // Skip { inside type angle brackets (e.g. Promise<{ x: number }>)
+                continue;
+            }
             if (!found_open) {
                 body_start = i + 1;
                 found_open = true;
             }
             depth += 1;
         } else if (ch == '}') {
+            if (angle_depth > 0) {
+                // Skip } inside type angle brackets
+                continue;
+            }
             depth -= 1;
             if (found_open and depth == 0) {
                 return content[body_start..i];
@@ -2043,8 +2065,73 @@ fn parseAndCheckRegex(
     const after_regex = if (end < content.len) content[end..] else "";
     const after_trimmed = std.mem.trimStart(u8, after_regex, " \t");
 
-    // .test() — captures not used
+    // .test() directly after regex — captures not used
+    var should_flag = false;
     if (std.mem.startsWith(u8, after_trimmed, ".test(")) {
+        should_flag = true;
+    }
+
+    // Check variable assignment: const/let/var NAME = /regex/
+    // Then search forward for NAME.test( — captures not used
+    if (!should_flag and start >= 2) {
+        const var_name = findVarNameBefore(content, start);
+        if (var_name) |name| {
+            // Search forward in content for name.test( and name.exec(/.match(name)/.replace(name)
+            var has_test = false;
+            var has_capture_use = false;
+            var search_pos: usize = end;
+            while (search_pos + name.len < content.len) {
+                if (std.mem.indexOf(u8, content[search_pos..], name)) |idx| {
+                    const abs = search_pos + idx;
+                    // Check word boundary before
+                    if (abs > 0 and isIdentChar(content[abs - 1])) {
+                        search_pos = abs + 1;
+                        continue;
+                    }
+                    // Check word boundary after
+                    const after_name = abs + name.len;
+                    if (after_name < content.len and isIdentChar(content[after_name])) {
+                        search_pos = abs + 1;
+                        continue;
+                    }
+                    // Check what follows the variable name
+                    if (after_name < content.len and content[after_name] == '.') {
+                        const method_start = after_name + 1;
+                        if (method_start + 5 <= content.len and std.mem.eql(u8, content[method_start .. method_start + 5], "test(")) {
+                            has_test = true;
+                        } else if (method_start + 5 <= content.len and std.mem.eql(u8, content[method_start .. method_start + 5], "exec(")) {
+                            has_capture_use = true;
+                        }
+                    }
+                    search_pos = abs + 1;
+                } else break;
+            }
+            // Also check for .match(name) and .replace(name) patterns
+            if (!has_capture_use) {
+                const match_patterns = [_][]const u8{ ".match(", ".matchAll(", ".replace(", ".replaceAll(" };
+                for (match_patterns) |mp| {
+                    var mp_pos: usize = end;
+                    while (mp_pos < content.len) {
+                        if (std.mem.indexOf(u8, content[mp_pos..], mp)) |idx| {
+                            const arg_start = mp_pos + idx + mp.len;
+                            const rest = std.mem.trimStart(u8, content[arg_start..@min(arg_start + name.len + 10, content.len)], " \t");
+                            if (std.mem.startsWith(u8, rest, name)) {
+                                has_capture_use = true;
+                                break;
+                            }
+                            mp_pos = arg_start;
+                        } else break;
+                    }
+                    if (has_capture_use) break;
+                }
+            }
+            if (has_test and !has_capture_use) {
+                should_flag = true;
+            }
+        }
+    }
+
+    if (should_flag) {
         if (!directives_mod.isSuppressed("regexp/no-unused-capturing-group", line_no, suppress)) {
             try issues.append(allocator, .{
                 .file_path = file_path,
@@ -2058,6 +2145,36 @@ fn parseAndCheckRegex(
     }
 
     return end - 1;
+}
+
+fn findVarNameBefore(content: []const u8, regex_start: usize) ?[]const u8 {
+    // Look backwards for: const/let/var NAME = /regex/
+    if (regex_start < 4) return null;
+    var j = regex_start - 1;
+    // Skip whitespace before the `=`
+    while (j > 0 and (content[j] == ' ' or content[j] == '\t')) j -= 1;
+    if (content[j] != '=') return null;
+    // Make sure it's not == or ===
+    if (j > 0 and content[j - 1] == '=') return null;
+    j -= 1;
+    // Skip whitespace before the variable name
+    while (j > 0 and (content[j] == ' ' or content[j] == '\t')) j -= 1;
+    // Read identifier backwards
+    const name_end = j + 1;
+    while (j > 0 and isIdentChar(content[j])) j -= 1;
+    if (!isIdentChar(content[j])) j += 1;
+    if (j >= name_end) return null;
+    const name = content[j..name_end];
+    if (name.len == 0) return null;
+    // Check that it's preceded by const/let/var
+    if (j < 1) return null;
+    var k = j - 1;
+    while (k > 0 and (content[k] == ' ' or content[k] == '\t')) k -= 1;
+    const prefix_end = k + 1;
+    if (prefix_end >= 5 and std.mem.eql(u8, content[prefix_end - 5 .. prefix_end], "const")) return name;
+    if (prefix_end >= 3 and std.mem.eql(u8, content[prefix_end - 3 .. prefix_end], "let")) return name;
+    if (prefix_end >= 3 and std.mem.eql(u8, content[prefix_end - 3 .. prefix_end], "var")) return name;
+    return null;
 }
 
 fn countCapturingGroups(pattern: []const u8) u32 {
@@ -2169,40 +2286,144 @@ fn isRegexContextLine(line: []const u8, pos: usize) bool {
     var j = pos - 1;
     while (j > 0 and (line[j] == ' ' or line[j] == '\t')) j -= 1;
     const before = line[j];
+    // If we walked back to position 0 and it's whitespace, the regex is the first token on the line
+    if (j == 0 and (before == ' ' or before == '\t')) return true;
+    // Check for keywords like 'return' before the regex
+    if (before == 'n') {
+        // Check for 'return'
+        if (j >= 5 and std.mem.eql(u8, line[j - 5 .. j + 1], "return")) return true;
+    }
     return before == '=' or before == '(' or before == '[' or before == '{' or
         before == ',' or before == ';' or before == '!' or before == '&' or
         before == '|' or before == '?' or before == ':';
 }
 
 fn hasSuperLinearPattern(pattern: []const u8) bool {
-    // Check for nested quantifiers like (.+)+, (.*)*
-    var i: usize = 0;
-    var paren_depth: u32 = 0;
-    var has_quantifier_in_group = false;
-    while (i < pattern.len) : (i += 1) {
-        if (pattern[i] == '\\') {
-            i += 1;
-            continue;
-        }
-        if (pattern[i] == '(') {
-            paren_depth += 1;
-            has_quantifier_in_group = false;
-        } else if (pattern[i] == ')') {
-            if (paren_depth > 0) paren_depth -= 1;
-            if (has_quantifier_in_group and i + 1 < pattern.len and
-                (pattern[i + 1] == '+' or pattern[i + 1] == '*'))
-            {
-                return true;
+    // Match TS implementation: 3 checks in order
+
+    // Step 1: Strip character classes [...]
+    var flat_buf: [4096]u8 = undefined;
+    var flat_len: usize = 0;
+    {
+        var i: usize = 0;
+        var escaped = false;
+        while (i < pattern.len and flat_len < flat_buf.len) : (i += 1) {
+            if (escaped) {
+                flat_buf[flat_len] = pattern[i];
+                flat_len += 1;
+                escaped = false;
+                continue;
             }
-        } else if ((pattern[i] == '+' or pattern[i] == '*') and paren_depth > 0) {
-            has_quantifier_in_group = true;
+            if (pattern[i] == '\\') {
+                escaped = true;
+                flat_buf[flat_len] = '\\';
+                flat_len += 1;
+                continue;
+            }
+            if (pattern[i] == '[') {
+                // Skip until closing ]
+                i += 1;
+                while (i < pattern.len) : (i += 1) {
+                    if (pattern[i] == '\\') {
+                        i += 1;
+                        continue;
+                    }
+                    if (pattern[i] == ']') break;
+                }
+                continue;
+            }
+            flat_buf[flat_len] = pattern[i];
+            flat_len += 1;
+        }
+    }
+    const flat = flat_buf[0..flat_len];
+
+    // Check 1: Exchangeable characters — .+?\s*, \s*.+?, .*\s*, \s*.*
+    if (containsSeq(flat, ".+?\\s*") or containsSeq(flat, "\\s*.+?") or
+        containsSeq(flat, ".*\\s*") or containsSeq(flat, "\\s*.*"))
+    {
+        return true;
+    }
+
+    // Step 2: Collapse whitespace for wildcard check
+    var col_buf: [4096]u8 = undefined;
+    var col_len: usize = 0;
+    for (flat) |ch| {
+        if (ch == ' ' or ch == '\t') continue;
+        if (col_len < col_buf.len) {
+            col_buf[col_len] = ch;
+            col_len += 1;
+        }
+    }
+    const collapsed = col_buf[0..col_len];
+
+    // Check 2: Multiple adjacent wildcards — .*.*?, .+.+?, mixed
+    if (hasMultipleAdjacentWildcards(collapsed)) {
+        return true;
+    }
+
+    // Check 3: Nested unlimited quantifiers — (stuff+)+ or (?:stuff*)*
+    {
+        var i: usize = 0;
+        var paren_depth: u32 = 0;
+        var has_quantifier_in_group = false;
+        while (i < flat.len) : (i += 1) {
+            if (flat[i] == '\\') {
+                i += 1;
+                continue;
+            }
+            if (flat[i] == '(') {
+                paren_depth += 1;
+                has_quantifier_in_group = false;
+            } else if (flat[i] == ')') {
+                if (paren_depth > 0) paren_depth -= 1;
+                // Check if quantifier follows the closing paren (with optional ?)
+                var next = i + 1;
+                // Skip optional ? after )
+                while (next < flat.len and flat[next] == ' ') next += 1;
+                if (has_quantifier_in_group and next < flat.len and
+                    (flat[next] == '+' or flat[next] == '*'))
+                {
+                    return true;
+                }
+            } else if ((flat[i] == '+' or flat[i] == '*') and paren_depth > 0) {
+                has_quantifier_in_group = true;
+            }
         }
     }
 
-    // Check for multiple adjacent wildcards: .*.*
-    if (std.mem.indexOf(u8, pattern, ".*.*") != null) return true;
-    if (std.mem.indexOf(u8, pattern, ".+.+") != null) return true;
+    return false;
+}
 
+fn containsSeq(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len > haystack.len) return false;
+    var i: usize = 0;
+    while (i + needle.len <= haystack.len) : (i += 1) {
+        if (std.mem.eql(u8, haystack[i .. i + needle.len], needle)) return true;
+    }
+    return false;
+}
+
+fn hasMultipleAdjacentWildcards(s: []const u8) bool {
+    // Look for patterns like .*?.*, .+?.+, .*?. +?, etc.
+    // Match TS: /(?:\.\*\??){2,}/ or /(?:\.\+\??){2,}/ or mixed
+    var i: usize = 0;
+    while (i < s.len) {
+        // Try to match a wildcard: .* or .+ (optionally lazy with ?)
+        if (s[i] == '.' and i + 1 < s.len and (s[i + 1] == '*' or s[i + 1] == '+')) {
+            var end1 = i + 2;
+            if (end1 < s.len and s[end1] == '?') end1 += 1;
+            // Check if another wildcard follows immediately
+            if (end1 < s.len and s[end1] == '.' and end1 + 1 < s.len and
+                (s[end1 + 1] == '*' or s[end1 + 1] == '+'))
+            {
+                return true;
+            }
+            i = end1;
+        } else {
+            i += 1;
+        }
+    }
     return false;
 }
 
@@ -2234,12 +2455,11 @@ fn checkNoUselessLazy(
                 if (line[i] == '/' and isRegexContextLine(line, i)) {
                     if (extractRegexPattern(line, i)) |result| {
                         const pattern = result.pattern;
-                        // Check for lazy quantifier before $ at end
+                        // Check for lazy quantifier before $ at end: +?$ or *?$ or ??$
                         if (pattern.len >= 3) {
                             const last = pattern[pattern.len - 1];
                             const second_last = pattern[pattern.len - 2];
                             const third_last = pattern[pattern.len - 3];
-                            // +?$ or *?$ or ??$
                             if (last == '$' and second_last == '?' and
                                 (third_last == '+' or third_last == '*' or third_last == '?'))
                             {
@@ -2255,7 +2475,7 @@ fn checkNoUselessLazy(
                                 }
                             }
                         }
-                        // Check for lazy at very end of pattern
+                        // Check for lazy at very end of pattern: +? or *? or ??
                         if (pattern.len >= 2) {
                             const last = pattern[pattern.len - 1];
                             const second_last = pattern[pattern.len - 2];

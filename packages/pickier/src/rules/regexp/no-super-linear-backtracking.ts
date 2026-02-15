@@ -5,7 +5,7 @@ export const noSuperLinearBacktrackingRule: RuleModule = {
   meta: { docs: 'Detects potentially super-linear backtracking patterns in regex literals (heuristic)' },
   check: (text, ctx) => {
     const issues = [] as ReturnType<RuleModule['check']>
-    const regexLiteral = /\/[^/\\]*(?:\\.[^/\\]*)*\//g
+    const regexLiteral = /\/[^/\\\n]*(?:\\.[^/\\\n]*)*\//g
     const mark = (idx: number, _len: number, msg: string) => {
       const before = text.slice(0, idx)
       const line = (before.match(/\n/g) || []).length + 1
@@ -29,7 +29,9 @@ export const noSuperLinearBacktrackingRule: RuleModule = {
         mark(idx, literal.length, 'Multiple adjacent unlimited wildcard quantifiers can cause super-linear backtracking')
         continue
       }
-      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(flat)) {
+      // Strip escaped characters before checking nested quantifiers
+      // so that \( is not mistaken for a group opener
+      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(flat.replace(/\\./g, ''))) {
         mark(idx, literal.length, 'Nested unlimited quantifiers detected (e.g., (.+)+) which can cause catastrophic backtracking')
         continue
       }

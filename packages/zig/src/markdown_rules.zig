@@ -899,6 +899,14 @@ fn checkNoInlineHtml(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup
                         (line[tag_end] >= 'a' and line[tag_end] <= 'z') or
                         (line[tag_end] >= 'A' and line[tag_end] <= 'Z') or
                         (line[tag_end] >= '0' and line[tag_end] <= '9'))) tag_end += 1;
+                    // Skip URL autolinks: <https://...>, <http://...>, <mailto:...>
+                    const tag_name = line[tag_start..tag_end];
+                    const is_url = (tag_end + 2 < line.len and line[tag_end] == ':' and line[tag_end + 1] == '/' and line[tag_end + 2] == '/') or
+                        (std.ascii.eqlIgnoreCase(tag_name, "mailto") and tag_end < line.len and line[tag_end] == ':');
+                    if (is_url) {
+                        search_pos = tag_end;
+                        continue;
+                    }
                     // After tag name, must hit a word boundary (non-alphanumeric char)
                     // Then allow any chars until closing >
                     if (tag_end < line.len and !isTagNameChar(line[tag_end])) {

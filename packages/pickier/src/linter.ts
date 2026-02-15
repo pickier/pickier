@@ -906,8 +906,75 @@ function getCommentLines(content: string): Set<number> {
           i++ // skip next char
         }
         else if (ch === '/' && next === '*') {
-          state = 'block-comment'
-          i++ // skip next char
+          // Check if this `/` starts a regex literal rather than a block comment
+          // Look back for a regex context character (operator, keyword, etc.)
+          let isRegex = false
+          if (i > 0) {
+            let k = i - 1
+            while (k > 0 && (content[k] === ' ' || content[k] === '\t')) k--
+            const bc = content[k]
+            // If preceded by an operator/delimiter, it's likely a regex
+            if ('=([{,;!&|?:~^%+-'.includes(bc) || bc === '\n') {
+              isRegex = true
+            }
+            // 'return', 'case', 'typeof', etc.
+            else if (/[a-z]/.test(bc)) {
+              const slice = content.slice(Math.max(0, k - 6), k + 1)
+              if (/\b(?:return|case|typeof|void|in|of|new|throw|delete)$/.test(slice)) {
+                isRegex = true
+              }
+            }
+          } else {
+            isRegex = true // `/` at start of file
+          }
+          if (isRegex) {
+            // Skip the regex literal
+            lineHasCode = true
+            i++ // skip past the `*`
+            while (i < content.length) {
+              if (content[i] === '\\') { i += 2; continue }
+              if (content[i] === '/') { i++; break }
+              if (content[i] === '\n') break // unterminated regex, stop
+              i++
+            }
+            // Skip flags
+            while (i < content.length && /[gimsuy]/.test(content[i])) i++
+            i-- // will be incremented by for loop
+          } else {
+            state = 'block-comment'
+            i++ // skip next char
+          }
+        }
+        else if (ch === '/' && next !== undefined) {
+          // Check if this `/` starts a regex literal (not followed by `*` or `/`)
+          let isRegex = false
+          if (i > 0) {
+            let k = i - 1
+            while (k > 0 && (content[k] === ' ' || content[k] === '\t')) k--
+            const bc = content[k]
+            if ('=([{,;!&|?:~^%+-'.includes(bc) || bc === '\n') {
+              isRegex = true
+            } else if (/[a-z]/.test(bc)) {
+              const slice = content.slice(Math.max(0, k - 6), k + 1)
+              if (/\b(?:return|case|typeof|void|in|of|new|throw|delete)$/.test(slice)) {
+                isRegex = true
+              }
+            }
+          }
+          if (isRegex) {
+            lineHasCode = true
+            i++ // skip past the first char after `/`
+            while (i < content.length) {
+              if (content[i] === '\\') { i += 2; continue }
+              if (content[i] === '/') { i++; break }
+              if (content[i] === '\n') break
+              i++
+            }
+            while (i < content.length && /[gimsuy]/.test(content[i])) i++
+            i--
+          } else {
+            lineHasCode = true
+          }
         }
         else if (ch === '\'') {
           state = 'string-single'
@@ -1168,10 +1235,11 @@ export function scanContentOptimized(
     // no-cond-assign: forbid assignments inside condition parentheses
     // Skip this check for lines inside multi-line template literals (test content)
     if (wantNoCondAssign && !linesInTemplate.has(lineNo)) {
-      // Strip comments and regex literals to avoid false positives
+      // Strip comments, regex literals, and string literals to avoid false positives
       const strippedLine = stripComments(stripRegexLiterals(line))
       // Check for assignment (single =) but exclude comparisons (==, ===) and arrow functions (=>)
-      const checkCond = (cond: string) => /[^=!<>]=(?![=>])/.test(cond)
+      // Also strip string literals from condition before checking (e.g., ch === '=' should not trigger)
+      const checkCond = (cond: string) => /[^=!<>]=(?![=>])/.test(cond.replace(/'[^']*'|"[^"]*"/g, '""'))
       const m1 = strippedLine.match(/\b(?:if|while)\s*\(([^)]*)\)/)
       if (m1) {
         const cond = m1[1]

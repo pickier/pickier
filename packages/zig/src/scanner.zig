@@ -543,6 +543,10 @@ fn detectQuoteIssue(line: []const u8, preferred: format.Config.QuoteStyle) ?u32 
                             {
                                 state = .regex;
                             }
+                            // Check for keywords like 'return' before the regex
+                            else if (prev == 'n' and k >= 6 and std.mem.eql(u8, line[k - 6 .. k], "return")) {
+                                state = .regex;
+                            }
                         }
                     }
                 }

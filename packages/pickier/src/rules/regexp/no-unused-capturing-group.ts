@@ -162,6 +162,41 @@ function areCapturesUsed(content: string, regexStart: number, regexEnd: number):
   return true
 }
 
+/**
+ * Skip past a regex literal starting at idx, even if it has no capturing groups.
+ * Returns the position after the regex (past flags), or idx+1 if not a regex.
+ */
+function skipRegexLiteral(content: string, idx: number): number {
+  // Check regex context
+  let prevIdx = idx - 1
+  while (prevIdx >= 0 && (content[prevIdx] === ' ' || content[prevIdx] === '\t')) prevIdx--
+  const prevChar = prevIdx >= 0 ? content[prevIdx] : ''
+  const regexPrecedes = '=(<>!&|?:;,{[+(~^%*/'
+  const isRegex = prevIdx < 0
+    || regexPrecedes.includes(prevChar)
+    || /\b(?:return|typeof|void|delete|throw|new|in|of|case)\s*$/.test(content.slice(Math.max(0, prevIdx - 5), prevIdx + 1))
+  if (!isRegex) return idx + 1
+
+  let i = idx + 1
+  let inClass = false
+  let escaped = false
+  while (i < content.length) {
+    const c = content[i]
+    if (escaped) { escaped = false }
+    else if (c === '\\') { escaped = true }
+    else if (c === '[') { if (!inClass) inClass = true }
+    else if (c === ']') { if (inClass) inClass = false }
+    else if (c === '/' && !inClass) {
+      i++
+      while (i < content.length && /[gimsuy]/.test(content[i])) i++
+      return i
+    }
+    else if (c === '\n') { break }
+    i++
+  }
+  return idx + 1
+}
+
 function findIssues(content: string, ctx: RuleContext): LintIssue[] {
   const issues: LintIssue[] = []
   const filePath = ctx.filePath
@@ -200,7 +235,14 @@ function findIssues(content: string, ctx: RuleContext): LintIssue[] {
     if (ch === '/') {
       const info = parseRegexLiteral(content, idx)
       if (!info) {
-        idx++
+        // Even if parseRegexLiteral returns null, we may need to skip past a valid regex
+        // that just had no capturing groups or had backreferences. Re-scan to find the end.
+        const skipEnd = skipRegexLiteral(content, idx)
+        if (skipEnd > idx + 1) {
+          idx = skipEnd
+        } else {
+          idx++
+        }
         continue
       }
 

@@ -1,6 +1,34 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 import type { RuleModule } from '../../types'
 
+function splitTopLevel(s: string, sep: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '(' || c === '{' || c === '[') depth++
+    else if (c === ')' || c === '}' || c === ']') depth--
+    else if (c === sep && depth === 0) {
+      parts.push(s.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(s.slice(start))
+  return parts
+}
+
+function findTopLevelEquals(s: string): number {
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '{' || c === '(' || c === '[' || c === '<') depth++
+    else if (c === '}' || c === ')' || c === ']' || c === '>') depth--
+    else if (c === '=' && depth === 0 && s[i + 1] !== '=' && s[i - 1] !== '!' && s[i - 1] !== '<' && s[i - 1] !== '>') return i
+  }
+  return -1
+}
+
 export const preferConstRule: RuleModule = {
   meta: { docs: 'Suggest \'const\' for variables that are never reassigned (heuristic)' },
   check: (text, ctx) => {
@@ -11,8 +39,17 @@ export const preferConstRule: RuleModule = {
       const decl = line.match(/^\s*(?:let|var)\s+(.+?);?\s*$/)
       if (!decl)
         continue
-      const after = decl[1]
-      const parts = after.split(',')
+      let after = decl[1]
+      // Strip type annotations (e.g., "x: { a: number, b: string } = ...") to avoid splitting inside types
+      // Remove content between : and = at the top level (tracking braces/parens/brackets)
+      const eqIdx = findTopLevelEquals(after)
+      if (eqIdx >= 0) {
+        const colonIdx = after.indexOf(':')
+        if (colonIdx >= 0 && colonIdx < eqIdx) {
+          after = after.slice(0, colonIdx) + after.slice(eqIdx)
+        }
+      }
+      const parts = splitTopLevel(after, ',')
       for (const partRaw of parts) {
         const part = partRaw.trim()
         if (!part)

@@ -21,6 +21,9 @@ export const braceStyle: RuleModule = {
       const line = lines[i]
       const trimmed = line.trim()
 
+      // Skip comment lines
+      if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue
+
       // Check for closing brace followed by else/catch/finally on same line
       // This is the most common violation: } else, } catch, } finally
       const closingBraceWithNext = /\}\s+(else|catch|finally)\b/
