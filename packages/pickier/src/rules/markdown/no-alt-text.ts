@@ -11,11 +11,19 @@ export const noAltTextRule: RuleModule = {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
 
+    let inFence = false
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Skip fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) { inFence = !inFence; continue }
+      if (inFence) continue
+
+      // Strip inline code spans
+      const stripped = line.replace(/``[^`]+``/g, m => ' '.repeat(m.length)).replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
       // Check for images with empty alt text ![](url)
-      const emptyAltMatches = line.matchAll(/!\[\s*\]\([^)]+\)/g)
+      const emptyAltMatches = stripped.matchAll(/!\[\s*\]\([^)]+\)/g)
 
       for (const match of emptyAltMatches) {
         const column = match.index! + 1

@@ -906,26 +906,24 @@ function getCommentLines(content: string): Set<number> {
           i++ // skip next char
         }
         else if (ch === '/' && next === '*') {
-          // Check if this `/` starts a regex literal rather than a block comment
-          // Look back for a regex context character (operator, keyword, etc.)
+          // Check if this `/*` starts a regex literal rather than a block comment
+          // Only treat as regex if preceded by an operator — NOT after newline (which is a comment)
           let isRegex = false
           if (i > 0) {
             let k = i - 1
             while (k > 0 && (content[k] === ' ' || content[k] === '\t')) k--
             const bc = content[k]
-            // If preceded by an operator/delimiter, it's likely a regex
-            if ('=([{,;!&|?:~^%+-'.includes(bc) || bc === '\n') {
+            // If preceded by an operator/delimiter (but NOT newline), it's likely a regex like /*/
+            if ('=([{,;!&|?:~^%+-'.includes(bc) && bc !== '\n') {
               isRegex = true
             }
-            // 'return', 'case', 'typeof', etc.
+            // 'return', 'case', etc.
             else if (/[a-z]/.test(bc)) {
               const slice = content.slice(Math.max(0, k - 6), k + 1)
               if (/\b(?:return|case|typeof|void|in|of|new|throw|delete)$/.test(slice)) {
                 isRegex = true
               }
             }
-          } else {
-            isRegex = true // `/` at start of file
           }
           if (isRegex) {
             // Skip the regex literal
@@ -1051,9 +1049,12 @@ export function scanContentOptimized(
   // Skip quotes check for JSON/JSONC files (double quotes required by spec), lock files,
   // markdown files (HTML attributes use double quotes), and YAML files
   const fileExt = filePath.split('.').pop()?.toLowerCase() ?? ''
+  const isMd = fileExt === 'md'
   const skipQuotesCheck = fileExt === 'json' || fileExt === 'jsonc' || fileExt === 'lock'
-    || fileExt === 'md' || fileExt === 'yaml' || fileExt === 'yml'
+    || isMd || fileExt === 'yaml' || fileExt === 'yml'
     || filePath.endsWith('bun.lock')
+  // Skip code-level rules for non-code files (markdown, yaml, etc.)
+  const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc'
   let quotesReported = false
   const sevMap = (s: 'warn' | 'error' | 'off' | undefined): 'warning' | 'error' | undefined =>
     s === 'warn' ? 'warning' : s === 'error' ? 'error' : undefined
@@ -1143,13 +1144,13 @@ export function scanContentOptimized(
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }
 
-    // built-in lint rules
-    if (wantDebugger && debuggerStmt.test(line)) {
+    // built-in lint rules (skip for non-code files like markdown, yaml, json)
+    if (!skipCodeRules && wantDebugger && debuggerStmt.test(line)) {
       if (!isSuppressed('no-debugger', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'no-debugger', message: 'Unexpected debugger statement', severity: wantDebugger, help: 'Remove debugger statements before committing code. Use breakpoints in your IDE instead, or run with --fix to auto-remove' })
     }
     // Skip console detection for lines inside multi-line template literals
-    if (wantConsole && !linesInTemplate.has(lineNo) && consoleCall.test(line)) {
+    if (!skipCodeRules && wantConsole && !linesInTemplate.has(lineNo) && consoleCall.test(line)) {
       // Skip if console appears in a comment
       const commentIdx = line.indexOf('//')
       const consoleIdx = line.indexOf('console.')
@@ -1234,7 +1235,7 @@ export function scanContentOptimized(
 
     // no-cond-assign: forbid assignments inside condition parentheses
     // Skip this check for lines inside multi-line template literals (test content)
-    if (wantNoCondAssign && !linesInTemplate.has(lineNo)) {
+    if (!skipCodeRules && wantNoCondAssign && !linesInTemplate.has(lineNo)) {
       // Strip comments, regex literals, and string literals to avoid false positives
       const strippedLine = stripComments(stripRegexLiterals(line))
       // Check for assignment (single =) but exclude comparisons (==, ===) and arrow functions (=>)

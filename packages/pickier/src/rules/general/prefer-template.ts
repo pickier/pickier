@@ -60,6 +60,17 @@ export const preferTemplate: RuleModule = {
         if (isInsideString(line, matchIdx))
           continue
 
+        // Skip patterns like: identifier + 'string'.length (property access on string, not concatenation)
+        // Only applies when the STRING is at the END of the match and followed by '.'
+        const isIdentPlusString = !!trimmed.match(identifierPlusString)
+        const isStringPlusIdent = !!trimmed.match(stringPlusIdentifier)
+        // If identifierPlusString matches and stringPlusIdentifier does NOT, the string is at end
+        if (isIdentPlusString && !isStringPlusIdent) {
+          const afterMatch = trimmed.slice(trimmed.indexOf(match[0]) + match[0].length)
+          if (afterMatch.startsWith('.'))
+            continue
+        }
+
         issues.push({
           filePath: context.filePath,
           line: i + 1,

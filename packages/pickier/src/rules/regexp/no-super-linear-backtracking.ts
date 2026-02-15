@@ -29,9 +29,9 @@ export const noSuperLinearBacktrackingRule: RuleModule = {
         mark(idx, literal.length, 'Multiple adjacent unlimited wildcard quantifiers can cause super-linear backtracking')
         continue
       }
-      // Strip escaped characters before checking nested quantifiers
-      // so that \( is not mistaken for a group opener
-      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(flat.replace(/\\./g, ''))) {
+      // Check 3: Nested unlimited quantifiers like (.+)+ or (?:...)+
+      // Only strip escaped parens (\( and \)) to avoid false positives, but keep other escapes
+      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(flat.replace(/\\[()]/g, '_'))) {
         mark(idx, literal.length, 'Nested unlimited quantifiers detected (e.g., (.+)+) which can cause catastrophic backtracking')
         continue
       }

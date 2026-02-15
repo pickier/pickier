@@ -25,7 +25,6 @@ export const braceStyle: RuleModule = {
       if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue
 
       // Check for closing brace followed by else/catch/finally on same line
-      // This is the most common violation: } else, } catch, } finally
       const closingBraceWithNext = /\}\s+(else|catch|finally)\b/
       if (closingBraceWithNext.test(trimmed)) {
         issues.push({
@@ -42,6 +41,9 @@ export const braceStyle: RuleModule = {
       // This detects cases where the opening { is alone on its own line
       if (trimmed === '{' && i > 0) {
         const prevLine = lines[i - 1].trim()
+        // Skip standalone block scopes (previous line is empty or a comment)
+        if (!prevLine || prevLine.startsWith('//') || prevLine.startsWith('/*') || prevLine.endsWith('*/'))
+          continue
         // Only flag if previous line ends with something that should have { on same line
         if (prevLine && !prevLine.endsWith('{') && !prevLine.endsWith(',') && !prevLine.endsWith('(')) {
           // Check if it's not part of an object literal or array

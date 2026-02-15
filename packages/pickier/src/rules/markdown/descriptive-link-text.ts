@@ -14,11 +14,19 @@ export const descriptiveLinkTextRule: RuleModule = {
     // Common non-descriptive link texts
     const nonDescriptive = ['click here', 'here', 'link', 'read more', 'more', 'this']
 
+    let inFence = false
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
+      // Skip fenced code blocks
+      if (/^(`{3,}|~{3,})/.test(line.trim())) { inFence = !inFence; continue }
+      if (inFence) continue
+
+      // Strip inline code spans before checking
+      const stripped = line.replace(/``[^`]+``/g, m => ' '.repeat(m.length)).replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
       // Find links [text](url)
-      const matches = line.matchAll(/\[([^\]]+)\]\([^)]+\)/g)
+      const matches = stripped.matchAll(/\[([^\]]+)\]\([^)]+\)/g)
 
       for (const match of matches) {
         const linkText = match[1].toLowerCase().trim()

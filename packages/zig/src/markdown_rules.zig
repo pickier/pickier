@@ -1277,6 +1277,12 @@ fn checkTableColumnCount(fp: []const u8, md: []const u8, fm: u32, sev: Severity,
         }
         if (in_fence) continue;
         if (isTableRow(t)) {
+            // Skip list items that happen to contain | (e.g., `||=` in backtick spans)
+            if (t.len > 1 and t[0] != '|' and ((t[0] == '-' or t[0] == '*' or t[0] == '+') and t[1] == ' ')) {
+                in_table = false;
+                expected_cols = 0;
+                continue;
+            }
             const cols = countTableColumns(t);
             if (!in_table) {
                 in_table = true;

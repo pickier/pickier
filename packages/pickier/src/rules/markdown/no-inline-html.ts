@@ -26,8 +26,11 @@ export const noInlineHtmlRule: RuleModule = {
       if (inFence)
         continue
 
-      // Strip inline code spans (including multi-backtick spans like `` `code` ``)
-      const stripped = line.replace(/`{1,3}[^`]+`{1,3}/g, m => ' '.repeat(m.length))
+      // Strip inline code spans (handle multi-backtick spans like `` `code` ``)
+      let stripped = line
+      // Strip double-backtick spans first (`` ... ``), then single backtick spans (` ... `)
+      stripped = stripped.replace(/``[^`]+``/g, m => ' '.repeat(m.length))
+      stripped = stripped.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
 
       // Simple HTML tag detection
       const matches = stripped.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)

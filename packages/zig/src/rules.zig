@@ -212,18 +212,43 @@ fn checkBraceStyle(
         const line = content[pos..line_end];
         const trimmed = std.mem.trim(u8, line, " \t\r");
 
-        // Check 1: } else / } catch / } finally on same line with space
+        // Skip comment lines
+        if (std.mem.startsWith(u8, trimmed, "//") or std.mem.startsWith(u8, trimmed, "/*")) {
+            prev_line = line;
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+
+        // Check 1: } else / } catch / } finally on same line
         if (std.mem.indexOf(u8, trimmed, "} else") != null or
             std.mem.indexOf(u8, trimmed, "} catch") != null or
             std.mem.indexOf(u8, trimmed, "} finally") != null)
         {
-            // This is actually the CORRECT 1tbs style, no issue
+            if (!directives_mod.isSuppressed("style/brace-style", line_no, suppress)) {
+                try issues.append(allocator, .{
+                    .file_path = file_path,
+                    .line = line_no,
+                    .column = 1,
+                    .rule_id = "style/brace-style",
+                    .message = "Closing curly brace appears on the same line as the subsequent block",
+                    .severity = severity,
+                });
+            }
         }
 
         // Check 2: Opening brace alone on its own line
         if (std.mem.eql(u8, trimmed, "{")) {
             if (prev_line.len > 0) {
                 const prev_trimmed = std.mem.trim(u8, prev_line, " \t\r");
+                // Skip if prev line is empty or a comment — this is a standalone block scope
+                if (prev_trimmed.len == 0 or
+                    std.mem.startsWith(u8, prev_trimmed, "//") or
+                    std.mem.startsWith(u8, prev_trimmed, "/*") or
+                    std.mem.endsWith(u8, prev_trimmed, "*/"))
+                {
+                    // Standalone block scope, not a brace-style violation
+                } else
                 // Skip if prev line ends with {, comma, or ( — likely object/array
                 if (prev_trimmed.len > 0) {
                     const last_ch = prev_trimmed[prev_trimmed.len - 1];
@@ -684,9 +709,32 @@ fn hasStringConcatenation(line: []const u8) bool {
                     if (prev_is_string and (next_is_ident or next_is_string)) {
                         return true;
                     }
-                    // Flag: identifier + string
+                    // Flag: identifier + string (but not if string is followed by . for property access)
                     if (next_is_string and prev_is_ident) {
-                        return true;
+                        // Find end of string after +
+                        const quote = after[0];
+                        var end: usize = 1;
+                        var esc = false;
+                        while (end < after.len) : (end += 1) {
+                            if (esc) {
+                                esc = false;
+                                continue;
+                            }
+                            if (after[end] == '\\') {
+                                esc = true;
+                                continue;
+                            }
+                            if (after[end] == quote) {
+                                end += 1;
+                                break;
+                            }
+                        }
+                        // Check if string is followed by . (property access like 'str'.length)
+                        if (end < after.len and after[end] == '.') {
+                            // Skip — this is property access, not concatenation
+                        } else {
+                            return true;
+                        }
                     }
                 }
             },
