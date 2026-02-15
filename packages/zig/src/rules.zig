@@ -36,8 +36,8 @@ pub fn runPluginRules(
         }
     }
 
-    // Style rules (all files including markdown)
-    if (is_code or is_md) {
+    // Style rules (all files including markdown and CSS)
+    if (is_code or is_md or std.mem.endsWith(u8, file_path, ".css")) {
         if (mapSeverity(cfg.getPluginRuleSeverity("style/no-multi-spaces"))) |sev| {
             try checkNoMultiSpaces(file_path, content, sev, suppress, issues, allocator);
         }
@@ -62,6 +62,9 @@ pub fn runPluginRules(
         }
         if (mapSeverity(cfg.getPluginRuleSeverity("pickier/no-unused-vars"))) |sev| {
             try checkNoUnusedVars(file_path, content, sev, suppress, issues, allocator);
+        }
+        if (mapSeverity(cfg.getPluginRuleSeverity("pickier/sort-exports"))) |sev| {
+            try checkSortExports(file_path, content, sev, suppress, issues, allocator);
         }
     }
 
@@ -356,19 +359,7 @@ fn countStatements(line: []const u8) u32 {
         in_for = true;
     }
 
-    // Skip leading semicolons (expression guards like ;(cfg...) = value)
-    var start_idx: usize = 0;
-    if (trimmed.len > 0 and trimmed[0] == ';') {
-        // Find where the leading ; is in the original line
-        for (line, 0..) |c, si| {
-            if (c == ';') {
-                start_idx = si + 1;
-                break;
-            }
-        }
-    }
-
-    for (line[start_idx..], start_idx..) |ch, idx| {
+    for (line, 0..) |ch, idx| {
         if (escaped) {
             escaped = false;
             continue;
@@ -707,7 +698,15 @@ fn hasStringConcatenation(line: []const u8) bool {
 
                     // Flag: string + identifier, string + string
                     if (prev_is_string and (next_is_ident or next_is_string)) {
-                        return true;
+                        // Check if the string before + contains a backtick (can't convert to template)
+                        const pq = line[before - 1]; // closing quote
+                        var ps: usize = before - 2;
+                        while (ps > 0 and line[ps] != pq) : (ps -= 1) {}
+                        if (ps + 1 < before - 1 and std.mem.indexOfScalar(u8, line[ps + 1 .. before - 1], '`') != null) {
+                            // Skip — string contains backtick
+                        } else {
+                            return true;
+                        }
                     }
                     // Flag: identifier + string (but not if string is followed by . for property access)
                     if (next_is_string and prev_is_ident) {
@@ -732,6 +731,8 @@ fn hasStringConcatenation(line: []const u8) bool {
                         // Check if string is followed by . (property access like 'str'.length)
                         if (end < after.len and after[end] == '.') {
                             // Skip — this is property access, not concatenation
+                        } else if (end > 2 and std.mem.indexOfScalar(u8, after[1 .. end - 1], '`') != null) {
+                            // Skip — string contains backtick, can't trivially convert to template literal
                         } else {
                             return true;
                         }
@@ -1574,7 +1575,11 @@ fn stripTypeAnnotation(param: []const u8) []const u8 {
 /// Handles TypeScript return type annotations like `: Promise<{ errors: number }>` by
 /// tracking angle bracket depth and skipping { } inside < ... >.
 fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []const u8 {
-    // Look for opening { from line_start onwards
+    // Look for opening { from line_start onwards.
+    // Handle TypeScript return type annotations like `: { text: string }` or `: Promise<{ x: number }>`.
+    // Strategy: find the { that starts the body by tracking depth — the body { is the one
+    // where depth goes 0→1 and we eventually reach a matching } on a DIFFERENT line (multi-line body).
+    // Inline type annotations like `{ text: string }` have their { and } on the same line portion.
     var i = line_start;
     var depth: i32 = 0;
     var angle_depth: i32 = 0;
@@ -1583,8 +1588,7 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
 
     while (i < content.len) : (i += 1) {
         const ch = content[i];
-        // Only track angle brackets before the function body opens.
-        // This handles TypeScript return type annotations like `: Promise<{ errors: number }>`.
+        // Track angle brackets for generics (< and >)
         if (!found_open) {
             if (ch == '<') {
                 angle_depth += 1;
@@ -1594,21 +1598,47 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
                 continue;
             }
         }
+        if (angle_depth > 0) continue;
+
         if (ch == '{') {
-            if (angle_depth > 0) {
-                // Skip { inside type angle brackets (e.g. Promise<{ x: number }>)
-                continue;
-            }
             if (!found_open) {
+                // Check: is this a type annotation { ... } or the actual body {?
+                // Heuristic: scan forward from this { to see if the matching } is before
+                // the next newline containing actual code. If so, it's a type annotation.
+                var scan_depth: i32 = 1;
+                var scan_j = i + 1;
+                var is_inline = false;
+                while (scan_j < content.len and scan_depth > 0) : (scan_j += 1) {
+                    if (content[scan_j] == '{') scan_depth += 1;
+                    if (content[scan_j] == '}') scan_depth -= 1;
+                    if (content[scan_j] == '\n' and scan_depth > 0) break;
+                }
+                if (scan_depth == 0) {
+                    // The { ... } closes on the same line — it's a type annotation.
+                    // But check: is there a subsequent { on this line? If so, skip this one.
+                    // Look for another { after the closing }
+                    var after_close = scan_j;
+                    while (after_close < content.len and content[after_close] != '\n') : (after_close += 1) {
+                        if (content[after_close] == '{') {
+                            is_inline = true;
+                            break;
+                        }
+                    }
+                    if (!is_inline and after_close < content.len and content[after_close] == '\n') {
+                        // No { after the inline close on this line — treat this as inline type + no body on same line
+                        is_inline = true;
+                    }
+                }
+                if (is_inline) {
+                    // Skip past the inline { ... }
+                    i = scan_j; // scan_j is right after the matching }
+                    continue;
+                }
                 body_start = i + 1;
                 found_open = true;
             }
             depth += 1;
         } else if (ch == '}') {
-            if (angle_depth > 0) {
-                // Skip } inside type angle brackets
-                continue;
-            }
             depth -= 1;
             if (found_open and depth == 0) {
                 return content[body_start..i];
@@ -1643,9 +1673,22 @@ fn findArrowBodyAt(content: []const u8, arrow_pos: usize) []const u8 {
     if (i < max_scan and content[i] == '{') {
         var depth: i32 = 0;
         const body_start = i + 1;
+        var in_sq = false;
+        var in_dq = false;
+        var in_tl = false;
+        var escaped = false;
         while (i < max_scan) : (i += 1) {
-            if (content[i] == '{') depth += 1;
-            if (content[i] == '}') {
+            const ch = content[i];
+            if (escaped) { escaped = false; continue; }
+            if (ch == '\\' and (in_sq or in_dq or in_tl)) { escaped = true; continue; }
+            if (in_sq) { if (ch == '\'') in_sq = false; continue; }
+            if (in_dq) { if (ch == '"') in_dq = false; continue; }
+            if (in_tl) { if (ch == '`') in_tl = false; continue; }
+            if (ch == '\'') { in_sq = true; continue; }
+            if (ch == '"') { in_dq = true; continue; }
+            if (ch == '`') { in_tl = true; continue; }
+            if (ch == '{') depth += 1;
+            if (ch == '}') {
                 depth -= 1;
                 if (depth == 0) return content[body_start..i];
             }
@@ -1932,6 +1975,123 @@ fn checkPreferGlobalProcess(
         pos = if (line_end < content.len) line_end + 1 else content.len;
         line_no += 1;
     }
+}
+
+// ---------------------------------------------------------------------------
+// pickier/sort-exports — ensure contiguous export statements are sorted
+// ---------------------------------------------------------------------------
+
+fn isExportLine(line: []const u8) bool {
+    const trimmed = std.mem.trim(u8, line, " \t\r");
+    // Must match: export { ... } from '...'
+    if (!std.mem.startsWith(u8, trimmed, "export")) return false;
+    if (trimmed.len < 7 or trimmed[6] != ' ') return false;
+    var i: usize = 7;
+    // Skip whitespace
+    while (i < trimmed.len and (trimmed[i] == ' ' or trimmed[i] == '\t')) : (i += 1) {}
+    if (i >= trimmed.len or trimmed[i] != '{') return false;
+    // Find closing }
+    const close = std.mem.indexOfScalarPos(u8, trimmed, i + 1, '}') orelse return false;
+    // After }, expect ' from '
+    var j = close + 1;
+    while (j < trimmed.len and (trimmed[j] == ' ' or trimmed[j] == '\t')) : (j += 1) {}
+    if (j + 4 >= trimmed.len) return false;
+    if (!std.mem.eql(u8, trimmed[j .. j + 4], "from")) return false;
+    j += 4;
+    while (j < trimmed.len and (trimmed[j] == ' ' or trimmed[j] == '\t')) : (j += 1) {}
+    if (j >= trimmed.len) return false;
+    if (trimmed[j] != '\'' and trimmed[j] != '"') return false;
+    return true;
+}
+
+fn checkSortExports(
+    file_path: []const u8,
+    content: []const u8,
+    severity: Severity,
+    suppress: *const directives_mod.DisableDirectives,
+    issues: *std.ArrayList(LintIssue),
+    allocator: Allocator,
+) !void {
+    // Iterate lines, finding contiguous export blocks
+    var line_no: u32 = 1;
+    var pos: usize = 0;
+
+    while (pos < content.len) {
+        const line_end = std.mem.indexOfScalarPos(u8, content, pos, '\n') orelse content.len;
+        const line = content[pos..line_end];
+
+        if (!isExportLine(line)) {
+            pos = if (line_end < content.len) line_end + 1 else content.len;
+            line_no += 1;
+            continue;
+        }
+
+        // Found start of an export block — collect contiguous export lines
+        // Store up to 64 lines in stack buffer
+        var block_lines: [64][]const u8 = undefined;
+        var block_line_nos: [64]u32 = undefined;
+        var block_len: usize = 0;
+
+        block_lines[0] = line;
+        block_line_nos[0] = line_no;
+        block_len = 1;
+
+        var p = if (line_end < content.len) line_end + 1 else content.len;
+        var ln = line_no + 1;
+
+        while (p < content.len and block_len < 64) {
+            const le = std.mem.indexOfScalarPos(u8, content, p, '\n') orelse content.len;
+            const l = content[p..le];
+            if (isExportLine(l)) {
+                block_lines[block_len] = l;
+                block_line_nos[block_len] = ln;
+                block_len += 1;
+                p = if (le < content.len) le + 1 else content.len;
+                ln += 1;
+            } else {
+                break;
+            }
+        }
+
+        if (block_len > 1) {
+            // Check if lines are sorted
+            var first_unsorted: usize = 0;
+            var is_sorted = true;
+            for (1..block_len) |k| {
+                if (strCmpLessThan(block_lines[k], block_lines[k - 1])) {
+                    is_sorted = false;
+                    first_unsorted = k;
+                    break;
+                }
+            }
+
+            if (!is_sorted) {
+                const report_line = block_line_nos[first_unsorted];
+                if (!directives_mod.isSuppressed("pickier/sort-exports", report_line, suppress)) {
+                    try issues.append(allocator, .{
+                        .file_path = file_path,
+                        .line = report_line,
+                        .column = 1,
+                        .rule_id = "pickier/sort-exports",
+                        .message = "Export statements are not sorted.",
+                        .severity = severity,
+                    });
+                }
+            }
+        }
+
+        pos = p;
+        line_no = ln;
+    }
+}
+
+fn strCmpLessThan(a: []const u8, b: []const u8) bool {
+    const min_len = @min(a.len, b.len);
+    for (0..min_len) |idx| {
+        if (a[idx] < b[idx]) return true;
+        if (a[idx] > b[idx]) return false;
+    }
+    return a.len < b.len;
 }
 
 // ---------------------------------------------------------------------------

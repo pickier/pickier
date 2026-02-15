@@ -811,6 +811,110 @@ fn checkNoEmphasisAsHeading(fp: []const u8, md: []const u8, fm: u32, sev: Severi
     }
 }
 
+/// Match TS-style emphasis patterns for a given marker (* or _).
+/// TS uses 4 regex patterns with /g, deduplicating by (line, col, ruleId).
+///
+/// Pattern 1 (opening space):  /\*\*\s+[^*]+?\*\*/g
+///   - Match ** followed by whitespace, then non-* chars, then **
+///   - Only matches ** where the NEXT char is a space
+///
+/// Pattern 2 (closing space):  /\*\*[^*]+?\s+\*\*/g
+///   - Match ** followed by non-* chars ending with space, then **
+///
+/// After dedup by (line, column), each ** pair produces at most 1 issue.
+fn matchEmphasisSpaceAny(sline: []const u8, marker: u8, fp: []const u8, line_no: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
+    // Track reported columns to dedup (like TS dedup by line+column+ruleId)
+    var reported_cols: [32]u32 = undefined;
+    var reported_count: usize = 0;
+
+    // Pattern 1: opening space — **\s+[^M]+?**
+    {
+        var i: usize = 0;
+        while (i + 4 < sline.len) {
+            if (sline[i] == marker and sline[i + 1] == marker) {
+                // Check if char after ** is whitespace
+                if (sline[i + 2] == ' ' or sline[i + 2] == '\t') {
+                    // Find nearest next ** with [^M]+? content (no marker chars)
+                    if (findNextDoubleMarkerNonGreedy(sline, i + 2, marker)) |close| {
+                        const col: u32 = @intCast(i + 1);
+                        if (!colReported(&reported_cols, reported_count, col)) {
+                            if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
+                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = col, .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
+                                if (reported_count < 32) {
+                                    reported_cols[reported_count] = col;
+                                    reported_count += 1;
+                                }
+                            }
+                        }
+                        i = close + 2;
+                        continue;
+                    }
+                }
+            }
+            i += 1;
+        }
+    }
+
+    // Pattern 2: closing space — **[^M]+?\s+**
+    // Key difference from pattern 1: TS regex only matches (advances past) when the
+    // closing space condition is met. If not met, the regex fails at this position
+    // and tries the next character. So we only advance past the span on a MATCH.
+    {
+        var i: usize = 0;
+        while (i + 4 < sline.len) {
+            if (sline[i] == marker and sline[i + 1] == marker) {
+                const content_start = i + 2;
+                if (findNextDoubleMarkerNonGreedy(sline, content_start, marker)) |close| {
+                    if (close > content_start and (sline[close - 1] == ' ' or sline[close - 1] == '\t')) {
+                        // Match succeeded — report and advance past
+                        const col: u32 = @intCast(i + 1);
+                        if (!colReported(&reported_cols, reported_count, col)) {
+                            if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
+                                try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = col, .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
+                                if (reported_count < 32) {
+                                    reported_cols[reported_count] = col;
+                                    reported_count += 1;
+                                }
+                            }
+                        }
+                        i = close + 2;
+                        continue;
+                    }
+                    // No closing space — regex fails at this position, try next char
+                }
+            }
+            i += 1;
+        }
+    }
+}
+
+fn colReported(cols: []const u32, count: usize, col: u32) bool {
+    for (cols[0..count]) |c| {
+        if (c == col) return true;
+    }
+    return false;
+}
+
+/// Find the next double marker occurrence, matching [^M]+? (non-greedy, no marker chars).
+/// Returns the position of the first char of the closing marker pair.
+fn findNextDoubleMarkerNonGreedy(line: []const u8, start: usize, marker: u8) ?usize {
+    // TS regex [^*]+? means one or more non-star chars, non-greedy
+    // So we need at least one non-marker char before the closing marker
+    var j = start;
+    var has_non_marker = false;
+    while (j + 1 < line.len) : (j += 1) {
+        if (line[j] == marker) {
+            // If we have seen non-marker chars and this is a double marker, match!
+            if (has_non_marker and line[j + 1] == marker) return j;
+            // Single marker in content — skip (TS [^*]+? would NOT match a line with single *)
+            // Actually, [^*]+? means no star characters at all. So a single * breaks the match.
+            return null;
+        }
+        has_non_marker = true;
+    }
+    return null;
+}
+
 fn checkNoSpaceInEmphasis(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
     var it = LineIter{ .content = md };
     var line_no: u32 = fm + 1;
@@ -819,34 +923,33 @@ fn checkNoSpaceInEmphasis(fp: []const u8, md: []const u8, fm: u32, sev: Severity
         defer line_no += 1;
         if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
         if (in_fence) continue;
-        // Only check double markers ** and __ (single * and _ are too ambiguous without a full parser)
-        var i: usize = 0;
-        while (i + 3 < line.len) : (i += 1) {
-            // Check for ** marker with space after opening
-            if (line[i] == '*' and line[i + 1] == '*' and line[i + 2] == ' ') {
-                // Look for closing **
-                if (findDoubleMarker(line, i + 3, '*')) |close| {
-                    if (close >= 2 and line[close - 1] == ' ') {
-                        if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
-                            try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
-                        }
+
+        // Strip inline code spans (replace with placeholder bytes)
+        var stripped: [8192]u8 = undefined;
+        const slen = @min(line.len, stripped.len);
+        @memcpy(stripped[0..slen], line[0..slen]);
+        {
+            var si: usize = 0;
+            while (si < slen) {
+                if (stripped[si] == '`') {
+                    const cs = si + 1;
+                    if (std.mem.indexOfScalarPos(u8, stripped[0..slen], cs, '`')) |ce| {
+                        for (si..ce + 1) |j| stripped[j] = 1; // placeholder
+                        si = ce + 1;
+                        continue;
                     }
-                    i = close + 1;
                 }
-            }
-            // Check for __ marker with space after opening
-            else if (line[i] == '_' and line[i + 1] == '_' and line[i + 2] == ' ') {
-                // Look for closing __
-                if (findDoubleMarker(line, i + 3, '_')) |close| {
-                    if (close >= 2 and line[close - 1] == ' ') {
-                        if (!directives_mod.isSuppressed("markdown/no-space-in-emphasis", line_no, sup)) {
-                            try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(i + 1), .rule_id = "markdown/no-space-in-emphasis", .message = "Spaces inside emphasis markers", .severity = sev });
-                        }
-                    }
-                    i = close + 1;
-                }
+                si += 1;
             }
         }
+        const sline = stripped[0..slen];
+
+        // Match TS patterns: /\*\*\s+[^*]+?\*\*/g, /\*\*[^*]+?\s+\*\*/g (and __ variants).
+        // TS uses 4 separate patterns but deduplicates by (line, column, ruleId).
+        // Net effect: each **...**  span reports at most 1 issue if it has spaces.
+        // We combine opening/closing checks per marker to match the deduped TS output.
+        try matchEmphasisSpaceAny(sline, '*', fp, line_no, sev, sup, issues, alloc);
+        try matchEmphasisSpaceAny(sline, '_', fp, line_no, sev, sup, issues, alloc);
     }
 }
 
@@ -866,52 +969,101 @@ fn checkNoInlineHtml(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup
     var in_fence = false;
     while (it.next()) |line| {
         defer line_no += 1;
-        if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) in_fence = !in_fence;
+        if (isFenceStart(std.mem.trimStart(u8, line, " \t"))) {
+            in_fence = !in_fence;
+            continue; // TS skips the entire fence-toggle line
+        }
         if (in_fence) continue;
-        // Strip inline code spans before checking
-        // We scan without actually modifying the line — just skip backtick regions
-        var search_pos: usize = 0;
-        while (search_pos < line.len) {
-            // Skip inline code spans
-            if (line[search_pos] == '`') {
-                const code_start = search_pos + 1;
-                if (std.mem.indexOfScalarPos(u8, line, code_start, '`')) |code_end| {
-                    search_pos = code_end + 1;
-                    continue;
+        // Strip inline code spans the same way as TS:
+        // 1. Strip double-backtick spans: ``[^`]+`` → spaces
+        // 2. Strip single-backtick spans: `[^`]+` → spaces
+        var buf: [8192]u8 = undefined;
+        const blen = @min(line.len, buf.len);
+        @memcpy(buf[0..blen], line[0..blen]);
+        // Pass 1: strip double-backtick spans (``[^`]+``)
+        {
+            var si: usize = 0;
+            while (si + 3 < blen) {
+                if (buf[si] == '`' and buf[si + 1] == '`') {
+                    var found = false;
+                    var j = si + 2;
+                    while (j + 1 < blen) : (j += 1) {
+                        if (buf[j] == '`') {
+                            if (j > si + 2 and buf[j + 1] == '`') {
+                                // Found closing `` with non-empty non-backtick content
+                                for (si..j + 2) |k| buf[k] = ' ';
+                                si = j + 2;
+                                found = true;
+                            }
+                            break; // Stop on any backtick (single or double)
+                        }
+                    }
+                    if (!found) si += 1;
+                } else {
+                    si += 1;
                 }
             }
+        }
+        // Pass 2: strip single-backtick spans (`[^`]+`)
+        {
+            var si: usize = 0;
+            while (si + 2 < blen) {
+                if (buf[si] == '`') {
+                    var found = false;
+                    var j = si + 1;
+                    while (j < blen) : (j += 1) {
+                        if (buf[j] == '`') {
+                            if (j > si + 1) {
+                                // Found closing ` with non-empty content
+                                for (si..j + 1) |k| buf[k] = ' ';
+                                si = j + 1;
+                                found = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!found) si += 1;
+                } else {
+                    si += 1;
+                }
+            }
+        }
+        const stripped = buf[0..blen];
+        // Now scan stripped line for HTML tags
+        var search_pos: usize = 0;
+        while (search_pos < stripped.len) {
             // Look for < that could be an HTML tag
-            if (line[search_pos] == '<') {
+            if (stripped[search_pos] == '<') {
                 const lt = search_pos;
                 // Allow <!-- comments -->
-                if (lt + 3 < line.len and std.mem.startsWith(u8, line[lt..], "<!--")) {
+                if (lt + 3 < stripped.len and std.mem.startsWith(u8, stripped[lt..], "<!--")) {
                     search_pos = lt + 4;
                     continue;
                 }
                 // Check for valid HTML tag: <tagname or </tagname
                 var tag_start = lt + 1;
-                if (tag_start < line.len and line[tag_start] == '/') tag_start += 1;
+                if (tag_start < stripped.len and stripped[tag_start] == '/') tag_start += 1;
                 // Tag name must start with a-z (case insensitive)
-                if (tag_start < line.len and ((line[tag_start] >= 'a' and line[tag_start] <= 'z') or (line[tag_start] >= 'A' and line[tag_start] <= 'Z'))) {
+                if (tag_start < stripped.len and ((stripped[tag_start] >= 'a' and stripped[tag_start] <= 'z') or (stripped[tag_start] >= 'A' and stripped[tag_start] <= 'Z'))) {
                     // Tag name: [a-zA-Z][a-zA-Z0-9]*
                     var tag_end = tag_start + 1;
-                    while (tag_end < line.len and (
-                        (line[tag_end] >= 'a' and line[tag_end] <= 'z') or
-                        (line[tag_end] >= 'A' and line[tag_end] <= 'Z') or
-                        (line[tag_end] >= '0' and line[tag_end] <= '9'))) tag_end += 1;
+                    while (tag_end < stripped.len and (
+                        (stripped[tag_end] >= 'a' and stripped[tag_end] <= 'z') or
+                        (stripped[tag_end] >= 'A' and stripped[tag_end] <= 'Z') or
+                        (stripped[tag_end] >= '0' and stripped[tag_end] <= '9'))) tag_end += 1;
                     // Skip URL autolinks: <https://...>, <http://...>, <mailto:...>
-                    const tag_name = line[tag_start..tag_end];
-                    const is_url = (tag_end + 2 < line.len and line[tag_end] == ':' and line[tag_end + 1] == '/' and line[tag_end + 2] == '/') or
-                        (std.ascii.eqlIgnoreCase(tag_name, "mailto") and tag_end < line.len and line[tag_end] == ':');
+                    const tag_name = stripped[tag_start..tag_end];
+                    const is_url = (tag_end + 2 < stripped.len and stripped[tag_end] == ':' and stripped[tag_end + 1] == '/' and stripped[tag_end + 2] == '/') or
+                        (std.ascii.eqlIgnoreCase(tag_name, "mailto") and tag_end < stripped.len and stripped[tag_end] == ':');
                     if (is_url) {
                         search_pos = tag_end;
                         continue;
                     }
                     // After tag name, must hit a word boundary (non-alphanumeric char)
                     // Then allow any chars until closing >
-                    if (tag_end < line.len and !isTagNameChar(line[tag_end])) {
+                    if (tag_end < stripped.len and !isTagNameChar(stripped[tag_end])) {
                         // Find the closing >
-                        if (std.mem.indexOfScalarPos(u8, line, tag_end, '>')) |_| {
+                        if (std.mem.indexOfScalarPos(u8, stripped, tag_end, '>')) |_| {
                             if (!directives_mod.isSuppressed("markdown/no-inline-html", line_no, sup)) {
                                 try issues.append(alloc, .{ .file_path = fp, .line = line_no, .column = @intCast(lt + 1), .rule_id = "markdown/no-inline-html", .message = "Inline HTML", .severity = sev });
                             }

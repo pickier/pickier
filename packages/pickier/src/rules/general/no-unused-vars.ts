@@ -710,7 +710,7 @@ export const noUnusedVarsRule: RuleModule = {
           }
         }
         for (const name of params) {
-          if (!name || argIgnoreRe.test(name))
+          if (!name || argIgnoreRe.test(name) || name === 'undefined')
             continue
           const re = new RegExp(`\\b${name}\\b`, 'g')
           if (!re.test(bodyText)) {
@@ -862,7 +862,7 @@ export const noUnusedVarsRule: RuleModule = {
                   }
                 }
                 for (const name of params) {
-                  if (!name || argIgnoreRe.test(name))
+                  if (!name || argIgnoreRe.test(name) || name === 'undefined')
                     continue
                   const re = new RegExp(`\\b${name}\\b`, 'g')
                   if (!re.test(bodyText)) {
@@ -883,7 +883,7 @@ export const noUnusedVarsRule: RuleModule = {
         // eslint-disable-next-line no-cond-assign
         while ((match = reSingleArrow.exec(codeClean)) !== null) {
           const name = match[1]
-          if (!name || argIgnoreRe.test(name))
+          if (!name || argIgnoreRe.test(name) || name === 'undefined')
             continue
           // Find the arrow position in the ORIGINAL line
           const arrowPattern = new RegExp(`\\b${name}\\s*=>`)

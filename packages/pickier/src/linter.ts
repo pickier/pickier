@@ -893,11 +893,6 @@ function getCommentLines(content: string): Set<number> {
       continue
     }
 
-    // Skip escape sequences in strings
-    if ((state === 'string-single' || state === 'string-double' || state === 'string-template') && prev === '\\') {
-      continue
-    }
-
     // State transitions
     switch (state) {
       case 'code':
@@ -992,21 +987,18 @@ function getCommentLines(content: string): Set<number> {
         break
 
       case 'string-single':
-        if (ch === '\'') {
-          state = 'code'
-        }
+        if (ch === '\\') { i++; break }
+        if (ch === '\'') state = 'code'
         break
 
       case 'string-double':
-        if (ch === '"') {
-          state = 'code'
-        }
+        if (ch === '\\') { i++; break }
+        if (ch === '"') state = 'code'
         break
 
       case 'string-template':
-        if (ch === '`') {
-          state = 'code'
-        }
+        if (ch === '\\') { i++; break }
+        if (ch === '`') state = 'code'
         break
 
       case 'line-comment':
@@ -1561,7 +1553,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
 
       // OPTIMIZATION: Parse directives and comment lines ONCE upfront
       const suppress = parseDisableDirectives(src)
-      const commentLines = getCommentLines(src)
+      const isCodeFileForComments = /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(file)
+      const commentLines = isCodeFileForComments ? getCommentLines(src) : new Set<number>()
 
       // Set internal flag to avoid duplicate plugin execution inside scanContent
       ;(cfg as any)._internalSkipPluginRulesInScan = true
@@ -1573,7 +1566,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
         for (const i of pluginIssues) {
           if (isSuppressed(i.ruleId as string, i.line, suppress))
             continue
-          // Skip issues that are on comment-only lines
+          // Skip issues that are on comment-only lines (code files only)
           if (commentLines.has(i.line))
             continue
           issues.push({
