@@ -472,10 +472,12 @@ export const noUnusedVarsRule: RuleModule = {
           depth = 1
           startIdx = foundIdx + 1
         }
-        // Track string state and angle brackets to skip braces inside strings and generics
+        // Track string state to skip braces inside strings
+        // Note: angle bracket tracking removed because `<` in comparisons (e.g. `line < lines.length`)
+        // incorrectly prevents `{` on the same line from being counted, causing premature body termination.
+        // Braces inside generics are always balanced, so removing angle tracking is safe.
         let inString: 'single' | 'double' | 'template' | null = null
         let escaped = false
-        let angleDepth = 0
         for (let k = startIdx; k < lineToProcess.length; k++) {
           const ch = lineToProcess[k]
 
@@ -500,16 +502,10 @@ export const noUnusedVarsRule: RuleModule = {
             else if (ch === '`') {
               inString = 'template'
             }
-            else if (ch === '<') {
-              angleDepth++
-            }
-            else if (ch === '>') {
-              angleDepth = Math.max(0, angleDepth - 1)
-            }
-            else if (ch === '{' && angleDepth === 0) {
+            else if (ch === '{') {
               depth++
             }
-            else if (ch === '}' && angleDepth === 0) {
+            else if (ch === '}') {
               depth--
               if (depth === 0)
                 return { from: startLine, to: ln }
@@ -758,22 +754,40 @@ export const noUnusedVarsRule: RuleModule = {
           }
 
           if (openParenIdx !== -1) {
-            // Check if there's a colon before the opening paren (type signature vs function)
+            // Check if there's a colon or angle bracket before the opening paren (type signature vs function)
             // Look backwards from opening paren to find if this is a type annotation
+            // Continue past commas to find `<` for generics like Map<string, (...args) => any>
             let isTypeSignature = false
+            let angleDepthBack = 0
             for (let k = openParenIdx - 1; k >= 0; k--) {
               const ch = line[k]
-              if (ch === ':') {
-                // Found colon before opening paren - this is a type signature
+              if (ch === '>') {
+                angleDepthBack++
+                continue
+              }
+              if (ch === '<') {
+                if (angleDepthBack > 0) {
+                  angleDepthBack--
+                  continue
+                }
                 isTypeSignature = true
                 break
               }
-              // Stop at these characters that indicate we've gone too far
-              if (ch === '=' || ch === ',' || ch === '(' || ch === '{' || ch === '[') {
+              if (ch === ':' && angleDepthBack === 0) {
+                isTypeSignature = true
                 break
               }
-              // Skip whitespace and identifiers
-              if (ch !== ' ' && ch !== '\t' && !/\w/.test(ch)) {
+              if (angleDepthBack > 0)
+                continue
+              // Continue past commas to check if we're inside a generic type parameter
+              if (ch === ',')
+                continue
+              // Stop at these characters that indicate we've gone too far
+              if (ch === '=' || ch === '(' || ch === '{' || ch === '[') {
+                break
+              }
+              // Skip whitespace, identifiers, and dots (for dotted type names)
+              if (ch !== ' ' && ch !== '\t' && !/[\w.]/.test(ch)) {
                 break
               }
             }
@@ -839,8 +853,29 @@ export const noUnusedVarsRule: RuleModule = {
                       bracketDepth--
                   }
 
-                  // If there's unclosed nesting, continue to next lines
+                  // If body is empty/whitespace on current line, include next line(s)
                   let nextLine = i + 1
+                  if (!bodyText.trim() && nextLine < lines.length) {
+                    bodyText += `\n${lines[nextLine]}`
+                    for (let k = 0; k < lines[nextLine].length; k++) {
+                      const ch = lines[nextLine][k]
+                      if (ch === '(')
+                        parenDepth++
+                      else if (ch === ')')
+                        parenDepth--
+                      else if (ch === '{')
+                        braceDepth++
+                      else if (ch === '}')
+                        braceDepth--
+                      else if (ch === '[')
+                        bracketDepth++
+                      else if (ch === ']')
+                        bracketDepth--
+                    }
+                    nextLine++
+                  }
+
+                  // If there's unclosed nesting, continue to next lines
                   while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0)) {
                     bodyText += `\n${lines[nextLine]}`
                     for (let k = 0; k < lines[nextLine].length; k++) {
@@ -938,8 +973,30 @@ export const noUnusedVarsRule: RuleModule = {
                 bracketDepth--
             }
 
-            // If there's unclosed nesting, continue to next lines
+            // If body is empty/whitespace on current line, include next line(s)
+            // This handles cases like: .filter(d =>\n  d.range.contains(position),\n)
             let nextLine = i + 1
+            if (!bodyText.trim() && nextLine < lines.length) {
+              bodyText += `\n${lines[nextLine]}`
+              for (let k = 0; k < lines[nextLine].length; k++) {
+                const ch = lines[nextLine][k]
+                if (ch === '(')
+                  parenDepth++
+                else if (ch === ')')
+                  parenDepth--
+                else if (ch === '{')
+                  braceDepth++
+                else if (ch === '}')
+                  braceDepth--
+                else if (ch === '[')
+                  bracketDepth++
+                else if (ch === ']')
+                  bracketDepth--
+              }
+              nextLine++
+            }
+
+            // If there's unclosed nesting, continue to next lines
             while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0)) {
               bodyText += `\n${lines[nextLine]}`
               for (let k = 0; k < lines[nextLine].length; k++) {
