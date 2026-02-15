@@ -599,11 +599,13 @@ fn checkPreferTemplate(
 }
 
 fn hasStringConcatenation(line: []const u8) bool {
-    // Look for patterns like: "string" + identifier or identifier + "string"
+    // Match TS behavior: flag 'string' + identifier or identifier + 'string'
+    // TS uses regex: /(['"`][^'"`]*['"`])\s*\+\s*([a-z_$][\w$]*)/i and reverse
+    // We check: the char immediately before + (skip whitespace) is a closing quote,
+    // or the char immediately after + is an opening quote with an identifier before +.
     const State = enum { code, single, double, template };
     var state: State = .code;
     var escaped = false;
-    var had_string = false;
     var i: usize = 0;
 
     while (i < line.len) : (i += 1) {
@@ -628,32 +630,39 @@ fn hasStringConcatenation(line: []const u8) bool {
                     state = .template;
                 } else if (ch == '/' and i + 1 < line.len and line[i + 1] == '/') {
                     return false; // rest is comment
-                } else if (ch == '+' and had_string) {
-                    // Check if followed by an identifier or string
+                } else if (ch == '+') {
+                    // Skip += and ++
+                    if (i + 1 < line.len and (line[i + 1] == '=' or line[i + 1] == '+')) continue;
+
+                    // Check what's immediately before + (skip whitespace)
+                    var before = i;
+                    while (before > 0 and (line[before - 1] == ' ' or line[before - 1] == '\t')) before -= 1;
+                    const prev_is_string = before > 0 and (line[before - 1] == '\'' or line[before - 1] == '"');
+                    const prev_is_ident = before > 0 and isIdentChar(line[before - 1]);
+
+                    // Check what's immediately after + (skip whitespace)
                     const after = std.mem.trimStart(u8, line[i + 1 ..], " \t");
-                    if (after.len > 0 and (isIdentStart(after[0]) or after[0] == '\'' or after[0] == '"')) {
+                    const next_is_string = after.len > 0 and (after[0] == '\'' or after[0] == '"');
+                    const next_is_ident = after.len > 0 and isIdentStart(after[0]);
+
+                    // Flag: string + identifier, string + string
+                    if (prev_is_string and (next_is_ident or next_is_string)) {
+                        return true;
+                    }
+                    // Flag: identifier + string
+                    if (next_is_string and prev_is_ident) {
                         return true;
                     }
                 }
             },
             .single => {
-                if (ch == '\'') {
-                    state = .code;
-                    had_string = true;
-                }
+                if (ch == '\'') state = .code;
             },
             .double => {
-                if (ch == '"') {
-                    state = .code;
-                    had_string = true;
-                }
+                if (ch == '"') state = .code;
             },
             .template => {
-                if (ch == '`') {
-                    state = .code;
-                    // Don't set had_string for template literals — they already support interpolation
-                    // TS only flags single/double quoted string concatenation
-                }
+                if (ch == '`') state = .code;
             },
         }
     }
@@ -1661,56 +1670,29 @@ fn checkNoNew(
             continue;
         }
 
-        // Find all occurrences of `new ` on this line
-        if (std.mem.indexOf(u8, trimmed, "new ")) |_| {
-            // Check the TS-style patterns:
-            // isAssignment: line starts with const/let/var/this.xxx = ... new
-            const is_assignment = std.mem.startsWith(u8, trimmed, "const ") or
-                std.mem.startsWith(u8, trimmed, "let ") or
-                std.mem.startsWith(u8, trimmed, "var ") or
-                (std.mem.startsWith(u8, trimmed, "this.") and std.mem.indexOf(u8, trimmed, " = ") != null);
-            // isReturn: line starts with return/throw/yield
-            const is_return = std.mem.startsWith(u8, trimmed, "return ") or
-                std.mem.startsWith(u8, trimmed, "throw ") or
-                std.mem.startsWith(u8, trimmed, "yield ");
-            // isInExpression: new preceded by = : ( , on the line
-            var is_in_expression = false;
-            if (std.mem.indexOf(u8, trimmed, "new ")) |new_pos| {
-                if (new_pos > 0) {
-                    // Check characters before `new`
-                    var bp = new_pos;
-                    while (bp > 0 and (trimmed[bp - 1] == ' ' or trimmed[bp - 1] == '\t')) bp -= 1;
-                    if (bp > 0) {
-                        const ch = trimmed[bp - 1];
-                        if (ch == '=' or ch == ':' or ch == '(' or ch == ',' or ch == '[' or ch == '?' or ch == '&' or ch == '|') {
-                            is_in_expression = true;
-                        }
-                    }
-                }
-            }
-
-            if (!is_assignment and !is_return and !is_in_expression) {
-                // Verify there's actually `new Identifier(` pattern
-                if (std.mem.indexOf(u8, trimmed, "new ")) |new_pos| {
-                    const after_new = trimmed[new_pos + 4 ..];
-                    var name_end: usize = 0;
-                    // Handle dotted names like `new vscode.DiagnosticRelatedInformation(`
-                    while (name_end < after_new.len and (isIdentChar(after_new[name_end]) or after_new[name_end] == '.')) name_end += 1;
-                    if (name_end > 0) {
-                        var paren_pos = name_end;
-                        while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
-                        if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
-                            if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
-                                const col = @as(u32, @intCast(line.len - trimmed.len + 1));
-                                try issues.append(allocator, .{
-                                    .file_path = file_path,
-                                    .line = line_no,
-                                    .column = col,
-                                    .rule_id = "eslint/no-new",
-                                    .message = "Do not use 'new' for side effects",
-                                    .severity = severity,
-                                });
-                            }
+        // Only flag `new` at start of statement (matches TS: /^\s*new\s+\w+/)
+        if (std.mem.startsWith(u8, trimmed, "new ")) {
+            // TS isArgument check: /^\s*new\s+\w[^;]*,/ — skip if line has comma (likely argument list)
+            const has_comma = std.mem.indexOfScalar(u8, trimmed, ',') != null;
+            if (!has_comma) {
+                const after_new = trimmed[4..];
+                var name_end: usize = 0;
+                // Handle dotted names like `new vscode.DiagnosticRelatedInformation(`
+                while (name_end < after_new.len and (isIdentChar(after_new[name_end]) or after_new[name_end] == '.')) name_end += 1;
+                if (name_end > 0) {
+                    var paren_pos = name_end;
+                    while (paren_pos < after_new.len and (after_new[paren_pos] == ' ' or after_new[paren_pos] == '\t')) paren_pos += 1;
+                    if (paren_pos < after_new.len and after_new[paren_pos] == '(') {
+                        if (!directives_mod.isSuppressed("eslint/no-new", line_no, suppress)) {
+                            const col = @as(u32, @intCast(line.len - trimmed.len + 1));
+                            try issues.append(allocator, .{
+                                .file_path = file_path,
+                                .line = line_no,
+                                .column = col,
+                                .rule_id = "eslint/no-new",
+                                .message = "Do not use 'new' for side effects",
+                                .severity = severity,
+                            });
                         }
                     }
                 }

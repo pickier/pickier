@@ -432,11 +432,64 @@ fn isIdentChar(ch: u8) bool {
 }
 
 /// Check if a condition expression contains an assignment operator
-/// Matches /[^=!<>]=(?![=>])/ — single = not preceded by =,!,<,> and not followed by = or >
+/// Matches TS: /\b(\w+)\s*=\s*(?!=)/ with string/regex awareness
 fn hasAssignmentInCondition(condition: []const u8) bool {
+    var in_single = false;
+    var in_double = false;
+    var in_regex = false;
+    var in_template = false;
+    var escaped = false;
+
     for (condition, 0..) |ch, i| {
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\' and (in_single or in_double or in_regex or in_template)) {
+            escaped = true;
+            continue;
+        }
+
+        // Track string/regex state
+        if (in_single) {
+            if (ch == '\'') in_single = false;
+            continue;
+        }
+        if (in_double) {
+            if (ch == '"') in_double = false;
+            continue;
+        }
+        if (in_template) {
+            if (ch == '`') in_template = false;
+            continue;
+        }
+        if (in_regex) {
+            if (ch == '/') in_regex = false;
+            continue;
+        }
+
+        if (ch == '\'') {
+            in_single = true;
+            continue;
+        }
+        if (ch == '"') {
+            in_double = true;
+            continue;
+        }
+        if (ch == '`') {
+            in_template = true;
+            continue;
+        }
+        // Detect regex start: / not preceded by identifier or )
+        if (ch == '/' and i + 1 < condition.len and condition[i + 1] != '/' and condition[i + 1] != '*') {
+            if (i == 0 or (!isIdentChar(condition[i - 1]) and condition[i - 1] != ')')) {
+                in_regex = true;
+                continue;
+            }
+        }
+
         if (ch == '=') {
-            // Check preceding char
+            // Check preceding char — skip ==, ===, !=, !==, <=, >=, =>
             if (i > 0) {
                 const prev = condition[i - 1];
                 if (prev == '=' or prev == '!' or prev == '<' or prev == '>') continue;
