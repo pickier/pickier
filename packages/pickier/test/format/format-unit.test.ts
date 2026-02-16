@@ -10,6 +10,7 @@ import { formatCode } from '../../src/format'
 
 // Base config matching default pickier settings
 const cfg: PickierConfig = {
+  verbose: false,
   ignores: [],
   lint: { extensions: ['ts'], reporter: 'stylish', cache: false, maxWarnings: -1 },
   format: {
@@ -22,7 +23,7 @@ const cfg: PickierConfig = {
     quotes: 'single',
     semi: false,
   },
-  rules: {},
+  rules: { noDebugger: 'error', noConsole: 'warn' },
   pluginRules: {},
 }
 

@@ -29,6 +29,7 @@
     "packages/pickier/test/fixtures/**/*",
     "packages/pickier/test/output/**/*",
     "packages/pickier/dist/**/*",
-    "packages/vscode/**/*"
+    "packages/vscode/**/*",
+    "bechmarks/**/*"
   ]
 }
