@@ -31,7 +31,7 @@
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
     "changelog": "bunx logsmith --verbose",
     "changelog:generate": "bunx logsmith --output CHANGELOG.md",
-    "release": "bun run changelog:generate && bunx --bun bumpx prompt --recursive",
+    "release": "bun --bun run changelog:generate && bunx --bun bumpx prompt --recursive",
     "test": "bun run --cwd packages/pickier test",
     "test:core": "bun run --cwd packages/pickier test:core",
     "test:format": "bun run --cwd packages/pickier test:format",
