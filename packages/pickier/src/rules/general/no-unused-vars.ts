@@ -96,15 +96,92 @@ export const noUnusedVarsRule: RuleModule = {
         if (!part)
           continue
         const simple = part.match(/^([$A-Z_][\w$]*)/i)
-        const destruct = part.match(/^[{[](.+)[}\]]/)
         const names: string[] = []
         if (simple) {
           names.push(simple[1])
         }
-        else if (destruct) {
-          const inner = destruct[1]
-          const tokens = inner.split(/[^$\w]+/).filter(Boolean)
-          for (const t of tokens) names.push(t)
+        else if (part.startsWith('{') || part.startsWith('[')) {
+          // Find matching closing brace/bracket (not greedy)
+          const openChar = part[0]
+          const closeChar = openChar === '{' ? '}' : ']'
+          let dDepth = 0
+          let endIdx = -1
+          let dStr: 'single' | 'double' | 'template' | null = null
+          let dEsc = false
+          for (let ci = 0; ci < part.length; ci++) {
+            const ch = part[ci]
+            if (dEsc) { dEsc = false; continue }
+            if (ch === '\\' && dStr) { dEsc = true; continue }
+            if (!dStr) {
+              if (ch === '\'' || ch === '"' || ch === '`') { dStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template' }
+              else if (ch === openChar) dDepth++
+              else if (ch === closeChar) { dDepth--; if (dDepth === 0) { endIdx = ci; break } }
+            } else {
+              if ((dStr === 'single' && ch === '\'') || (dStr === 'double' && ch === '"') || (dStr === 'template' && ch === '`')) dStr = null
+            }
+          }
+          if (endIdx > 0) {
+            const inner = part.slice(1, endIdx)
+            // Split inner content on commas at depth 0
+            const fields: string[] = []
+            let fCurrent = ''
+            let fDepth = 0
+            let fStr: 'single' | 'double' | 'template' | null = null
+            let fEsc = false
+            for (let ci = 0; ci < inner.length; ci++) {
+              const ch = inner[ci]
+              if (fEsc) { fEsc = false; fCurrent += ch; continue }
+              if (ch === '\\' && fStr) { fEsc = true; fCurrent += ch; continue }
+              if (!fStr) {
+                if (ch === '\'' || ch === '"' || ch === '`') { fStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template'; fCurrent += ch; continue }
+                if (ch === '(' || ch === '{' || ch === '[') fDepth++
+                if (ch === ')' || ch === '}' || ch === ']') fDepth--
+                if (ch === ',' && fDepth === 0) { fields.push(fCurrent.trim()); fCurrent = ''; continue }
+              } else {
+                if ((fStr === 'single' && ch === '\'') || (fStr === 'double' && ch === '"') || (fStr === 'template' && ch === '`')) fStr = null
+              }
+              fCurrent += ch
+            }
+            if (fCurrent.trim()) fields.push(fCurrent.trim())
+
+            for (const field of fields) {
+              // Handle rest elements: ...rest
+              if (field.startsWith('...')) {
+                const restName = field.slice(3).match(/^([$A-Z_][\w$]*)/i)
+                if (restName) names.push(restName[1])
+                continue
+              }
+              // Handle alias: key: value (only take the value as the variable name)
+              // Be careful: nested destructuring { a: { b } } has colon too
+              const colonIdx = field.indexOf(':')
+              if (colonIdx !== -1) {
+                let value = field.slice(colonIdx + 1).trim()
+                // Strip default value (after = at depth 0)
+                let eqDepth = 0
+                for (let ci = 0; ci < value.length; ci++) {
+                  const ch = value[ci]
+                  if (ch === '(' || ch === '{' || ch === '[') eqDepth++
+                  else if (ch === ')' || ch === '}' || ch === ']') eqDepth--
+                  else if (ch === '=' && eqDepth === 0) { value = value.slice(0, ci).trim(); break }
+                }
+                const nameMatch = value.match(/^([$A-Z_][\w$]*)/i)
+                if (nameMatch) names.push(nameMatch[1])
+              } else {
+                // Simple field: name or name = default
+                let fieldName = field
+                // Strip default value
+                let eqDepth = 0
+                for (let ci = 0; ci < fieldName.length; ci++) {
+                  const ch = fieldName[ci]
+                  if (ch === '(' || ch === '{' || ch === '[') eqDepth++
+                  else if (ch === ')' || ch === '}' || ch === ']') eqDepth--
+                  else if (ch === '=' && eqDepth === 0) { fieldName = fieldName.slice(0, ci).trim(); break }
+                }
+                const nameMatch = fieldName.match(/^([$A-Z_][\w$]*)/i)
+                if (nameMatch) names.push(nameMatch[1])
+              }
+            }
+          }
         }
         for (const name of names) {
           if (varIgnoreRe.test(name))
@@ -267,6 +344,14 @@ export const noUnusedVarsRule: RuleModule = {
     const findBodyRange = (startLine: number, startColFrom?: number): { from: number, to: number } | null => {
       let openFound = false
       let depth = 0
+      // Persistent state for multi-line return type annotation detection
+      let bodyBraceDepth = 0
+      let bodySawBracePair = false
+      let bodyAngleDepth = 0
+      let bodyInStr: 'single' | 'double' | 'template' | null = null
+      let bodyEsc = false
+      let isFirstSearchLine = true
+      let lastNonWhitespaceBeforeBrace = '' // Tracks char before first '{' to detect object return types
       for (let ln = startLine; ln < lines.length; ln++) {
         const s = lines[ln]
 
@@ -385,13 +470,10 @@ export const noUnusedVarsRule: RuleModule = {
         if (!openFound) {
           // Find function body '{' outside of strings and angle brackets
           // Handle return type annotations like ': { text: string }' by tracking brace pairs
+          // State is persisted across lines to handle multi-line return types
           let foundIdx = -1
-          inStr = null
-          esc = false
-          let angleDepth = 0
-          let braceDepth = 0
-          let sawBracePair = false // Track if we've seen and closed a brace pair (e.g., in return type)
-          let searchStart = typeof startColFrom === 'number' ? startColFrom : 0
+          let searchStart = isFirstSearchLine ? (typeof startColFrom === 'number' ? startColFrom : 0) : 0
+          isFirstSearchLine = false
           // If searchStart is past lineToProcess (can happen when regex stripping shortens the line),
           // find => in the processed line and search from there instead
           if (searchStart >= lineToProcess.length) {
@@ -400,35 +482,40 @@ export const noUnusedVarsRule: RuleModule = {
           }
           for (let i = searchStart; i < lineToProcess.length; i++) {
             const c = lineToProcess[i]
-            if (esc) {
-              esc = false
+            if (bodyEsc) {
+              bodyEsc = false
               continue
             }
-            if (c === '\\' && inStr) {
-              esc = true
+            if (c === '\\' && bodyInStr) {
+              bodyEsc = true
               continue
             }
-            if (!inStr) {
+            if (!bodyInStr) {
+              // Track last non-whitespace char before first '{' at depth 0
+              // Exclude '{' and '}' themselves so the tracker captures the char BEFORE a brace
+              if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r' && c !== '{' && c !== '}' && bodyBraceDepth === 0) {
+                lastNonWhitespaceBeforeBrace = c
+              }
               if (c === '\'') {
-                inStr = 'single'
+                bodyInStr = 'single'
               }
               else if (c === '"') {
-                inStr = 'double'
+                bodyInStr = 'double'
               }
               else if (c === '`') {
-                inStr = 'template'
+                bodyInStr = 'template'
               }
               else if (c === '<') {
-                angleDepth++
+                bodyAngleDepth++
               }
               else if (c === '>') {
-                angleDepth = Math.max(0, angleDepth - 1)
+                bodyAngleDepth = Math.max(0, bodyAngleDepth - 1)
               }
               else if (c === '{') {
                 // Track braces even inside angle brackets for return type annotations
-                if (braceDepth === 0) {
+                if (bodyBraceDepth === 0) {
                   // Found a '{' at depth 0
-                  if (sawBracePair && angleDepth === 0) {
+                  if (bodySawBracePair && bodyAngleDepth === 0) {
                     // We've already seen a brace pair and we're outside angle brackets,
                     // so this is the function body
                     foundIdx = i
@@ -436,31 +523,38 @@ export const noUnusedVarsRule: RuleModule = {
                   }
                   // This is the first '{' - could be inside return type or function body
                 }
-                braceDepth++
+                bodyBraceDepth++
               }
               else if (c === '}') {
-                if (braceDepth > 0) {
-                  braceDepth--
-                  if (braceDepth === 0) {
+                if (bodyBraceDepth > 0) {
+                  bodyBraceDepth--
+                  if (bodyBraceDepth === 0) {
                     // We've closed a brace pair (likely in return type annotation)
-                    sawBracePair = true
+                    bodySawBracePair = true
                   }
                 }
               }
             }
             else {
-              if ((inStr === 'single' && c === '\'')
-                || (inStr === 'double' && c === '"')
-                || (inStr === 'template' && c === '`')) {
-                inStr = null
+              if ((bodyInStr === 'single' && c === '\'')
+                || (bodyInStr === 'double' && c === '"')
+                || (bodyInStr === 'template' && c === '`')) {
+                bodyInStr = null
               }
             }
           }
-          // If we didn't find it with the brace pair logic, find the first '{' at depth 0
+          // If we didn't find it with the brace pair logic:
+          // - If inside a brace pair AND the '{' directly followed ':' (object return type), continue to next line
+          // - Otherwise, use the first '{' on this line (common case: no return type)
           if (foundIdx === -1) {
+            if (bodyBraceDepth > 0 && lastNonWhitespaceBeforeBrace === ':') {
+              // The '{' directly followed ':', indicating a multi-line object return type like ): {\n...\n}
+              continue
+            }
+            // No brace pair in progress, find the first '{' (common case: no return type annotation)
             for (let i = searchStart; i < lineToProcess.length; i++) {
               const c = lineToProcess[i]
-              if (c === '{' && !inStr) {
+              if (c === '{' && !bodyInStr) {
                 foundIdx = i
                 break
               }
@@ -471,6 +565,7 @@ export const noUnusedVarsRule: RuleModule = {
           openFound = true
           depth = 1
           startIdx = foundIdx + 1
+          startLine = ln // Update startLine to where body '{' was actually found
         }
         // Track string state to skip braces inside strings
         // Note: angle bracket tracking removed because `<` in comparisons (e.g. `line < lines.length`)
@@ -622,13 +717,21 @@ export const noUnusedVarsRule: RuleModule = {
       }
       const codeNoRegex = stripRegex(codeOnly)
       // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
-      const codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
+      let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
+      // Strip template literal contents to avoid matching keywords inside template strings
+      // Handle single-line template literals: `...` → ``
+      codeClean = codeClean.replace(/`(?:[^`\\]|\\.)*`/g, m => '`' + ' '.repeat(Math.max(0, m.length - 2)) + '`')
 
       // function declarations or expressions
       const m = codeClean.match(/\bfunction\b/)
       if (m) {
         // Skip known complex functions with deep nesting that cause false positives
         if (line.includes('function scanContent') || line.includes('function findMatching')) {
+          continue
+        }
+        // Skip 'function' used as a property name in destructuring: { function: value }
+        const afterFunc = codeClean.slice(m.index! + 8).trimStart()
+        if (afterFunc.startsWith(':')) {
           continue
         }
         // Find the opening ( for parameters
@@ -920,6 +1023,16 @@ export const noUnusedVarsRule: RuleModule = {
           const name = match[1]
           if (!name || argIgnoreRe.test(name) || name === 'undefined')
             continue
+          // Skip return type annotations like ): ReturnType => or ): string =>
+          // When : precedes the identifier and ) precedes the :, it's a return type
+          const beforeMatch = codeClean.slice(0, match.index + match[0].indexOf(name)).trimEnd()
+          if (/\)\s*:$/.test(beforeMatch) || /\)\s*:\s*$/.test(beforeMatch)) {
+            continue
+          }
+          // Also skip if the matched name is a TypeScript keyword used as type
+          if (/^(?:string|number|boolean|void|never|any|unknown|object|bigint|symbol|undefined|null)$/.test(name)) {
+            continue
+          }
           // Find the arrow position in the ORIGINAL line
           const arrowPattern = new RegExp(`\\b${name}\\s*=>`)
           const arrowMatch = line.match(arrowPattern)

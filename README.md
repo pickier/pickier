@@ -106,8 +106,6 @@ pickier run "**/*.{ts,tsx,js}" --mode format --write
 pickier run . --mode lint --reporter json --max-warnings 0
 ```
 
-> **Note:** The legacy `pickier lint` and `pickier format` commands are deprecated and will be removed in a future release. Use `pickier run --mode lint` and `pickier run --mode format` instead.
-
 ## Configuration
 
 Pickier works out-of-the-box. To customize, create `pickier.config.ts` in your project root. All fields are optional.

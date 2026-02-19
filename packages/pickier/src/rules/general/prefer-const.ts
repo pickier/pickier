@@ -5,13 +5,24 @@ function splitTopLevel(s: string, sep: string): string[] {
   const parts: string[] = []
   let depth = 0
   let start = 0
+  let inStr: 'single' | 'double' | 'template' | null = null
+  let escaped = false
   for (let i = 0; i < s.length; i++) {
     const c = s[i]
-    if (c === '(' || c === '{' || c === '[') depth++
-    else if (c === ')' || c === '}' || c === ']') depth--
-    else if (c === sep && depth === 0) {
-      parts.push(s.slice(start, i))
-      start = i + 1
+    if (escaped) { escaped = false; continue }
+    if (c === '\\' && inStr) { escaped = true; continue }
+    if (!inStr) {
+      if (c === '\'') inStr = 'single'
+      else if (c === '"') inStr = 'double'
+      else if (c === '`') inStr = 'template'
+      else if (c === '(' || c === '{' || c === '[') depth++
+      else if (c === ')' || c === '}' || c === ']') depth--
+      else if (c === sep && depth === 0) {
+        parts.push(s.slice(start, i))
+        start = i + 1
+      }
+    } else {
+      if ((inStr === 'single' && c === '\'') || (inStr === 'double' && c === '"') || (inStr === 'template' && c === '`')) inStr = null
     }
   }
   parts.push(s.slice(start))

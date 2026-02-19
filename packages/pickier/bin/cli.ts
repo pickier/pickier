@@ -93,7 +93,6 @@ cli
   .example('pickier lint src --fix')
   .example('pickier lint "src/**/*.{ts,tsx}" --reporter json')
   .action(async (globs: string[], opts: RunOptions) => {
-    console.warn('[DEPRECATION] `pickier lint` is now unified under `pickier run --mode lint` and will be removed in a future release.')
     const code = await run(globs, { ...opts, mode: 'lint' })
     process.exit(code)
   })
@@ -110,7 +109,6 @@ cli
   .example('pickier format src --write')
   .example('pickier format "**/*.{ts,tsx,js}" --write')
   .action(async (globs: string[], opts: RunOptions) => {
-    console.warn('[DEPRECATION] `pickier format` is now unified under `pickier run --mode format` and will be removed in a future release.')
     const code = await run(globs, { ...opts, mode: 'format' })
     process.exit(code)
   })

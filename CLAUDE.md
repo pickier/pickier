@@ -66,7 +66,7 @@ bun packages/pickier/dist/bin/cli.js run . --mode lint
 pickier run . --mode lint --fix
 pickier run . --mode format --write
 
-# Legacy commands (deprecated, will be removed)
+# Shorthand commands
 
 pickier lint . --fix
 pickier format . --write
@@ -168,7 +168,7 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 - Prefer async/await over callbacks
 - Use trace logging (`trace(...)`) for debugging, controlled by `PICKIER_TRACE=1`## Important Notes
 
-- The CLI has been unified around`pickier run --mode <auto|lint|format>`; the old `pickier lint`and`pickier format`commands are deprecated
+- The CLI supports `pickier run --mode <auto|lint|format>` as well as `pickier lint` and `pickier format` as shorthand commands
 - When adding new rules, implement both`check`and`fix`(if applicable) in the appropriate plugin
 - Rule IDs follow`plugin/rule-name`convention but config also supports bare rule names for convenience
 - All globbing uses`tinyglobby`for consistency and speed

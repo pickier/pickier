@@ -66,9 +66,7 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
-    // Legacy commands (deprecated)
     if (std.mem.eql(u8, subcmd, "lint")) {
-        writeStderr(io, "[DEPRECATION] `pickier lint` is now unified under `pickier run --mode lint`\n");
         var modified_args = std.ArrayList([]const u8){};
         defer modified_args.deinit(allocator);
         try modified_args.append(allocator, "--mode");
@@ -80,7 +78,6 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, subcmd, "format")) {
-        writeStderr(io, "[DEPRECATION] `pickier format` is now unified under `pickier run --mode format`\n");
         var modified_args = std.ArrayList([]const u8){};
         defer modified_args.deinit(allocator);
         try modified_args.append(allocator, "--mode");

@@ -51,7 +51,11 @@ export const referenceLinksImagesRule: RuleModule = {
         continue
 
       // Strip inline code spans before checking
-      const stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+      let stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
+
+      // Strip inline links [text](url) and images ![alt](url) to avoid matching
+      // nested brackets inside them (e.g., [renovate[bot]](url) contains [bot])
+      stripped = stripped.replace(/!?\[[^\]]*\]\([^)]*\)/g, m => ' '.repeat(m.length))
 
       // Find reference links [text][label] or [label]
       const linkMatches = stripped.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)

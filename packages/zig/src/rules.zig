@@ -1195,43 +1195,85 @@ fn checkNoUnusedVars(
         if (decl) |d| {
             if (d.name.len > 0) {
                 if (d.name[0] == '{' or d.name[0] == '[') {
-                    // Destructuring — extract individual names
-                    const close_char: u8 = if (d.name[0] == '{') '}' else ']';
-                    if (std.mem.indexOfScalar(u8, d.name, close_char)) |close| {
-                        const inner = d.name[1..close];
-                        // Split by non-identifier chars and check each name
-                        var name_start: usize = 0;
-                        var in_ident = false;
-                        var k: usize = 0;
-                        while (k <= inner.len) : (k += 1) {
-                            const ch = if (k < inner.len) inner[k] else @as(u8, 0);
-                            if (isIdentChar(ch)) {
-                                if (!in_ident) name_start = k;
-                                in_ident = true;
-                            } else if (in_ident) {
-                                const name = inner[name_start..k];
-                                // Skip keywords and short tokens
-                                if (name.len > 0 and !std.mem.eql(u8, name, "as") and
-                                    !std.mem.eql(u8, name, "type") and
-                                    !std.mem.eql(u8, name, "undefined") and
-                                    !std.mem.startsWith(u8, name, "_"))
-                                {
-                                    const rest_start = if (line_end < content.len) line_end + 1 else content.len;
-                                    const rest = content[rest_start..];
-                                    if (rest.len > 0 and !hasWordReference(name, rest)) {
-                                        if (!directives_mod.isSuppressed("pickier/no-unused-vars", line_no, suppress)) {
-                                            try issues.append(allocator, .{
-                                                .file_path = file_path,
-                                                .line = line_no,
-                                                .column = 1,
-                                                .rule_id = "pickier/no-unused-vars",
-                                                .message = "Variable is declared but never used",
-                                                .severity = severity,
-                                            });
+                    // Destructuring — extract individual names with alias support
+                    // For { key: alias }, only 'alias' is the variable name, not 'key'
+                    const open_char = d.name[0];
+                    const close_char: u8 = if (open_char == '{') '}' else ']';
+                    // Find matching close with proper depth tracking
+                    var dd: i32 = 0;
+                    var end_idx: usize = 0;
+                    for (d.name, 0..) |dch, dci| {
+                        if (dch == open_char) dd += 1;
+                        if (dch == close_char) {
+                            dd -= 1;
+                            if (dd == 0) { end_idx = dci; break; }
+                        }
+                    }
+                    if (end_idx > 1) {
+                        const inner = d.name[1..end_idx];
+                        // Split by commas at depth 0, then handle each field
+                        var fd: i32 = 0;
+                        var field_start: usize = 0;
+                        var fk: usize = 0;
+                        while (fk <= inner.len) : (fk += 1) {
+                            const fch = if (fk < inner.len) inner[fk] else @as(u8, ',');
+                            if (fch == '(' or fch == '{' or fch == '[' or fch == '<') fd += 1;
+                            if (fch == ')' or fch == '}' or fch == ']' or fch == '>') fd -= 1;
+                            if (fch == ',' and fd == 0) {
+                                const field = std.mem.trim(u8, inner[field_start..fk], " \t\r\n");
+                                if (field.len > 0) {
+                                    var var_name: []const u8 = "";
+                                    if (std.mem.startsWith(u8, field, "...")) {
+                                        // Rest element: ...rest
+                                        var ne: usize = 3;
+                                        while (ne < field.len and isIdentChar(field[ne])) ne += 1;
+                                        var_name = field[3..ne];
+                                    } else {
+                                        // Check for colon (alias): key: value
+                                        var colon_idx: ?usize = null;
+                                        var cd: i32 = 0;
+                                        for (field, 0..) |fc, fi| {
+                                            if (fc == '(' or fc == '{' or fc == '[' or fc == '<') cd += 1;
+                                            if (fc == ')' or fc == '}' or fc == ']' or fc == '>') cd -= 1;
+                                            if (fc == ':' and cd == 0) { colon_idx = fi; break; }
+                                        }
+                                        if (colon_idx) |ci| {
+                                            // Alias: take only the value (right side of colon)
+                                            const value = std.mem.trim(u8, field[ci + 1 ..], " \t\r\n");
+                                            const clean = stripDefault(value);
+                                            var ne: usize = 0;
+                                            while (ne < clean.len and isIdentChar(clean[ne])) ne += 1;
+                                            var_name = clean[0..ne];
+                                        } else {
+                                            // Simple name, possibly with default value
+                                            const clean = stripDefault(field);
+                                            var ne: usize = 0;
+                                            while (ne < clean.len and isIdentChar(clean[ne])) ne += 1;
+                                            var_name = clean[0..ne];
+                                        }
+                                    }
+                                    if (var_name.len > 0 and !std.mem.startsWith(u8, var_name, "_") and
+                                        !std.mem.eql(u8, var_name, "as") and
+                                        !std.mem.eql(u8, var_name, "type") and
+                                        !std.mem.eql(u8, var_name, "undefined"))
+                                    {
+                                        const rest_start = if (line_end < content.len) line_end + 1 else content.len;
+                                        const rest = content[rest_start..];
+                                        if (rest.len > 0 and !hasWordReference(var_name, rest)) {
+                                            if (!directives_mod.isSuppressed("pickier/no-unused-vars", line_no, suppress)) {
+                                                try issues.append(allocator, .{
+                                                    .file_path = file_path,
+                                                    .line = line_no,
+                                                    .column = 1,
+                                                    .rule_id = "pickier/no-unused-vars",
+                                                    .message = "Variable is declared but never used",
+                                                    .severity = severity,
+                                                });
+                                            }
                                         }
                                     }
                                 }
-                                in_ident = false;
+                                field_start = fk + 1;
                             }
                         }
                     }
@@ -1603,8 +1645,32 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
         if (ch == '{') {
             if (!found_open) {
                 // Check: is this a type annotation { ... } or the actual body {?
-                // Heuristic: scan forward from this { to see if the matching } is before
-                // the next newline containing actual code. If so, it's a type annotation.
+                // Strategy 1: If the last non-whitespace char before this { is ':', it's likely
+                // a return type annotation (e.g., ): { added: string[] } or multi-line).
+                // Scan forward to find the matching }, then continue looking for the body {.
+                var is_type_brace = false;
+                if (i > 0) {
+                    var back = i - 1;
+                    while (back > 0 and (content[back] == ' ' or content[back] == '\t' or content[back] == '\n' or content[back] == '\r')) {
+                        back -= 1;
+                    }
+                    if (content[back] == ':') is_type_brace = true;
+                }
+                if (is_type_brace) {
+                    // Skip past the type annotation { ... } (may span multiple lines)
+                    var skip_depth: i32 = 1;
+                    var skip_j = i + 1;
+                    while (skip_j < content.len and skip_depth > 0) : (skip_j += 1) {
+                        if (content[skip_j] == '{') skip_depth += 1;
+                        if (content[skip_j] == '}') skip_depth -= 1;
+                    }
+                    if (skip_depth == 0) {
+                        i = skip_j - 1; // -1 because the outer loop will +1
+                        continue;
+                    }
+                }
+                // Strategy 2: Inline type annotation on same line (e.g., Promise<{ x: number }>)
+                // Scan forward to check if { ... } closes before newline
                 var scan_depth: i32 = 1;
                 var scan_j = i + 1;
                 var is_inline = false;
@@ -1616,7 +1682,6 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
                 if (scan_depth == 0) {
                     // The { ... } closes on the same line — it's a type annotation.
                     // But check: is there a subsequent { on this line? If so, skip this one.
-                    // Look for another { after the closing }
                     var after_close = scan_j;
                     while (after_close < content.len and content[after_close] != '\n') : (after_close += 1) {
                         if (content[after_close] == '{') {
@@ -1625,13 +1690,11 @@ fn findFunctionBody(content: []const u8, line_start: usize, line_end: usize) []c
                         }
                     }
                     if (!is_inline and after_close < content.len and content[after_close] == '\n') {
-                        // No { after the inline close on this line — treat this as inline type + no body on same line
                         is_inline = true;
                     }
                 }
                 if (is_inline) {
-                    // Skip past the inline { ... }
-                    i = scan_j; // scan_j is right after the matching }
+                    i = scan_j;
                     continue;
                 }
                 body_start = i + 1;
