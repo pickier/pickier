@@ -1759,17 +1759,23 @@ fn findArrowBodyAt(content: []const u8, arrow_pos: usize) []const u8 {
     }
 
     // Expression body — take until end of statement
-    // Continue past newlines while paren/bracket/brace depth > 0 (multi-line expressions)
+    // Continue past newlines while paren/bracket/brace depth > 0 or inside template literals
     const expr_start = i;
     var depth: i32 = 0;
+    var in_template = false;
+    var esc = false;
     var j = expr_start;
     while (j < max_scan) : (j += 1) {
-        if (content[j] == '(' or content[j] == '[' or content[j] == '{') depth += 1;
-        if (content[j] == ')' or content[j] == ']' or content[j] == '}') {
+        const ch = content[j];
+        if (esc) { esc = false; continue; }
+        if (ch == '\\' and in_template) { esc = true; continue; }
+        if (ch == '`') { in_template = !in_template; continue; }
+        if (ch == '(' or ch == '[' or ch == '{') depth += 1;
+        if (ch == ')' or ch == ']' or ch == '}') {
             depth -= 1;
-            if (depth < 0) return content[expr_start..j]; // Closed a surrounding scope
+            if (depth < 0 and !in_template) return content[expr_start..j]; // Closed a surrounding scope
         }
-        if (content[j] == '\n' and depth <= 0) return content[expr_start..j];
+        if (ch == '\n' and depth <= 0 and !in_template) return content[expr_start..j];
     }
     return if (expr_start < max_scan) content[expr_start..max_scan] else "";
 }

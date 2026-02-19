@@ -19,7 +19,55 @@ export const noUnusedVarsRule: RuleModule = {
     const lines = text.split(/\r?\n/)
     const full = text
 
+    // Pre-compute which lines start inside a multi-line template literal body.
+    // Used to skip analysis of generated code inside template content in both loops.
+    const lineStartsInTemplate: boolean[] = new Array(lines.length).fill(false)
+    {
+      const tmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr
+      let tInSingle = false
+      let tInDouble = false
+      let tEscaped = false
+      for (let li = 0; li < lines.length; li++) {
+        lineStartsInTemplate[li] = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
+        const s = lines[li]
+        for (let k = 0; k < s.length; k++) {
+          const ch = s[k]
+          if (tEscaped) { tEscaped = false; continue }
+          const inBody = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
+          const inExpr = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] >= 0
+          if (ch === '\\' && (tInSingle || tInDouble || inBody)) { tEscaped = true; continue }
+          if (tInSingle) { if (ch === '\'') tInSingle = false; continue }
+          if (tInDouble) { if (ch === '"') tInDouble = false; continue }
+          if (inBody) {
+            if (ch === '`') { tmplStack.pop() }
+            else if (ch === '$' && k + 1 < s.length && s[k + 1] === '{') { tmplStack[tmplStack.length - 1] = 0; k++ }
+            continue
+          }
+          if (inExpr) {
+            if (ch === '`') { tmplStack.push(-1) }
+            else if (ch === '\'') { tInSingle = true }
+            else if (ch === '"') { tInDouble = true }
+            else if (ch === '{') { tmplStack[tmplStack.length - 1]++ }
+            else if (ch === '}') {
+              if (tmplStack[tmplStack.length - 1] > 0) tmplStack[tmplStack.length - 1]--
+              else tmplStack[tmplStack.length - 1] = -1
+            }
+            else if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
+            continue
+          }
+          // Outside template
+          if (ch === '`') { tmplStack.push(-1) }
+          else if (ch === '\'') { tInSingle = true }
+          else if (ch === '"') { tInDouble = true }
+          else if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
+        }
+      }
+    }
+
     for (let i = 0; i < lines.length; i++) {
+      // Skip lines inside template literal body (generated code, not real code)
+      if (lineStartsInTemplate[i])
+        continue
       const line = lines[i]
       const decl = line.match(/^\s*(?:const|let|var)\s+(.+?);?\s*$/)
       if (!decl)
@@ -352,14 +400,23 @@ export const noUnusedVarsRule: RuleModule = {
       let bodyEsc = false
       let isFirstSearchLine = true
       let lastNonWhitespaceBeforeBrace = '' // Tracks char before first '{' to detect object return types
+      // Persistent string/template state for the depth-tracking second pass (must survive across lines)
+      let depthInSingle = false
+      let depthInDouble = false
+      const depthTmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr with that brace depth
+      let depthEscaped = false
       for (let ln = startLine; ln < lines.length; ln++) {
         const s = lines[ln]
 
-        // Strip comments from this line before processing
+        // Strip comments from this line before processing.
+        // Skip when inside a multi-line template body — `//` in template content
+        // (e.g., URLs like https://) is literal text, not a JS comment.
         let lineToProcess = s
+        const inMultiLineTmplBody = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] === -1
         let commentIdx = -1
         let inStr: 'single' | 'double' | 'template' | null = null
         let esc = false
+        if (!inMultiLineTmplBody)
         for (let i = 0; i < s.length - 1; i++) {
           const c = s[i]
           const next = s[i + 1]
@@ -464,7 +521,8 @@ export const noUnusedVarsRule: RuleModule = {
           }
           return result
         }
-        lineToProcess = stripRegexFromLine(lineToProcess)
+        if (!inMultiLineTmplBody)
+          lineToProcess = stripRegexFromLine(lineToProcess)
 
         let startIdx = 0
         if (!openFound) {
@@ -567,57 +625,77 @@ export const noUnusedVarsRule: RuleModule = {
           startIdx = foundIdx + 1
           startLine = ln // Update startLine to where body '{' was actually found
         }
-        // Track string state to skip braces inside strings
-        // Note: angle bracket tracking removed because `<` in comparisons (e.g. `line < lines.length`)
-        // incorrectly prevents `{` on the same line from being counted, causing premature body termination.
-        // Braces inside generics are always balanced, so removing angle tracking is safe.
-        let inString: 'single' | 'double' | 'template' | null = null
-        let escaped = false
+        // Track string state to skip braces inside strings and template literals.
+        // Template literals with ${} expressions need stack-based tracking because
+        // nested templates (e.g., `${cond ? `inner` : ''}`) require knowing the
+        // brace depth at each nesting level.
+        // NOTE: State persists across lines via depthInSingle/depthInDouble/depthTmplStack/depthEscaped
+        // which are declared before the outer loop.
         for (let k = startIdx; k < lineToProcess.length; k++) {
           const ch = lineToProcess[k]
 
-          if (escaped) {
-            escaped = false
+          if (depthEscaped) {
+            depthEscaped = false
             continue
           }
 
-          if (ch === '\\' && inString) {
-            escaped = true
+          const inTmplBody = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] === -1
+          const inTmplExpr = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] >= 0
+
+          if (ch === '\\' && (depthInSingle || depthInDouble || inTmplBody)) {
+            depthEscaped = true
             continue
           }
 
-          // Track string boundaries
-          if (!inString) {
-            if (ch === '\'') {
-              inString = 'single'
+          if (depthInSingle) { if (ch === '\'') depthInSingle = false; continue }
+          if (depthInDouble) { if (ch === '"') depthInDouble = false; continue }
+
+          if (inTmplBody) {
+            if (ch === '`') { depthTmplStack.pop() }
+            else if (ch === '$' && k + 1 < lineToProcess.length && lineToProcess[k + 1] === '{') {
+              depthTmplStack[depthTmplStack.length - 1] = 0
+              k++ // skip the {
             }
-            else if (ch === '"') {
-              inString = 'double'
-            }
-            else if (ch === '`') {
-              inString = 'template'
-            }
-            else if (ch === '{') {
-              depth++
-            }
-            else if (ch === '}') {
-              depth--
-              if (depth === 0)
-                return { from: startLine, to: ln }
-            }
+            continue
           }
-          else {
-            // Check for string end
-            if ((inString === 'single' && ch === '\'')
-              || (inString === 'double' && ch === '"')
-              || (inString === 'template' && ch === '`')) {
-              inString = null
+
+          if (inTmplExpr) {
+            if (ch === '`') { depthTmplStack.push(-1); continue }
+            if (ch === '\'') { depthInSingle = true; continue }
+            if (ch === '"') { depthInDouble = true; continue }
+            if (ch === '{') { depthTmplStack[depthTmplStack.length - 1]++; continue }
+            if (ch === '}') {
+              if (depthTmplStack[depthTmplStack.length - 1] > 0) {
+                depthTmplStack[depthTmplStack.length - 1]--
+              }
+              else {
+                depthTmplStack[depthTmplStack.length - 1] = -1 // back to template body
+              }
             }
+            continue
+          }
+
+          // Outside any string/template
+          if (ch === '\'') { depthInSingle = true }
+          else if (ch === '"') { depthInDouble = true }
+          else if (ch === '`') { depthTmplStack.push(-1) }
+          else if (ch === '{') { depth++ }
+          else if (ch === '}') {
+            depth--
+            if (depth === 0)
+              return { from: startLine, to: ln }
           }
         }
       }
       return null
     }
+
+    // Multi-line template literal state tracking for main processing loop.
+    // Persists across lines to correctly mask generated code inside template body content.
+    const mainTmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr with that brace depth
+    let mainInSingle = false
+    let mainInDouble = false
+    let mainEscaped = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -718,9 +796,100 @@ export const noUnusedVarsRule: RuleModule = {
       const codeNoRegex = stripRegex(codeOnly)
       // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
       let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
-      // Strip template literal contents to avoid matching keywords inside template strings
-      // Handle single-line template literals: `...` → ``
-      codeClean = codeClean.replace(/`(?:[^`\\]|\\.)*`/g, m => '`' + ' '.repeat(Math.max(0, m.length - 2)) + '`')
+      // Mask template literal body content using stack-based tracking that persists across lines.
+      // Content inside ${} expressions is preserved (it's real code), body content is masked.
+      // This handles both single-line and multi-line templates correctly, including nested templates.
+      {
+        let masked = ''
+        for (let ci = 0; ci < codeClean.length; ci++) {
+          const ch = codeClean[ci]
+
+          if (mainEscaped) {
+            mainEscaped = false
+            const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
+            masked += inBody ? ' ' : ch
+            continue
+          }
+
+          const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
+          const inExpr = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] >= 0
+
+          if (ch === '\\' && (mainInSingle || mainInDouble || inBody)) {
+            mainEscaped = true
+            masked += inBody ? ' ' : ch
+            continue
+          }
+
+          if (mainInSingle) {
+            if (ch === '\'') mainInSingle = false
+            masked += ch
+            continue
+          }
+
+          if (mainInDouble) {
+            if (ch === '"') mainInDouble = false
+            masked += ch
+            continue
+          }
+
+          // Inside template body (literal content — not real code)
+          if (inBody) {
+            if (ch === '`') {
+              mainTmplStack.pop()
+            } else if (ch === '$' && ci + 1 < codeClean.length && codeClean[ci + 1] === '{') {
+              mainTmplStack[mainTmplStack.length - 1] = 0
+              masked += '  '
+              ci++
+            } else {
+              masked += ' '
+            }
+            continue
+          }
+
+          // Inside ${} expression (real code inside template)
+          if (inExpr) {
+            if (ch === '`') {
+              mainTmplStack.push(-1)
+              masked += ' '
+            } else if (ch === '\'') {
+              mainInSingle = true
+              masked += ch
+            } else if (ch === '"') {
+              mainInDouble = true
+              masked += ch
+            } else if (ch === '{') {
+              mainTmplStack[mainTmplStack.length - 1]++
+              masked += ch
+            } else if (ch === '}') {
+              if (mainTmplStack[mainTmplStack.length - 1] > 0) {
+                mainTmplStack[mainTmplStack.length - 1]--
+                masked += ch
+              } else {
+                mainTmplStack[mainTmplStack.length - 1] = -1
+                masked += ' '
+              }
+            } else {
+              masked += ch
+            }
+            continue
+          }
+
+          // Outside any template/string
+          if (ch === '`') {
+            mainTmplStack.push(-1)
+            masked += ' '
+          } else if (ch === '\'') {
+            mainInSingle = true
+            masked += ch
+          } else if (ch === '"') {
+            mainInDouble = true
+            masked += ch
+          } else {
+            masked += ch
+          }
+        }
+        codeClean = masked
+      }
 
       // function declarations or expressions
       const m = codeClean.match(/\bfunction\b/)
@@ -938,11 +1107,14 @@ export const noUnusedVarsRule: RuleModule = {
                   let parenDepth = 0
                   let braceDepth = 0
                   let bracketDepth = 0
+                  let inTemplate = false
 
                   // Check if expression continues on next lines by tracking nesting
                   for (let k = arrowIdx + 2; k < line.length; k++) {
                     const ch = line[k]
-                    if (ch === '(')
+                    if (ch === '`')
+                      inTemplate = !inTemplate
+                    else if (ch === '(')
                       parenDepth++
                     else if (ch === ')')
                       parenDepth--
@@ -958,11 +1130,13 @@ export const noUnusedVarsRule: RuleModule = {
 
                   // If body is empty/whitespace on current line, include next line(s)
                   let nextLine = i + 1
-                  if (!bodyText.trim() && nextLine < lines.length) {
+                  if ((!bodyText.trim() || inTemplate) && nextLine < lines.length) {
                     bodyText += `\n${lines[nextLine]}`
                     for (let k = 0; k < lines[nextLine].length; k++) {
                       const ch = lines[nextLine][k]
-                      if (ch === '(')
+                      if (ch === '`')
+                        inTemplate = !inTemplate
+                      else if (ch === '(')
                         parenDepth++
                       else if (ch === ')')
                         parenDepth--
@@ -978,12 +1152,14 @@ export const noUnusedVarsRule: RuleModule = {
                     nextLine++
                   }
 
-                  // If there's unclosed nesting, continue to next lines
-                  while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0)) {
+                  // If there's unclosed nesting or open template literal, continue to next lines
+                  while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0 || inTemplate)) {
                     bodyText += `\n${lines[nextLine]}`
                     for (let k = 0; k < lines[nextLine].length; k++) {
                       const ch = lines[nextLine][k]
-                      if (ch === '(')
+                      if (ch === '`')
+                        inTemplate = !inTemplate
+                      else if (ch === '(')
                         parenDepth++
                       else if (ch === ')')
                         parenDepth--
@@ -1068,11 +1244,14 @@ export const noUnusedVarsRule: RuleModule = {
             let parenDepth = 0
             let braceDepth = 0
             let bracketDepth = 0
+            let inTemplate = false
 
             // Check if expression continues on next lines by tracking nesting
             for (let k = arrowIdx + 2; k < line.length; k++) {
               const ch = line[k]
-              if (ch === '(')
+              if (ch === '`')
+                inTemplate = !inTemplate
+              else if (ch === '(')
                 parenDepth++
               else if (ch === ')')
                 parenDepth--
@@ -1086,14 +1265,16 @@ export const noUnusedVarsRule: RuleModule = {
                 bracketDepth--
             }
 
-            // If body is empty/whitespace on current line, include next line(s)
+            // If body is empty/whitespace on current line or inside template literal, include next line(s)
             // This handles cases like: .filter(d =>\n  d.range.contains(position),\n)
             let nextLine = i + 1
-            if (!bodyText.trim() && nextLine < lines.length) {
+            if ((!bodyText.trim() || inTemplate) && nextLine < lines.length) {
               bodyText += `\n${lines[nextLine]}`
               for (let k = 0; k < lines[nextLine].length; k++) {
                 const ch = lines[nextLine][k]
-                if (ch === '(')
+                if (ch === '`')
+                  inTemplate = !inTemplate
+                else if (ch === '(')
                   parenDepth++
                 else if (ch === ')')
                   parenDepth--
@@ -1109,12 +1290,14 @@ export const noUnusedVarsRule: RuleModule = {
               nextLine++
             }
 
-            // If there's unclosed nesting, continue to next lines
-            while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0)) {
+            // If there's unclosed nesting or open template literal, continue to next lines
+            while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0 || inTemplate)) {
               bodyText += `\n${lines[nextLine]}`
               for (let k = 0; k < lines[nextLine].length; k++) {
                 const ch = lines[nextLine][k]
-                if (ch === '(')
+                if (ch === '`')
+                  inTemplate = !inTemplate
+                else if (ch === '(')
                   parenDepth++
                 else if (ch === ')')
                   parenDepth--

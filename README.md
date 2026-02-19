@@ -12,7 +12,7 @@
 ## Features
 
 - Fast CLI with instant feedback
-- Lint and format in one tool via `pickier run`
+- Lint and format in one tool
 - Zero-config defaults; simple, typed `pickier.config.ts` when you need it
 - Import organization: splits type/value imports, sorts modules/specifiers, removes unused named imports
 - JSON and config sorting for common files _(e.g. `package.json`, `tsconfig.json`)_
@@ -52,59 +52,83 @@ bunx pickier --help
 
 ## Quick Start
 
-The unified `pickier run` command handles both linting and formatting:
-
 ```bash
-# Auto-detect mode (lint + format)
-pickier run .
+# Lint your project
+pickier .
 
-# Lint everything
-pickier run . --mode lint
+# Auto-fix lint issues
+pickier . --fix
 
-# Auto-fix lint issues (safe fixes only)
-pickier run . --mode lint --fix
-
-# Preview fixes without writing
-pickier run . --mode lint --fix --dry-run --verbose
-
-# Format and write changes
-pickier run . --mode format --write
+# Format files
+pickier . --format
 
 # Check formatting without writing (CI-friendly)
-pickier run . --mode format --check
+pickier . --format --check
+
+# Preview fixes without writing
+pickier . --fix --dry-run
 ```
+
+By default, `pickier` lints. Use `--fix` to auto-fix problems or `--format` to format files.
 
 ## CLI
 
-### `pickier run [...globs]`
+### `pickier [...globs]`
 
-The primary command. Routes to lint or format based on `--mode`.
+Lints by default. Add `--fix` to auto-fix or `--format` to format files.
 
-**Options:**
+```bash
+# These are equivalent:
+pickier .
+pickier lint .
+
+# These are equivalent:
+pickier . --fix
+pickier lint . --fix
+
+# These are equivalent:
+pickier . --format
+pickier format . --write
+```
+
+### `pickier lint [...globs]`
+
+Lint files.
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--mode <mode>` | `auto`, `lint`, or `format` | `auto` |
-| `--fix` | Apply safe fixes (lint mode) | `false` |
-| `--dry-run` | Simulate fixes without writing (lint mode) | `false` |
-| `--write` | Write changes to files (format mode) | `false` |
-| `--check` | Check without writing, non-zero exit on differences (format mode) | `false` |
+| `--fix` | Auto-fix problems | `false` |
+| `--dry-run` | Simulate fixes without writing | `false` |
 | `--max-warnings <n>` | Fail if warnings exceed _n_ | `-1` |
 | `--reporter <name>` | `stylish`, `json`, or `compact` | `stylish` |
 | `--ext <exts>` | Comma-separated extensions (overrides config) | — |
 | `--ignore-path <file>` | Optional ignore file (e.g. `.gitignore`) | — |
 | `--config <path>` | Path to pickier config file | — |
-| `--cache` | Enable cache (lint mode, reserved) | `false` |
+| `--cache` | Enable cache (reserved) | `false` |
 | `--verbose` | Verbose output | `false` |
 
-**Examples:**
+### `pickier format [...globs]`
 
-```bash
-pickier run . --mode auto
-pickier run src --mode lint --fix
-pickier run "**/*.{ts,tsx,js}" --mode format --write
-pickier run . --mode lint --reporter json --max-warnings 0
-```
+Format files.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--write` | Write changes to files | `false` |
+| `--check` | Check without writing, non-zero exit on differences (CI-friendly) | `false` |
+| `--ext <exts>` | Comma-separated extensions (overrides config) | — |
+| `--ignore-path <file>` | Optional ignore file (e.g. `.gitignore`) | — |
+| `--config <path>` | Path to pickier config file | — |
+| `--verbose` | Verbose output | `false` |
+
+### `pickier run [...globs]`
+
+Unified command that routes to lint or format based on `--mode`.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--mode <mode>` | `auto`, `lint`, or `format` | `auto` |
+
+Accepts all flags from both `lint` and `format`. Useful for scripts that need explicit mode control.
 
 ## Configuration
 
@@ -344,11 +368,10 @@ Call Pickier from code (Bun/Node) for custom tooling, editors, or pipelines.
 import type { RunOptions } from 'pickier'
 import { config, defaultConfig, run, runLint, runFormat, lintText } from 'pickier'
 
-// Unified run (recommended)
+// Unified run
 const exitCode = await run(['.'], {
-  mode: 'auto',
+  mode: 'lint',
   fix: true,
-  verbose: false,
 })
 
 // Lint specific directories
@@ -400,11 +423,11 @@ Try the CLI locally without publishing:
 # run the TS entry directly
 bun packages/pickier/bin/cli.ts --help
 
-# run the built dist CLI
-bun packages/pickier/dist/bin/cli.js run . --mode lint
+# lint the current directory
+bun packages/pickier/bin/cli.ts .
 
 # or the compiled native binary (after compile)
-./packages/pickier/bin/pickier-<your-platform> --help
+./packages/pickier/bin/pickier-<your-platform> .
 ```
 
 ## Testing
