@@ -103,7 +103,7 @@ pickier format . --write
    - Semicolon removal: safely removes stylistic semicolons while preserving for-loop headers
    - Quote normalization: enforces single/double quotes in code (respects JSON double-quote requirement)
 
-5.**Plugin System (`src/plugins/`)**-**Core Plugins**: `pickier`, `style`, `regexp`, `ts`, `markdown`- Each plugin exports a`PickierPlugin`with`name`and`rules`Record
+5.**Plugin System (`src/plugins/`)**-**Core Plugins**: `pickier`, `style`, `regexp`, `ts`, `markdown`, `publint`- Each plugin exports a`PickierPlugin`with`name`and`rules`Record
 
    - Rules implement`RuleModule`interface:`check(content, context) => LintIssue[]`and optional`fix(content, context) => string`- Configuration via`pluginRules` in config, supporting both full IDs (`plugin/rule`) and bare rule names
    - Rules can be marked as WIP (`meta.wip = true`) to surface implementation errors early

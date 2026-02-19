@@ -282,6 +282,42 @@ All rules:
 - [`no-unused-capturing-group`](/rules/regexp-no-unused-capturing-group) - Disallow unused capturing groups
 - `no-useless-lazy` - Disallow useless lazy quantifiers
 
+#### publint Plugin (`publint/`)
+
+Package.json validation for npm publishing (20 rules). See [publint plugin documentation](/rules/publint) for the complete list. Natively ported from [publint](https://publint.dev).
+
+**Exports & Imports Ordering:**
+
+- [`exports-types-should-be-first`](/rules/publint#exports-imports-ordering) - `types` condition must be first in exports
+- [`exports-default-should-be-last`](/rules/publint#exports-imports-ordering) - `default` condition must be last in exports
+- [`exports-module-should-precede-require`](/rules/publint#exports-imports-ordering) - `module` must come before `require`
+- [`imports-default-should-be-last`](/rules/publint#exports-imports-ordering) - `default` must be last in imports
+- [`imports-module-should-precede-require`](/rules/publint#exports-imports-ordering) - `module` must precede `require` in imports
+
+**Exports & Imports Values:**
+
+- [`exports-value-invalid`](/rules/publint#exports-imports-values) - Exports values must start with `./`
+- [`imports-key-invalid`](/rules/publint#exports-imports-values) - Imports keys must start with `#`
+- [`imports-value-invalid`](/rules/publint#exports-imports-values) - Relative imports values must start with `./`
+- [`exports-missing-root-entrypoint`](/rules/publint#exports-imports-values) - Missing `"."` entrypoint when `main`/`module` exist
+- [`exports-fallback-array-use`](/rules/publint#exports-imports-values) - Fallback arrays not recommended
+
+**Package Structure:**
+
+- [`use-type`](/rules/publint#package-structure) - `"type"` field should be specified
+- [`has-module-but-no-exports`](/rules/publint#package-structure) - `module` without `exports`
+- [`deprecated-field-jsnext`](/rules/publint#package-structure) - `jsnext:main` is deprecated
+- [`field-invalid-value-type`](/rules/publint#package-structure) - Field type validation
+- [`local-dependency`](/rules/publint#package-structure) - `file:` or `link:` dependencies
+
+**File Verification:**
+
+- [`file-does-not-exist`](/rules/publint#file-verification-tier-2) - Referenced files must exist
+- [`file-invalid-format`](/rules/publint#file-verification-tier-2) - Code format must match extension
+- [`module-should-be-esm`](/rules/publint#file-verification-tier-2) - `module` field must point to ESM
+- [`bin-file-not-executable`](/rules/publint#file-verification-tier-2) - Bin files need shebang
+- [`exports-module-should-be-esm`](/rules/publint#file-verification-tier-2) - `module` condition must be ESM
+
 #### Markdown Plugin (`markdown/`)
 
 Markdown documentation linting (53+ rules). See [markdown plugin documentation](/rules/markdown) for the complete list.
@@ -305,4 +341,5 @@ See [Advanced Configuration](/advanced/configuration-deep-dive) and [Plugin Syst
 - Prefer bare rule IDs in config (e.g., `'sort-imports'`), leverage category prefixes for discoverability (e.g., `'regexp/no-super-linear-backtracking'`)
 - Keep sorting rules (`sort-objects`, `sort-keys`, `sort-exports`, `sort-imports`) enabled to reduce merge conflicts and diff noise
 - Pair rules with the formatter for auto-fixes where supported
-- Use group pages — [`pickier`](/rules/pickier), [`style`](/rules/style), [`ts`](/rules/ts), [`regexp`](/rules/regexp) — to navigate related options and examples
+- Use group pages — [`pickier`](/rules/pickier), [`style`](/rules/style), [`ts`](/rules/ts), [`regexp`](/rules/regexp), [`publint`](/rules/publint) — to navigate related options and examples
+- Keep `publint/` rules enabled to catch publishing issues before they reach npm

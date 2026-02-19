@@ -20,6 +20,7 @@
   - 27 rules support auto-fix for common formatting issues
 - Flexible formatting: `indent`, `indentStyle` _(tabs or spaces)_, `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
 - Smart whitespace cleanup
+- **Package.json validation with 20 publint rules** for correct npm publishing _(exports ordering, file format, module system, etc.)_
 - ESLint-style plugin system for lint rules _(load plugins, enable/disable rules, WIP labeling)_
 - CI-friendly reporters _(stylish, compact, JSON)_ and strict `--max-warnings` control
 - Programmatic API for custom tooling and editor integrations
@@ -182,6 +183,7 @@ Pickier supports an ESLint-style plugin system for lint rules organized into foc
 | `ts/` | TypeScript-specific rules (type safety, formatting) | 13+ |
 | `regexp/` | Regular expression safety | 3+ |
 | `markdown/` | Markdown documentation linting | 53+ |
+| `publint/` | Package.json validation for npm publishing ([publint](https://publint.dev) rules) | 20 |
 | `lockfile/` | Lock file validation | 5+ |
 
 Configure rules via `pluginRules`:
