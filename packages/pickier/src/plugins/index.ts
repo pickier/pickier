@@ -5,6 +5,7 @@ import { lockfilePlugin } from './lockfile'
 import { markdownPlugin } from './markdown'
 import { nodePlugin } from './node'
 import { perfectionistPlugin } from './perfectionist'
+import { publintPlugin } from './publint'
 import { pickierPlugin } from './pickier'
 import { qualityPlugin } from './quality'
 import { regexpPlugin } from './regexp'
@@ -24,6 +25,7 @@ export function getAllPlugins(): PickierPlugin[] {
     markdownPlugin, // markdown/ prefix for markdown rules
     nodePlugin, // node/ prefix for Node.js-specific rules
     lockfilePlugin, // lockfile/ prefix for lockfile security rules
+    publintPlugin, // publint/ prefix for package.json validation rules
     unusedImportsPlugin, // unused-imports/ prefix for compatibility
     perfectionistPlugin, // perfectionist/ prefix for compatibility
   ]
