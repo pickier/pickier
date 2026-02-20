@@ -1,3 +1,66 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.18...v0.1.19)
+
+### 🚀 Features
+
+- implement logical package.json linting ([4d12814](https://github.com/pickier/pickier/commit/4d12814)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.19 ([e0faeb2](https://github.com/pickier/pickier/commit/e0faeb2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([88114ac](https://github.com/pickier/pickier/commit/88114ac)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([2831560](https://github.com/pickier/pickier/commit/2831560)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([77e720f](https://github.com/pickier/pickier/commit/77e720f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([8908983](https://github.com/pickier/pickier/commit/8908983)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([9d8d841](https://github.com/pickier/pickier/commit/9d8d841)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([8b1dd54](https://github.com/pickier/pickier/commit/8b1dd54)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([dd687e8](https://github.com/pickier/pickier/commit/dd687e8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([4289c30](https://github.com/pickier/pickier/commit/4289c30)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([17c13a4](https://github.com/pickier/pickier/commit/17c13a4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0424352](https://github.com/pickier/pickier/commit/0424352)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0a1fedd](https://github.com/pickier/pickier/commit/0a1fedd)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([13eaa62](https://github.com/pickier/pickier/commit/13eaa62)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([11deb10](https://github.com/pickier/pickier/commit/11deb10)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a9d41d9](https://github.com/pickier/pickier/commit/a9d41d9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([de94d12](https://github.com/pickier/pickier/commit/de94d12)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([5406199](https://github.com/pickier/pickier/commit/5406199)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([e21e730](https://github.com/pickier/pickier/commit/e21e730)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.18...HEAD)
+
+### 🚀 Features
+
+- implement logical package.json linting ([4d12814](https://github.com/pickier/pickier/commit/4d12814)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- wip ([88114ac](https://github.com/pickier/pickier/commit/88114ac)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([2831560](https://github.com/pickier/pickier/commit/2831560)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([77e720f](https://github.com/pickier/pickier/commit/77e720f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([8908983](https://github.com/pickier/pickier/commit/8908983)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([9d8d841](https://github.com/pickier/pickier/commit/9d8d841)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([8b1dd54](https://github.com/pickier/pickier/commit/8b1dd54)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([dd687e8](https://github.com/pickier/pickier/commit/dd687e8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([4289c30](https://github.com/pickier/pickier/commit/4289c30)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([17c13a4](https://github.com/pickier/pickier/commit/17c13a4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0424352](https://github.com/pickier/pickier/commit/0424352)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([0a1fedd](https://github.com/pickier/pickier/commit/0a1fedd)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([13eaa62](https://github.com/pickier/pickier/commit/13eaa62)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([11deb10](https://github.com/pickier/pickier/commit/11deb10)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a9d41d9](https://github.com/pickier/pickier/commit/a9d41d9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([de94d12](https://github.com/pickier/pickier/commit/de94d12)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([5406199](https://github.com/pickier/pickier/commit/5406199)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([e21e730](https://github.com/pickier/pickier/commit/e21e730)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.17...v0.1.18)
 
 ### 🐛 Bug Fixes
