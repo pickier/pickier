@@ -307,7 +307,9 @@ function parseDisableDirectives(content: string): DisableDirectives {
     // Match disable-next-line comments
     const nextLineMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable-next-line\s+(\S.*)$/)
     if (nextLineMatch) {
-      const list = nextLineMatch[1].split(',').map(s => s.trim()).filter(Boolean)
+      // Strip trailing -- comments (e.g., "rule-name -- explanation")
+      const ruleText = nextLineMatch[1].replace(/\s+--\s.*$/, '')
+      const list = ruleText.split(',').map(s => s.trim()).filter(Boolean)
       if (list.length > 0) {
         const target = lineNo + 1 // next line (1-indexed)
         const set = nextLine.get(target) || new Set<string>()
@@ -321,7 +323,7 @@ function parseDisableDirectives(content: string): DisableDirectives {
     // eslint-disable-next-line regexp/no-super-linear-backtracking
     const blockDisableMatch = t.match(/^\/\*\s*(?:eslint|pickier)-disable(?:\s+([^*]+))?\s*\*\//)
     if (blockDisableMatch) {
-      const ruleList = blockDisableMatch[1]?.trim()
+      const ruleList = blockDisableMatch[1]?.trim().replace(/\s+--\s.*$/, '')
       if (!ruleList || ruleList === '') {
         // Disable all rules for the entire file from this line onwards
         rangeDisable.set(lineNo, new Set(['*']))
@@ -376,7 +378,7 @@ function parseDisableDirectives(content: string): DisableDirectives {
     // Match inline comment disable directives (// eslint-disable or // pickier-disable)
     const inlineDisableMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable(?:\s+(\S.*))?$/)
     if (inlineDisableMatch) {
-      const ruleList = inlineDisableMatch[1]?.trim()
+      const ruleList = inlineDisableMatch[1]?.trim().replace(/\s+--\s.*$/, '')
       if (!ruleList || ruleList === '') {
         rangeDisable.set(lineNo, new Set(['*']))
         currentlyDisabled.add('*')

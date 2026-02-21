@@ -486,9 +486,9 @@ export const noUnusedVarsRule: RuleModule = {
               else if (ch === '`') {
                 inString = 'template'
               }
-              else if (ch === '/' && i > 0) {
-                const before = str.slice(0, i).trimEnd()
-                if (/[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
+              else if (ch === '/') {
+                const before = i > 0 ? str.slice(0, i).trimEnd() : ''
+                if (!before || /[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
                   // This is a regex - skip it
                   i++ // skip opening /
                   while (i < str.length) {
@@ -767,9 +767,9 @@ export const noUnusedVarsRule: RuleModule = {
         let result = ''
         let i = 0
         while (i < str.length) {
-          if (str[i] === '/' && i > 0) {
-            const before = str.slice(0, i).trimEnd()
-            if (/[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
+          if (str[i] === '/') {
+            const before = i > 0 ? str.slice(0, i).trimEnd() : ''
+            if (!before || /[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
               i++ // skip opening /
               while (i < str.length) {
                 if (str[i] === '\\') {
