@@ -1,3 +1,28 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.19...v0.1.20)
+
+### 🧹 Chores
+
+- release v0.1.20 ([4048cb0](https://github.com/pickier/pickier/commit/4048cb0)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([381fc1a](https://github.com/pickier/pickier/commit/381fc1a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([f99a37a](https://github.com/pickier/pickier/commit/f99a37a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.19...HEAD)
+
+### 🧹 Chores
+
+- wip ([381fc1a](https://github.com/pickier/pickier/commit/381fc1a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([f99a37a](https://github.com/pickier/pickier/commit/f99a37a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.18...v0.1.19)
 
 ### 🚀 Features
