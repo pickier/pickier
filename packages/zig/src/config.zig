@@ -64,12 +64,20 @@ pub const PluginRuleEntry = struct {
     severity: RuleSeverity,
 };
 
+pub const TailwindConfig = struct {
+    enabled: bool = false,
+    config_path: ?[]const u8 = null,
+    callees: []const []const u8 = &.{},
+    attributes: []const []const u8 = &.{},
+};
+
 pub const PickierConfig = struct {
     verbose: bool = true,
     ignores: []const []const u8 = &default_ignores,
     lint: LintConfig = .{},
     format: FormatConfig = .{},
     rules: RulesConfig = .{},
+    tailwind: TailwindConfig = .{},
     plugin_rules: []const PluginRuleEntry = &default_plugin_rules,
 
     /// Convert format config to the format.zig Config struct
@@ -285,6 +293,8 @@ const default_plugin_rules = [_]PluginRuleEntry{
     .{ .rule_id = "markdown/table-pipe-style", .severity = .warn },
     .{ .rule_id = "markdown/table-column-count", .severity = .warn },
     .{ .rule_id = "markdown/table-column-style", .severity = .warn },
+    // Tailwind class ordering (off by default — enable via tailwind.enabled or pluginRules)
+    .{ .rule_id = "pickier/sort-tailwind-classes", .severity = .off },
     // Lockfile rules
     .{ .rule_id = "lockfile/validate-host", .severity = .warn },
     .{ .rule_id = "lockfile/validate-https", .severity = .@"error" },
@@ -367,6 +377,19 @@ pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfi
         }
     }
 
+    // Parse tailwind section
+    if (root.get("tailwind")) |tw| {
+        if (tw == .object) {
+            const t = tw.object;
+            if (t.get("enabled")) |v| {
+                if (v == .bool) cfg.tailwind.enabled = v.bool;
+            }
+            if (t.get("configPath")) |v| {
+                if (v == .string) cfg.tailwind.config_path = try allocator.dupe(u8, v.string);
+            }
+        }
+    }
+
     // Parse lint section
     if (root.get("lint")) |lint| {
         if (lint == .object) {
@@ -408,6 +431,23 @@ pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfi
                 }
             }
             cfg.ignores = try list.toOwnedSlice(allocator);
+        }
+    }
+
+    // If tailwind.enabled=true, auto-enable the sort-tailwind-classes rule (unless user explicitly set it)
+    if (cfg.tailwind.enabled) {
+        var found_tw_rule = false;
+        for (cfg.plugin_rules) |entry| {
+            if (std.mem.eql(u8, entry.rule_id, "pickier/sort-tailwind-classes")) {
+                found_tw_rule = true;
+                break;
+            }
+        }
+        if (!found_tw_rule) {
+            var list = std.ArrayList(PluginRuleEntry){};
+            for (cfg.plugin_rules) |entry| try list.append(allocator, entry);
+            try list.append(allocator, .{ .rule_id = "pickier/sort-tailwind-classes", .severity = .warn });
+            cfg.plugin_rules = try list.toOwnedSlice(allocator);
         }
     }
 

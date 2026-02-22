@@ -18,6 +18,7 @@ import { sortKeysRule } from '../rules/sort/keys'
 import { sortNamedImportsRule } from '../rules/sort/named-imports'
 import { sortObjectsRule } from '../rules/sort/objects'
 import { topLevelFunctionRule } from '../rules/style/top-level-function'
+import { sortTailwindClassesRule } from '../rules/sort/tailwind-classes'
 import { codeOnly } from './utils'
 
 export const pickierPlugin: PickierPlugin = {
@@ -43,6 +44,9 @@ export const pickierPlugin: PickierPlugin = {
 
     // Style rules
     'top-level-function': codeOnly(topLevelFunctionRule),
+
+    // Tailwind
+    'sort-tailwind-classes': sortTailwindClassesRule,
 
     // General rules (also registered in general plugin for backward compat)
     'prefer-const': codeOnly(preferConstRule),

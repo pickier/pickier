@@ -106,7 +106,34 @@ pluginRules: {
   'node/prefer-global/buffer': 'error',
   'node/prefer-global/process': 'error',
 }
-```## Rule Aliasing
+```### Tailwind CSS Class Ordering
+
+Enable canonical Tailwind class ordering via the `tailwind` block. Setting `enabled: true` automatically activates `pickier/sort-tailwind-classes` at `warn` severity:
+
+```ts
+tailwind: {
+  // Enable the sort-tailwind-classes rule at 'warn' severity
+  enabled: true,
+  // Path to tailwind.config.js/ts (reserved for future use)
+  configPath: './tailwind.config.ts',
+  // Extra utility function names to scan (e.g. custom wrappers around clsx)
+  callees: ['myTw', 'styles'],
+  // Extra HTML attribute names to scan
+  attributes: ['wrapperClass'],
+}
+```
+
+Or enable explicitly via `pluginRules` for direct severity control:
+
+```ts
+pluginRules: {
+  'pickier/sort-tailwind-classes': 'warn',
+}
+```
+
+See [sort-tailwind-classes rule docs](./rules/sort-tailwind-classes.md) for the full class group order, scanned patterns, and examples.
+
+## Rule Aliasing
 
 Pickier supports ESLint config aliases for compatibility:```ts
 'antfu/curly' → 'style/curly'

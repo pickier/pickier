@@ -132,6 +132,13 @@ pub fn runPluginRules(
     if (isLockFile(file_path)) {
         try lockfile_rules.runLockfileRules(file_path, content, cfg, issues, allocator);
     }
+
+    // Tailwind class ordering (HTML, JSX, TS, JS, STX files)
+    if (isTailwindFile(file_path)) {
+        if (mapSeverity(cfg.getPluginRuleSeverity("pickier/sort-tailwind-classes"))) |sev| {
+            try checkSortTailwindClasses(file_path, content, sev, suppress, issues, allocator);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +169,14 @@ fn isLockFile(path: []const u8) bool {
 
 fn isTsJsExt(path: []const u8) bool {
     const exts = [_][]const u8{ ".ts", ".js", ".tsx", ".jsx", ".mts", ".cts", ".mjs", ".cjs" };
+    for (exts) |ext| {
+        if (std.mem.endsWith(u8, path, ext)) return true;
+    }
+    return false;
+}
+
+fn isTailwindFile(path: []const u8) bool {
+    const exts = [_][]const u8{ ".ts", ".js", ".tsx", ".jsx", ".mts", ".mjs", ".html", ".stx", ".vue", ".svelte" };
     for (exts) |ext| {
         if (std.mem.endsWith(u8, path, ext)) return true;
     }
@@ -1206,7 +1221,10 @@ fn checkNoUnusedVars(
                         if (dch == open_char) dd += 1;
                         if (dch == close_char) {
                             dd -= 1;
-                            if (dd == 0) { end_idx = dci; break; }
+                            if (dd == 0) {
+                                end_idx = dci;
+                                break;
+                            }
                         }
                     }
                     if (end_idx > 1) {
@@ -1235,7 +1253,10 @@ fn checkNoUnusedVars(
                                         for (field, 0..) |fc, fi| {
                                             if (fc == '(' or fc == '{' or fc == '[' or fc == '<') cd += 1;
                                             if (fc == ')' or fc == '}' or fc == ']' or fc == '>') cd -= 1;
-                                            if (fc == ':' and cd == 0) { colon_idx = fi; break; }
+                                            if (fc == ':' and cd == 0) {
+                                                colon_idx = fi;
+                                                break;
+                                            }
                                         }
                                         if (colon_idx) |ci| {
                                             // Alias: take only the value (right side of colon)
@@ -1329,19 +1350,35 @@ fn checkNoUnusedVars(
                     continue;
                 }
                 if (in_sq) {
-                    if (cc == '\'') { in_sq = false; } else { code_mask_buf[ci] = ' '; }
+                    if (cc == '\'') {
+                        in_sq = false;
+                    } else {
+                        code_mask_buf[ci] = ' ';
+                    }
                     continue;
                 }
                 if (in_dq) {
-                    if (cc == '"') { in_dq = false; } else { code_mask_buf[ci] = ' '; }
+                    if (cc == '"') {
+                        in_dq = false;
+                    } else {
+                        code_mask_buf[ci] = ' ';
+                    }
                     continue;
                 }
                 if (in_tl) {
-                    if (cc == '`') { in_tl = false; } else { code_mask_buf[ci] = ' '; }
+                    if (cc == '`') {
+                        in_tl = false;
+                    } else {
+                        code_mask_buf[ci] = ' ';
+                    }
                     continue;
                 }
                 if (in_rx) {
-                    if (cc == '/') { in_rx = false; } else { code_mask_buf[ci] = ' '; }
+                    if (cc == '/') {
+                        in_rx = false;
+                    } else {
+                        code_mask_buf[ci] = ' ';
+                    }
                     continue;
                 }
                 if (cc == '\'') {
@@ -1435,7 +1472,10 @@ fn checkNoUnusedVars(
                 var found_close_paren = false;
                 while (rp > 0) {
                     rp -= 1;
-                    if (code_trimmed[rp] == ')') { found_close_paren = true; break; }
+                    if (code_trimmed[rp] == ')') {
+                        found_close_paren = true;
+                        break;
+                    }
                     // Allow whitespace and type annotation chars between ) and =>
                     if (code_trimmed[rp] != ' ' and code_trimmed[rp] != '\t' and
                         code_trimmed[rp] != ':' and code_trimmed[rp] != '>' and
@@ -1742,14 +1782,38 @@ fn findArrowBodyAt(content: []const u8, arrow_pos: usize) []const u8 {
         var escaped = false;
         while (i < max_scan) : (i += 1) {
             const ch = content[i];
-            if (escaped) { escaped = false; continue; }
-            if (ch == '\\' and (in_sq or in_dq or in_tl)) { escaped = true; continue; }
-            if (in_sq) { if (ch == '\'') in_sq = false; continue; }
-            if (in_dq) { if (ch == '"') in_dq = false; continue; }
-            if (in_tl) { if (ch == '`') in_tl = false; continue; }
-            if (ch == '\'') { in_sq = true; continue; }
-            if (ch == '"') { in_dq = true; continue; }
-            if (ch == '`') { in_tl = true; continue; }
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (ch == '\\' and (in_sq or in_dq or in_tl)) {
+                escaped = true;
+                continue;
+            }
+            if (in_sq) {
+                if (ch == '\'') in_sq = false;
+                continue;
+            }
+            if (in_dq) {
+                if (ch == '"') in_dq = false;
+                continue;
+            }
+            if (in_tl) {
+                if (ch == '`') in_tl = false;
+                continue;
+            }
+            if (ch == '\'') {
+                in_sq = true;
+                continue;
+            }
+            if (ch == '"') {
+                in_dq = true;
+                continue;
+            }
+            if (ch == '`') {
+                in_tl = true;
+                continue;
+            }
             if (ch == '{') depth += 1;
             if (ch == '}') {
                 depth -= 1;
@@ -1767,9 +1831,18 @@ fn findArrowBodyAt(content: []const u8, arrow_pos: usize) []const u8 {
     var j = expr_start;
     while (j < max_scan) : (j += 1) {
         const ch = content[j];
-        if (esc) { esc = false; continue; }
-        if (ch == '\\' and in_template) { esc = true; continue; }
-        if (ch == '`') { in_template = !in_template; continue; }
+        if (esc) {
+            esc = false;
+            continue;
+        }
+        if (ch == '\\' and in_template) {
+            esc = true;
+            continue;
+        }
+        if (ch == '`') {
+            in_template = !in_template;
+            continue;
+        }
         if (ch == '(' or ch == '[' or ch == '{') depth += 1;
         if (ch == ')' or ch == ']' or ch == '}') {
             depth -= 1;
@@ -2796,6 +2869,382 @@ fn checkNoUselessLazy(
 }
 
 // ---------------------------------------------------------------------------
+// pickier/sort-tailwind-classes
+// ---------------------------------------------------------------------------
+//
+// Detects unsorted Tailwind CSS classes in:
+//   class="..."  className="..."  :class="..."
+//   clsx("...")  cn("...")  tw("...")  cva("...")  tv("...")
+//
+// Class ordering follows the canonical Tailwind group order:
+//   Layout → Flexbox/Grid → Spacing → Sizing → Typography → Backgrounds →
+//   Borders → Effects → Filters → Tables → Transitions → Transforms →
+//   Interactivity → SVG → Accessibility → (unknown last)
+// ---------------------------------------------------------------------------
+
+/// Strip leading variant prefixes (hover:, md:, dark:focus:, etc.) but stop
+/// before any '[' so that arbitrary properties like [mask-type:alpha] are preserved.
+fn tailwindStripVariants(cls: []const u8) []const u8 {
+    var i: usize = 0;
+    while (i < cls.len) {
+        if (cls[i] == '[') break; // arbitrary property — stop here
+        const colon = std.mem.indexOfScalarPos(u8, cls, i, ':') orelse break;
+        // If the character after the colon is '[', this is an arbitrary value — stop
+        if (colon + 1 < cls.len and cls[colon + 1] == '[') break;
+        i = colon + 1;
+    }
+    return cls[i..];
+}
+
+/// Returns the group index for a single Tailwind class (lower = earlier in output)
+fn tailwindGroupIndex(cls: []const u8) u8 {
+    // Strip variant prefixes safely (stops before arbitrary property brackets)
+    var base = tailwindStripVariants(cls);
+    // Strip leading ! important modifier
+    if (base.len > 0 and base[0] == '!') base = base[1..];
+
+    // Layout — display values (group 0)
+    const layout_display_exact = [_][]const u8{
+        "block",              "inline",             "inline-block",       "flex",            "inline-flex",   "grid",       "inline-grid",
+        "flow-root",          "contents",           "hidden",             "table",           "table-caption", "table-cell", "table-column",
+        "table-column-group", "table-footer-group", "table-header-group", "table-row-group", "table-row",     "list-item",  "subgrid",
+    };
+    for (layout_display_exact) |exact| {
+        if (std.mem.eql(u8, base, exact)) return 0;
+    }
+
+    // Layout — positioning exact values (group 1)
+    const layout_position_exact = [_][]const u8{
+        "static",  "fixed",     "absolute", "relative", "sticky",
+        "visible", "invisible", "collapse",
+    };
+    for (layout_position_exact) |exact| {
+        if (std.mem.eql(u8, base, exact)) return 1;
+    }
+
+    // Layout — prefix-based (group 1)
+    const layout_prefixes = [_][]const u8{
+        "container", "columns-",  "break-",      "box-",   "float-",  "clear-", "isolation-",
+        "object-",   "overflow-", "overscroll-", "inset-", "top-",    "right-", "bottom-",
+        "left-",     "start-",    "end-",        "z-",     "aspect-", "order-",
+    };
+    for (layout_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 1;
+    }
+
+    // Flexbox & Grid
+    const flex_grid_prefixes = [_][]const u8{
+        "basis-",     "flex-",      "grow", "shrink",   "order-", "grid-",    "col-",  "row-",
+        "auto-cols-", "auto-rows-", "gap-", "justify-", "items-", "content-", "self-", "place-",
+    };
+    for (flex_grid_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 2;
+    }
+
+    // Spacing
+    const spacing_prefixes = [_][]const u8{
+        "p-",     "px-",     "py-", "ps-",  "pe-",  "pt-",  "pr-",  "pb-",  "pl-",
+        "m-",     "mx-",     "my-", "ms-",  "me-",  "mt-",  "mr-",  "mb-",  "ml-",
+        "space-", "indent-", "-p-", "-px-", "-py-", "-ps-", "-pe-", "-pt-", "-pr-",
+        "-pb-",   "-pl-",    "-m-", "-mx-", "-my-", "-ms-", "-me-", "-mt-", "-mr-",
+        "-mb-",   "-ml-",
+    };
+    for (spacing_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 3;
+    }
+
+    // Sizing
+    const sizing_prefixes = [_][]const u8{
+        "w-", "h-", "min-w-", "max-w-", "min-h-", "max-h-", "size-",
+    };
+    for (sizing_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 4;
+    }
+
+    // Typography
+    const typo_prefixes = [_][]const u8{
+        "font-",              "text-",                "tracking-",   "leading-",      "list-",             "placeholder-",
+        "vertical-",          "whitespace-",          "break-",      "hyphens-",      "line-clamp-",       "truncate",
+        "uppercase",          "lowercase",            "capitalize",  "normal-case",   "italic",            "not-italic",
+        "antialiased",        "subpixel-antialiased", "underline",   "overline",      "line-through",      "no-underline",
+        "ordinal",            "slashed-zero",         "lining-nums", "oldstyle-nums", "proportional-nums", "tabular-nums",
+        "diagonal-fractions", "stacked-fractions",    "normal-nums",
+    };
+    for (typo_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx) or std.mem.eql(u8, base, pfx)) return 5;
+    }
+
+    // Backgrounds
+    const bg_prefixes = [_][]const u8{ "bg-", "from-", "via-", "to-", "gradient-" };
+    for (bg_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 6;
+    }
+
+    // Borders
+    const border_prefixes = [_][]const u8{
+        "border", "rounded", "outline", "ring", "divide", "accent",
+    };
+    for (border_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 7;
+    }
+
+    // Effects
+    const effects_prefixes = [_][]const u8{ "shadow", "opacity-", "mix-blend-", "bg-blend-" };
+    for (effects_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 8;
+    }
+
+    // Filters
+    const filter_prefixes = [_][]const u8{
+        "blur",        "brightness-", "contrast-", "drop-shadow-", "grayscale",
+        "hue-rotate-", "invert",      "saturate-", "sepia",        "backdrop-",
+    };
+    for (filter_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 9;
+    }
+
+    // Tables
+    const table_prefixes = [_][]const u8{
+        "border-collapse", "border-separate", "border-spacing-",
+        "table-auto",      "table-fixed",     "caption-",
+    };
+    for (table_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 10;
+    }
+
+    // Transitions & Animation
+    const transition_prefixes = [_][]const u8{
+        "transition", "duration-", "ease-", "delay-", "animate-",
+    };
+    for (transition_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 11;
+    }
+
+    // Transforms
+    const transform_prefixes = [_][]const u8{
+        "scale-", "rotate-", "translate-", "skew-", "origin-", "transform", "perspective-",
+    };
+    for (transform_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 12;
+    }
+
+    // Interactivity
+    const interact_prefixes = [_][]const u8{
+        "appearance-", "cursor-", "caret-", "pointer-events-", "resize",
+        "scroll-",     "snap-",   "touch-", "select-",         "will-change-",
+    };
+    for (interact_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 13;
+    }
+
+    // SVG
+    const svg_prefixes = [_][]const u8{ "fill-", "stroke-" };
+    for (svg_prefixes) |pfx| {
+        if (std.mem.startsWith(u8, base, pfx)) return 14;
+    }
+
+    // Accessibility
+    if (std.mem.eql(u8, base, "sr-only") or std.mem.eql(u8, base, "not-sr-only")) return 15;
+
+    return 99; // unknown — sort last
+}
+
+/// Returns variant priority: base classes first, then responsive (sm/md/lg/xl/2xl), then state variants
+fn tailwindVariantPriority(cls: []const u8) u8 {
+    // Arbitrary properties like [mask-type:alpha] start with '[' — no variant
+    if (cls.len > 0 and cls[0] == '[') return 0;
+    const responsive = [_][]const u8{ "sm:", "md:", "lg:", "xl:", "2xl:" };
+    for (responsive, 0..) |pfx, i| {
+        if (std.mem.startsWith(u8, cls, pfx)) return @intCast(10 + i);
+    }
+    // Has a colon before any '[' bracket — it's a state variant (hover:, focus:, dark:, etc.)
+    const colon_pos = std.mem.indexOfScalar(u8, cls, ':') orelse return 0;
+    const bracket_pos = std.mem.indexOfScalar(u8, cls, '[') orelse cls.len;
+    if (colon_pos < bracket_pos) return 20;
+    return 0;
+}
+
+/// Compare two Tailwind classes for sorting
+fn tailwindClassLessThan(_: void, a: []const u8, b: []const u8) bool {
+    const ga = tailwindGroupIndex(a);
+    const gb = tailwindGroupIndex(b);
+    if (ga != gb) return ga < gb;
+    const va = tailwindVariantPriority(a);
+    const vb = tailwindVariantPriority(b);
+    if (va != vb) return va < vb;
+    return std.mem.lessThan(u8, a, b);
+}
+
+/// Extract a quoted string value starting at `pos` (after the opening quote char `q`).
+/// Returns the slice of the string content (excluding quotes) and the end position (after closing quote).
+fn extractQuotedStringAt(content: []const u8, pos: usize, q: u8) ?struct { value: []const u8, end: usize } {
+    var i = pos;
+    while (i < content.len) {
+        if (content[i] == '\\') {
+            i += 2;
+            continue;
+        }
+        if (content[i] == q) {
+            return .{ .value = content[pos..i], .end = i + 1 };
+        }
+        i += 1;
+    }
+    return null;
+}
+
+/// Split a Tailwind class string on whitespace, but NOT inside [...] brackets.
+/// This handles arbitrary values like p-[calc(100% - 1rem)] correctly.
+fn tailwindSplitClasses(classes_str: []const u8, allocator: Allocator) !std.ArrayList([]const u8) {
+    var list = std.ArrayList([]const u8){};
+    var depth: usize = 0;
+    var start: usize = 0;
+    var i: usize = 0;
+    while (i < classes_str.len) {
+        const ch = classes_str[i];
+        if (ch == '[') {
+            depth += 1;
+        } else if (ch == ']') {
+            if (depth > 0) depth -= 1;
+        } else if ((ch == ' ' or ch == '\t' or ch == '\n' or ch == '\r') and depth == 0) {
+            if (i > start) {
+                try list.append(allocator, classes_str[start..i]);
+            }
+            start = i + 1;
+        }
+        i += 1;
+    }
+    if (start < classes_str.len) {
+        const tail = classes_str[start..];
+        if (tail.len > 0) try list.append(allocator, tail);
+    }
+    return list;
+}
+
+/// Check if a whitespace-separated class list is in sorted order
+fn tailwindClassesAreSorted(classes_str: []const u8, allocator: Allocator) !bool {
+    var list = try tailwindSplitClasses(classes_str, allocator);
+    defer list.deinit(allocator);
+
+    if (list.items.len < 2) return true;
+
+    const sorted = try allocator.dupe([]const u8, list.items);
+    defer allocator.free(sorted);
+    std.mem.sort([]const u8, sorted, {}, tailwindClassLessThan);
+
+    for (list.items, 0..) |cls, i| {
+        if (!std.mem.eql(u8, cls, sorted[i])) return false;
+    }
+    return true;
+}
+
+/// Scan content for class attribute patterns and report unsorted class lists
+fn checkSortTailwindClasses(
+    file_path: []const u8,
+    content: []const u8,
+    severity: Severity,
+    suppress: *const directives_mod.DisableDirectives,
+    issues: *std.ArrayList(LintIssue),
+    allocator: Allocator,
+) !void {
+    // Patterns to search for (attribute name followed by = and a quote)
+    const attr_names = [_][]const u8{
+        "class=", "className=", ":class=",
+    };
+    // Utility function names followed by (
+    const util_fns = [_][]const u8{
+        "clsx(", "cn(", "tw(", "cva(", "tv(",
+    };
+
+    var line_no: u32 = 1;
+    var pos: usize = 0;
+
+    while (pos < content.len) {
+        const line_end = std.mem.indexOfScalarPos(u8, content, pos, '\n') orelse content.len;
+        const line = content[pos..line_end];
+
+        // Check attribute patterns: class="...", className='...', etc.
+        for (attr_names) |attr| {
+            var search_pos: usize = 0;
+            while (std.mem.indexOfPos(u8, line, search_pos, attr)) |attr_pos| {
+                const after_eq = attr_pos + attr.len;
+                if (after_eq >= line.len) break;
+
+                const q = line[after_eq];
+                if (q != '"' and q != '\'') {
+                    search_pos = after_eq;
+                    continue;
+                }
+
+                if (extractQuotedStringAt(line, after_eq + 1, q)) |result| {
+                    const classes_str = result.value;
+                    const is_sorted = tailwindClassesAreSorted(classes_str, allocator) catch true;
+                    if (!is_sorted) {
+                        if (!directives_mod.isSuppressed("pickier/sort-tailwind-classes", line_no, suppress)) {
+                            try issues.append(allocator, .{
+                                .file_path = file_path,
+                                .line = line_no,
+                                .column = @intCast(attr_pos + 1),
+                                .rule_id = "pickier/sort-tailwind-classes",
+                                .message = "Tailwind classes are not in the recommended order",
+                                .severity = severity,
+                            });
+                        }
+                    }
+                    search_pos = result.end;
+                } else {
+                    search_pos = after_eq + 1;
+                }
+            }
+        }
+
+        // Check utility function patterns: clsx("..."), cn('...'), etc.
+        for (util_fns) |fn_pat| {
+            var search_pos: usize = 0;
+            while (std.mem.indexOfPos(u8, line, search_pos, fn_pat)) |fn_pos| {
+                const after_paren = fn_pos + fn_pat.len;
+                if (after_paren >= line.len) break;
+
+                // Skip whitespace
+                var arg_pos = after_paren;
+                while (arg_pos < line.len and (line[arg_pos] == ' ' or line[arg_pos] == '\t')) {
+                    arg_pos += 1;
+                }
+                if (arg_pos >= line.len) break;
+
+                const q = line[arg_pos];
+                if (q != '"' and q != '\'') {
+                    search_pos = after_paren;
+                    continue;
+                }
+
+                if (extractQuotedStringAt(line, arg_pos + 1, q)) |result| {
+                    const classes_str = result.value;
+                    const is_sorted = tailwindClassesAreSorted(classes_str, allocator) catch true;
+                    if (!is_sorted) {
+                        if (!directives_mod.isSuppressed("pickier/sort-tailwind-classes", line_no, suppress)) {
+                            try issues.append(allocator, .{
+                                .file_path = file_path,
+                                .line = line_no,
+                                .column = @intCast(fn_pos + 1),
+                                .rule_id = "pickier/sort-tailwind-classes",
+                                .message = "Tailwind classes are not in the recommended order",
+                                .severity = severity,
+                            });
+                        }
+                    }
+                    search_pos = result.end;
+                } else {
+                    search_pos = after_paren;
+                }
+            }
+        }
+
+        pos = if (line_end < content.len) line_end + 1 else content.len;
+        line_no += 1;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -2840,4 +3289,308 @@ test "isReassigned" {
     try std.testing.expect(isReassigned("x", "x++"));
     try std.testing.expect(!isReassigned("x", "console.log(x)"));
     try std.testing.expect(!isReassigned("x", "const xx = 1"));
+}
+
+// ---------------------------------------------------------------------------
+// Tailwind class ordering tests
+// ---------------------------------------------------------------------------
+
+test "tailwindGroupIndex — layout display values" {
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("flex"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("block"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("hidden"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("grid"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("inline-flex"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("inline-block"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("contents"));
+}
+
+test "tailwindGroupIndex — layout positioning" {
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("absolute"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("relative"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("fixed"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("sticky"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("z-10"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("overflow-hidden"));
+    try std.testing.expectEqual(@as(u8, 1), tailwindGroupIndex("top-0"));
+}
+
+test "tailwindGroupIndex — flexbox and grid" {
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("flex-col"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("flex-row"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("gap-4"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("items-center"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("justify-between"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("grid-cols-3"));
+    try std.testing.expectEqual(@as(u8, 2), tailwindGroupIndex("col-span-2"));
+}
+
+test "tailwindGroupIndex — spacing" {
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("p-4"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("px-2"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("py-6"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("m-4"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("mx-auto"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("mt-8"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("space-x-2"));
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("-mt-4"));
+}
+
+test "tailwindGroupIndex — sizing" {
+    try std.testing.expectEqual(@as(u8, 4), tailwindGroupIndex("w-full"));
+    try std.testing.expectEqual(@as(u8, 4), tailwindGroupIndex("h-screen"));
+    try std.testing.expectEqual(@as(u8, 4), tailwindGroupIndex("max-w-lg"));
+    try std.testing.expectEqual(@as(u8, 4), tailwindGroupIndex("min-h-0"));
+    try std.testing.expectEqual(@as(u8, 4), tailwindGroupIndex("size-4"));
+}
+
+test "tailwindGroupIndex — typography" {
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("text-sm"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("font-bold"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("leading-tight"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("uppercase"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("truncate"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("italic"));
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("underline"));
+}
+
+test "tailwindGroupIndex — backgrounds" {
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("bg-white"));
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("bg-blue-500"));
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("from-blue-500"));
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("via-purple-500"));
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("to-pink-500"));
+}
+
+test "tailwindGroupIndex — borders" {
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("border"));
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("rounded"));
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("rounded-lg"));
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("ring-2"));
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("outline-none"));
+}
+
+test "tailwindGroupIndex — effects" {
+    try std.testing.expectEqual(@as(u8, 8), tailwindGroupIndex("shadow-md"));
+    try std.testing.expectEqual(@as(u8, 8), tailwindGroupIndex("opacity-50"));
+}
+
+test "tailwindGroupIndex — filters" {
+    try std.testing.expectEqual(@as(u8, 9), tailwindGroupIndex("blur-sm"));
+    try std.testing.expectEqual(@as(u8, 9), tailwindGroupIndex("brightness-75"));
+    try std.testing.expectEqual(@as(u8, 9), tailwindGroupIndex("backdrop-blur"));
+    try std.testing.expectEqual(@as(u8, 9), tailwindGroupIndex("grayscale"));
+}
+
+test "tailwindGroupIndex — transitions and animation" {
+    try std.testing.expectEqual(@as(u8, 11), tailwindGroupIndex("transition"));
+    try std.testing.expectEqual(@as(u8, 11), tailwindGroupIndex("duration-200"));
+    try std.testing.expectEqual(@as(u8, 11), tailwindGroupIndex("ease-in-out"));
+    try std.testing.expectEqual(@as(u8, 11), tailwindGroupIndex("animate-spin"));
+    try std.testing.expectEqual(@as(u8, 11), tailwindGroupIndex("delay-100"));
+}
+
+test "tailwindGroupIndex — transforms" {
+    try std.testing.expectEqual(@as(u8, 12), tailwindGroupIndex("scale-105"));
+    try std.testing.expectEqual(@as(u8, 12), tailwindGroupIndex("rotate-45"));
+    try std.testing.expectEqual(@as(u8, 12), tailwindGroupIndex("translate-x-2"));
+    try std.testing.expectEqual(@as(u8, 12), tailwindGroupIndex("skew-x-3"));
+}
+
+test "tailwindGroupIndex — interactivity" {
+    try std.testing.expectEqual(@as(u8, 13), tailwindGroupIndex("cursor-pointer"));
+    try std.testing.expectEqual(@as(u8, 13), tailwindGroupIndex("select-none"));
+    try std.testing.expectEqual(@as(u8, 13), tailwindGroupIndex("resize-none"));
+    try std.testing.expectEqual(@as(u8, 13), tailwindGroupIndex("scroll-smooth"));
+}
+
+test "tailwindGroupIndex — SVG" {
+    try std.testing.expectEqual(@as(u8, 14), tailwindGroupIndex("fill-current"));
+    try std.testing.expectEqual(@as(u8, 14), tailwindGroupIndex("stroke-2"));
+}
+
+test "tailwindGroupIndex — accessibility" {
+    try std.testing.expectEqual(@as(u8, 15), tailwindGroupIndex("sr-only"));
+    try std.testing.expectEqual(@as(u8, 15), tailwindGroupIndex("not-sr-only"));
+}
+
+test "tailwindGroupIndex — unknown classes sort last" {
+    // These don't match any known Tailwind prefix or exact value
+    try std.testing.expectEqual(@as(u8, 99), tailwindGroupIndex("foo"));
+    try std.testing.expectEqual(@as(u8, 99), tailwindGroupIndex("zzz-unknown"));
+    try std.testing.expectEqual(@as(u8, 99), tailwindGroupIndex("custom-xyz"));
+    try std.testing.expectEqual(@as(u8, 99), tailwindGroupIndex("xyz"));
+}
+
+test "tailwindGroupIndex — strips variant prefixes before matching" {
+    // hover:flex should match as layout (group 0) after stripping hover:
+    try std.testing.expectEqual(@as(u8, 0), tailwindGroupIndex("hover:flex"));
+    // md:p-4 should match as spacing (group 3) after stripping md:
+    try std.testing.expectEqual(@as(u8, 3), tailwindGroupIndex("md:p-4"));
+    // dark:bg-white should match as background (group 6) after stripping dark:
+    try std.testing.expectEqual(@as(u8, 6), tailwindGroupIndex("dark:bg-white"));
+    // sm:text-sm should match as typography (group 5) after stripping sm:
+    try std.testing.expectEqual(@as(u8, 5), tailwindGroupIndex("sm:text-sm"));
+    // hover:focus:border should match as border (group 7) after stripping both prefixes
+    try std.testing.expectEqual(@as(u8, 7), tailwindGroupIndex("hover:focus:border"));
+}
+
+test "tailwindVariantPriority — base classes have priority 0" {
+    try std.testing.expectEqual(@as(u8, 0), tailwindVariantPriority("flex"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindVariantPriority("p-4"));
+    try std.testing.expectEqual(@as(u8, 0), tailwindVariantPriority("bg-white"));
+}
+
+test "tailwindVariantPriority — responsive variants ordered sm<md<lg<xl<2xl" {
+    const sm = tailwindVariantPriority("sm:p-4");
+    const md = tailwindVariantPriority("md:p-4");
+    const lg = tailwindVariantPriority("lg:p-4");
+    const xl = tailwindVariantPriority("xl:p-4");
+    const xxl = tailwindVariantPriority("2xl:p-4");
+    try std.testing.expect(sm < md);
+    try std.testing.expect(md < lg);
+    try std.testing.expect(lg < xl);
+    try std.testing.expect(xl < xxl);
+}
+
+test "tailwindVariantPriority — responsive before state variants" {
+    const sm = tailwindVariantPriority("sm:p-4");
+    const hover = tailwindVariantPriority("hover:p-4");
+    try std.testing.expect(sm < hover);
+}
+
+test "tailwindVariantPriority — base before responsive" {
+    const base = tailwindVariantPriority("p-4");
+    const sm = tailwindVariantPriority("sm:p-4");
+    try std.testing.expect(base < sm);
+}
+
+test "tailwindClassLessThan — layout before spacing" {
+    try std.testing.expect(tailwindClassLessThan({}, "flex", "p-4"));
+    try std.testing.expect(!tailwindClassLessThan({}, "p-4", "flex"));
+}
+
+test "tailwindClassLessThan — spacing before typography" {
+    try std.testing.expect(tailwindClassLessThan({}, "p-4", "text-sm"));
+    try std.testing.expect(!tailwindClassLessThan({}, "text-sm", "p-4"));
+}
+
+test "tailwindClassLessThan — typography before backgrounds" {
+    try std.testing.expect(tailwindClassLessThan({}, "text-sm", "bg-white"));
+    try std.testing.expect(!tailwindClassLessThan({}, "bg-white", "text-sm"));
+}
+
+test "tailwindClassLessThan — backgrounds before borders" {
+    try std.testing.expect(tailwindClassLessThan({}, "bg-white", "border"));
+    try std.testing.expect(!tailwindClassLessThan({}, "border", "bg-white"));
+}
+
+test "tailwindClassLessThan — borders before effects" {
+    try std.testing.expect(tailwindClassLessThan({}, "border", "shadow-md"));
+    try std.testing.expect(!tailwindClassLessThan({}, "shadow-md", "border"));
+}
+
+test "tailwindClassLessThan — effects before transitions" {
+    try std.testing.expect(tailwindClassLessThan({}, "shadow-md", "transition"));
+    try std.testing.expect(!tailwindClassLessThan({}, "transition", "shadow-md"));
+}
+
+test "tailwindClassLessThan — transitions before transforms" {
+    try std.testing.expect(tailwindClassLessThan({}, "transition", "scale-105"));
+    try std.testing.expect(!tailwindClassLessThan({}, "scale-105", "transition"));
+}
+
+test "tailwindClassLessThan — transforms before interactivity" {
+    try std.testing.expect(tailwindClassLessThan({}, "scale-105", "cursor-pointer"));
+    try std.testing.expect(!tailwindClassLessThan({}, "cursor-pointer", "scale-105"));
+}
+
+test "tailwindClassLessThan — base before responsive variant (same group)" {
+    try std.testing.expect(tailwindClassLessThan({}, "p-4", "sm:p-4"));
+    try std.testing.expect(!tailwindClassLessThan({}, "sm:p-4", "p-4"));
+}
+
+test "tailwindClassLessThan — sm before md before lg (same group)" {
+    try std.testing.expect(tailwindClassLessThan({}, "sm:p-4", "md:p-4"));
+    try std.testing.expect(tailwindClassLessThan({}, "md:p-4", "lg:p-4"));
+    try std.testing.expect(!tailwindClassLessThan({}, "lg:p-4", "sm:p-4"));
+}
+
+test "tailwindClassLessThan — alphabetical within same group and variant" {
+    try std.testing.expect(tailwindClassLessThan({}, "p-2", "p-4"));
+    try std.testing.expect(!tailwindClassLessThan({}, "p-4", "p-2"));
+}
+
+test "tailwindClassesAreSorted — sorted list returns true" {
+    const allocator = std.testing.allocator;
+    try std.testing.expect(try tailwindClassesAreSorted("flex p-4", allocator));
+    try std.testing.expect(try tailwindClassesAreSorted("flex gap-4 p-4 w-full text-sm bg-white border shadow-md transition scale-105 cursor-pointer sr-only", allocator));
+    try std.testing.expect(try tailwindClassesAreSorted("p-4 sm:p-4 md:p-4 hover:p-4", allocator));
+}
+
+test "tailwindClassesAreSorted — unsorted list returns false" {
+    const allocator = std.testing.allocator;
+    try std.testing.expect(!try tailwindClassesAreSorted("p-4 flex", allocator));
+    try std.testing.expect(!try tailwindClassesAreSorted("text-sm flex", allocator));
+    try std.testing.expect(!try tailwindClassesAreSorted("bg-white flex", allocator));
+    try std.testing.expect(!try tailwindClassesAreSorted("hover:p-4 p-4", allocator));
+    try std.testing.expect(!try tailwindClassesAreSorted("md:p-4 sm:p-4", allocator));
+}
+
+test "tailwindClassesAreSorted — single class is always sorted" {
+    const allocator = std.testing.allocator;
+    try std.testing.expect(try tailwindClassesAreSorted("flex", allocator));
+    try std.testing.expect(try tailwindClassesAreSorted("p-4", allocator));
+}
+
+test "tailwindClassesAreSorted — empty string is sorted" {
+    const allocator = std.testing.allocator;
+    try std.testing.expect(try tailwindClassesAreSorted("", allocator));
+}
+
+test "extractQuotedStringAt — extracts double-quoted value" {
+    const result = extractQuotedStringAt("\"hello world\"", 1, '"');
+    try std.testing.expect(result != null);
+    try std.testing.expectEqualStrings("hello world", result.?.value);
+    try std.testing.expectEqual(@as(usize, 13), result.?.end);
+}
+
+test "extractQuotedStringAt — extracts single-quoted value" {
+    const result = extractQuotedStringAt("'flex p-4'", 1, '\'');
+    try std.testing.expect(result != null);
+    try std.testing.expectEqualStrings("flex p-4", result.?.value);
+}
+
+test "extractQuotedStringAt — returns null for unterminated string" {
+    const result = extractQuotedStringAt("\"no closing quote", 1, '"');
+    try std.testing.expect(result == null);
+}
+
+test "extractQuotedStringAt — handles empty string" {
+    const result = extractQuotedStringAt("\"\"", 1, '"');
+    try std.testing.expect(result != null);
+    try std.testing.expectEqualStrings("", result.?.value);
+}
+
+test "isTailwindFile — accepts supported extensions" {
+    try std.testing.expect(isTailwindFile("app.ts"));
+    try std.testing.expect(isTailwindFile("app.tsx"));
+    try std.testing.expect(isTailwindFile("app.js"));
+    try std.testing.expect(isTailwindFile("app.jsx"));
+    try std.testing.expect(isTailwindFile("app.html"));
+    try std.testing.expect(isTailwindFile("app.vue"));
+    try std.testing.expect(isTailwindFile("app.svelte"));
+    try std.testing.expect(isTailwindFile("app.stx"));
+    try std.testing.expect(isTailwindFile("app.mts"));
+    try std.testing.expect(isTailwindFile("app.mjs"));
+    try std.testing.expect(isTailwindFile("src/components/Button.tsx"));
+}
+
+test "isTailwindFile — rejects unsupported extensions" {
+    try std.testing.expect(!isTailwindFile("app.css"));
+    try std.testing.expect(!isTailwindFile("app.json"));
+    try std.testing.expect(!isTailwindFile("app.md"));
+    try std.testing.expect(!isTailwindFile("app.zig"));
+    try std.testing.expect(!isTailwindFile("app.lock"));
+    try std.testing.expect(!isTailwindFile("noextension"));
 }

@@ -16,6 +16,7 @@
 - Zero-config defaults; simple, typed `pickier.config.ts` when you need it
 - Import organization: splits type/value imports, sorts modules/specifiers, removes unused named imports
 - JSON and config sorting for common files _(e.g. `package.json`, `tsconfig.json`)_
+- **Tailwind CSS class ordering** — enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX files with auto-fix
 - **Markdown linting with 53+ rules** for documentation quality _(headings, lists, links, code blocks, tables, etc.)_
   - 27 rules support auto-fix for common formatting issues
 - Flexible formatting: `indent`, `indentStyle` _(tabs or spaces)_, `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
@@ -177,6 +178,12 @@ const config: PickierConfig = {
     noConsole: 'warn',
   },
 
+  // Tailwind CSS class ordering (auto-enables pickier/sort-tailwind-classes at 'warn')
+  tailwind: {
+    enabled: true,
+    // configPath: './tailwind.config.ts', // optional
+  },
+
   // Plugin rules for markdown, style, sorting, etc.
   pluginRules: {
     // Markdown linting (53+ rules available)
@@ -198,7 +205,7 @@ Pickier supports an ESLint-style plugin system for lint rules organized into foc
 
 | Plugin | Description | Rules |
 |--------|-------------|-------|
-| `pickier/` | Sorting, import organization, and core checks | 17+ |
+| `pickier/` | Sorting, import organization, Tailwind class ordering, and core checks | 18+ |
 | `general/` | Error detection and possible problems | 35+ |
 | `quality/` | Best practices and code quality | 40+ |
 | `style/` | Code style enforcement (spacing, punctuation, line breaks, etc.) | 50+ |

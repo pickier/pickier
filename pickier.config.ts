@@ -60,6 +60,16 @@ const config: PickierOptions = {
     noCondAssign: 'warn', // assignments in conditionals (common pattern in while/exec loops)
   },
 
+  // Tailwind CSS class ordering
+  // Set enabled: true to enforce canonical Tailwind class order across HTML/JSX/TS/JS/STX files.
+  // This auto-enables the 'pickier/sort-tailwind-classes' rule at 'warn' severity.
+  // tailwind: {
+  //   enabled: true,
+  //   configPath: './tailwind.config.ts', // optional: path to your tailwind config
+  //   callees: ['clsx', 'cn', 'tw'],      // optional: extra utility fn names to scan
+  //   attributes: ['class', 'className'], // optional: extra HTML attribute names to scan
+  // },
+
   // Plugin rules (advanced linting)
   pluginRules: {
     'ts/prefer-const': 'warn', // prefer const over let
