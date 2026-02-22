@@ -35,6 +35,7 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 |`pickier/sort-classes`| Sort | ✅ | off | Enforce sorted class members |
 |`pickier/sort-enums`| Sort | ✅ | off | Enforce sorted enum members |
 |`pickier/sort-heritage-clauses`| Sort | ✅ | off | Enforce sorted heritage clauses |
+|`pickier/sort-tailwind-classes`| Sort | ✅ | off | Enforce canonical Tailwind CSS class order |
 |`regexp/no-super-linear-backtracking`| RegExp | ❌ | error | Disallow exponential backtracking in regexes |
 |`regexp/no-unused-capturing-group`| RegExp | ❌ | warn | Disallow unused capturing groups |
 |`regexp/no-useless-lazy`| RegExp | ✅ | warn | Disallow useless lazy quantifiers |
@@ -266,7 +267,8 @@ The`pickier/`plugin contains sorting and import organization rules specific to P
 -`sort-imports`- Enforce sorted import declarations
 -`sort-named-imports`- Enforce sorted named imports
 -`sort-heritage-clauses`- Enforce sorted heritage clauses (extends/implements)
--`sort-keys`- Enforce sorted object keys**Import Rules:**-`import-dedupe`- Remove duplicate imports
+-`sort-keys`- Enforce sorted object keys
+-`sort-tailwind-classes`- Enforce canonical Tailwind CSS class order ([docs](./sort-tailwind-classes.md))**Import Rules:**-`import-dedupe`- Remove duplicate imports
 -`import-first`- Ensure imports come first
 -`import-named`- Ensure named imports exist in the module
 -`import-no-cycle`- Prevent import cycles

@@ -52,12 +52,25 @@ export interface PickierFormatConfig {
   semi: boolean
 }
 
+export interface PickierTailwindConfig {
+  // Enable Tailwind class ordering rule (pickier/sort-tailwind-classes)
+  enabled: boolean
+  // Path to tailwind.config.js/ts relative to project root (for future use)
+  configPath?: string
+  // Additional utility function names to scan for class strings (e.g. ['myTw', 'styles'])
+  callees?: string[]
+  // Additional HTML attribute names to scan (e.g. ['wrapperClass', 'labelClass'])
+  attributes?: string[]
+}
+
 export interface PickierConfig {
   verbose: boolean
   ignores: string[]
   lint: PickierLintConfig
   format: PickierFormatConfig
   rules: PickierRulesConfig
+  // Tailwind CSS class ordering
+  tailwind?: PickierTailwindConfig
   // Plugin system (optional)
   plugins?: Array<PickierPlugin | string>
   // Support both bare rule IDs (preferred) and legacy plugin-prefixed IDs

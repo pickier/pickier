@@ -181,6 +181,18 @@ export function mergeConfig(base: PickierConfig, override: Partial<PickierConfig
     ? [...new Set([...(base.ignores || []), ...override.ignores])]
     : base.ignores
 
+  const mergedPluginRules: Record<string, any> = {
+    ...((base as any).pluginRules || {}),
+    ...((override as any).pluginRules || {}),
+  }
+
+  // Auto-enable sort-tailwind-classes when tailwind.enabled is true
+  // (unless the user has already explicitly configured the rule)
+  const tailwindCfg = override.tailwind ?? (base as any).tailwind
+  if (tailwindCfg?.enabled && !Object.prototype.hasOwnProperty.call(mergedPluginRules, 'pickier/sort-tailwind-classes')) {
+    mergedPluginRules['pickier/sort-tailwind-classes'] = 'warn'
+  }
+
   return {
     ...base,
     ...override,
@@ -188,7 +200,7 @@ export function mergeConfig(base: PickierConfig, override: Partial<PickierConfig
     lint: { ...base.lint, ...(override.lint || {}) },
     format: { ...base.format, ...(override.format || {}) },
     rules: { ...base.rules, ...(override.rules || {}) },
-    pluginRules: { ...(base as any).pluginRules || {}, ...(override as any).pluginRules || {} } as any,
+    pluginRules: mergedPluginRules as any,
   }
 }
 
