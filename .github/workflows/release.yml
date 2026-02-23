@@ -39,7 +39,10 @@ jobs:
           files: |
             packages/pickier/bin/pickier-linux-x64.zip
             packages/pickier/bin/pickier-linux-arm64.zip
+            packages/pickier/bin/pickier-linux-x64-musl.zip
+            packages/pickier/bin/pickier-linux-arm64-musl.zip
             packages/pickier/bin/pickier-windows-x64.zip
+            packages/pickier/bin/pickier-windows-arm64.zip
             packages/pickier/bin/pickier-darwin-x64.zip
             packages/pickier/bin/pickier-darwin-arm64.zip
         env:

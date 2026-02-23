@@ -1,173 +1,168 @@
-import { exec } from 'node:child_process'
 /**
  * Formatting Performance Benchmarks
- * Compares pickier vs Prettier vs Biome
+ * Compares Pickier vs Prettier vs Biome vs oxfmt
+ *
+ * Pickier: formatCode() in-memory API + Zig native binary CLI
+ * Others:  in-memory where available, CLI (stdin/file) otherwise
+ *
+ * Run: bun run bench:format
  */
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { promisify } from 'node:util'
 import { bench, group, run } from 'mitata'
+import { defaultConfig, formatCode } from 'pickier'
 import * as prettier from 'prettier'
 
-const execAsync = promisify(exec)
+function which(bin: string): string | null {
+  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
+  catch { return null }
+}
 
-// Load fixtures
+const biomeGlobal = which('biome')
+const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
+const oxfmtGlobal = which('oxfmt')
+const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
+const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
+
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),
   medium: resolve(__dirname, '../fixtures/medium.ts'),
   large: resolve(__dirname, '../fixtures/large.ts'),
 }
 
-const fixtureContent = {
+const content = {
   small: readFileSync(fixtures.small, 'utf-8'),
   medium: readFileSync(fixtures.medium, 'utf-8'),
   large: readFileSync(fixtures.large, 'utf-8'),
 }
 
-// Helper to run Prettier
-async function runPrettier(content: string) {
-  try {
-    const formatted = await prettier.format(content, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
-      tabWidth: 2,
-      printWidth: 80,
-    })
-    return formatted
-  }
-  catch (error) {
-    console.error('Prettier error:', error)
-    return content
-  }
+const prettierOpts = {
+  parser: 'typescript' as const,
+  semi: false,
+  singleQuote: true,
+  tabWidth: 2,
+  printWidth: 100,
 }
 
-// Helper to run Biome
-async function runBiome(filePath: string) {
+const cfg = { ...defaultConfig }
+
+function stdinBiome(src: string): void {
   try {
-    await execAsync(`npx @biomejs/biome format ${filePath}`)
-    return true
+    execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed --indent-width=2`, {
+      input: src,
+      stdio: ['pipe', 'ignore', 'ignore'],
+    })
   }
-  catch (error) {
-    console.error('Biome error:', error)
-    return false
-  }
+  catch { /* non-zero exit expected */ }
 }
 
-// Helper to run Pickier format
-async function runPickierFormat(filePath: string) {
+function stdinOxfmt(src: string): void {
   try {
-    // Import the runFormat function from pickier
-    const pickier = await import('pickier')
-    if ('runFormat' in pickier) {
-      await pickier.runFormat([filePath], { write: false })
-    }
-    return true
+    execSync(`${oxfmtCmd} format --stdin-filepath bench.ts`, {
+      input: src,
+      stdio: ['pipe', 'ignore', 'ignore'],
+    })
   }
-  catch (error) {
-    console.error('Pickier format error:', error)
-    return false
-  }
+  catch { /* non-zero exit expected */ }
 }
 
-// Small file benchmarks
-group('Formatting - Small File (~50 lines)', () => {
-  bench('pickier', async () => {
-    await runPickierFormat(fixtures.small)
-  })
+function cliPickier(filePath: string): void {
+  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected */ }
+}
 
-  bench('prettier', async () => {
-    await runPrettier(fixtureContent.small)
-  })
+function cliBiome(filePath: string): void {
+  try { execSync(`${biomeCmd} format --quote-style=single --semicolons=as-needed --indent-width=2 ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected */ }
+}
 
-  bench('biome', async () => {
-    await runBiome(fixtures.small)
-  })
-})
+function cliOxfmt(filePath: string): void {
+  try { execSync(`${oxfmtCmd} format --check ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected */ }
+}
 
-// Medium file benchmarks
-group('Formatting - Medium File (~500 lines)', () => {
-  bench('pickier', async () => {
-    await runPickierFormat(fixtures.medium)
-  })
+console.log(`\n${'='.repeat(72)}`)
+console.log('  PICKIER vs Prettier vs Biome vs oxfmt — Formatting Benchmark')
+console.log(`${'='.repeat(72)}`)
+console.log(`  Pickier Zig: ${pickierZigBin}`)
+console.log(`  Biome:       ${biomeGlobal ?? '(via bunx)'}`)
+console.log(`  oxfmt:       ${oxfmtGlobal ?? '(via bunx)'}`)
+console.log(`${'='.repeat(72)}\n`)
 
-  bench('prettier', async () => {
-    await runPrettier(fixtureContent.medium)
-  })
+// ── In-memory / programmatic ────────────────────────────────────────────────
+for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
+  group(`In-memory — ${label}`, () => {
+    bench('pickier', () => {
+      formatCode(content[size], cfg, 'bench.ts')
+    })
 
-  bench('biome', async () => {
-    await runBiome(fixtures.medium)
-  })
-})
+    bench('prettier', async () => {
+      await prettier.format(content[size], prettierOpts)
+    })
 
-// Large file benchmarks
-group('Formatting - Large File (~2000 lines)', () => {
-  bench('pickier', async () => {
-    await runPickierFormat(fixtures.large)
-  })
+    bench('biome (stdin)', () => {
+      stdinBiome(content[size])
+    })
 
-  bench('prettier', async () => {
-    await runPrettier(fixtureContent.large)
-  })
-
-  bench('biome', async () => {
-    await runBiome(fixtures.large)
-  })
-})
-
-// Multiple files benchmark
-group('Formatting - All Files (batch)', () => {
-  bench('pickier', async () => {
-    for (const file of Object.values(fixtures)) {
-      await runPickierFormat(file)
-    }
-  })
-
-  bench('prettier', async () => {
-    for (const content of Object.values(fixtureContent)) {
-      await runPrettier(content)
-    }
-  })
-
-  bench('biome', async () => {
-    for (const file of Object.values(fixtures)) {
-      await runBiome(file)
-    }
-  })
-})
-
-// Cold start benchmarks
-group('Formatting - Cold Start', () => {
-  bench('pickier (cold)', async () => {
-    const pickier = await import('pickier')
-    if ('runFormat' in pickier) {
-      await pickier.runFormat([fixtures.medium], { write: false })
-    }
-  })
-
-  bench('prettier (cold)', async () => {
-    const p = await import('prettier')
-    await p.format(fixtureContent.medium, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
+    bench('oxfmt (stdin)', () => {
+      stdinOxfmt(content[size])
     })
   })
-})
+}
 
-// String manipulation benchmarks (in-memory)
-group('Formatting - String Operations', () => {
-  bench('prettier (string only)', async () => {
-    await prettier.format(fixtureContent.medium, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
+// ── CLI ─────────────────────────────────────────────────────────────────────
+for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
+  group(`CLI — ${label}`, () => {
+    bench('pickier (cli)', () => {
+      cliPickier(fixtures[size])
     })
+
+    bench('biome', () => {
+      cliBiome(fixtures[size])
+    })
+
+    bench('oxfmt', () => {
+      cliOxfmt(fixtures[size])
+    })
+  })
+}
+
+// ── CLI Batch ────────────────────────────────────────────────────────────────
+group('CLI Batch — All Files', () => {
+  bench('pickier (cli)', () => {
+    for (const fp of Object.values(fixtures)) cliPickier(fp)
+  })
+
+  bench('biome', () => {
+    for (const fp of Object.values(fixtures)) cliBiome(fp)
+  })
+
+  bench('oxfmt', () => {
+    for (const fp of Object.values(fixtures)) cliOxfmt(fp)
   })
 })
 
-// Run benchmarks
-await run({
-  format: 'mitata',
-  colors: true,
+// ── Throughput ───────────────────────────────────────────────────────────────
+group('Throughput — Large File x 20', () => {
+  bench('pickier', () => {
+    for (let i = 0; i < 20; i++) formatCode(content.large, cfg, 'bench.ts')
+  })
+
+  bench('prettier', async () => {
+    for (let i = 0; i < 20; i++) await prettier.format(content.large, prettierOpts)
+  })
+
+  bench('biome (stdin)', () => {
+    for (let i = 0; i < 20; i++) stdinBiome(content.large)
+  })
+
+  bench('oxfmt (stdin)', () => {
+    for (let i = 0; i < 20; i++) stdinOxfmt(content.large)
+  })
 })
+
+await run({ colors: true })

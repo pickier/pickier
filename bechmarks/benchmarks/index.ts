@@ -1,23 +1,33 @@
 /**
- * Main Benchmark Runner
- * Runs all benchmarks and generates a comprehensive report
- * Compares: Pickier, ESLint, Biome, oxlint, and Prettier
- * Uses mitata for accurate benchmarking
+ * Main Benchmark Runner — Overview
+ * Quick comparison across all tool categories.
+ * For detailed suites run bench:lint, bench:format, bench:combined.
  */
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { ESLint } from 'eslint'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from 'pickier'
+import { defaultConfig, formatCode, runLintProgrammatic } from 'pickier'
 import * as prettier from 'prettier'
 
-console.log('\n🚀 Pickier Benchmarks\n')
-console.log('='.repeat(80))
-console.log('Running comprehensive performance benchmarks')
-console.log('Comparing: Pickier vs ESLint vs Biome vs oxlint vs Prettier\n')
+function which(bin: string): string | null {
+  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
+  catch { return null }
+}
 
-// Load fixtures
+// ESLint must run via node — ajv dependency has a Bun compat issue
+const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
+const eslintCmd = `node ${eslintBin}`
+const biomeGlobal = which('biome')
+const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
+const oxlintGlobal = which('oxlint')
+const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
+const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
+
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),
   medium: resolve(__dirname, '../fixtures/medium.ts'),
@@ -30,266 +40,125 @@ const fixtureContent = {
   large: readFileSync(fixtures.large, 'utf-8'),
 }
 
-console.log('Fixtures:')
+const prettierOpts = { parser: 'typescript' as const, semi: false, singleQuote: true, tabWidth: 2 }
+const cfg = { ...defaultConfig }
+
+const mediumLines = fixtureContent.medium.split('\n').length
+const largeLines = fixtureContent.large.split('\n').length
+
+console.log('\n🚀 Pickier Benchmarks — Overview\n')
+console.log('='.repeat(80))
 console.log(`  Small:  ${fixtureContent.small.split('\n').length} lines`)
-console.log(`  Medium: ${fixtureContent.medium.split('\n').length} lines`)
-console.log(`  Large:  ${fixtureContent.large.split('\n').length} lines`)
-console.log(`\n${'='.repeat(80)}\n`)
+console.log(`  Medium: ${mediumLines} lines`)
+console.log(`  Large:  ${largeLines} lines`)
+console.log(`  Pickier Zig: ${pickierZigBin}`)
+console.log(`  ESLint: ${eslintBin} (via node)`)
+console.log('='.repeat(80) + '\n')
 
-// Initialize ESLint once for reuse
-const eslint = new ESLint({
-  overrideConfigFile: true,
-  overrideConfig: {
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    rules: {
-      'no-debugger': 'error',
-      'no-console': 'warn',
-      'no-unused-vars': 'warn',
-    },
-  },
-})
-
-// Quick Overview - Linting Comparison
-group('⚡ Linters - Medium File (418 lines)', () => {
-  bench('Pickier', async () => {
+// ── Linting ──────────────────────────────────────────────────────────────────
+group(`Linting — Medium File (${mediumLines} lines)`, () => {
+  bench('Pickier (api)', async () => {
     await runLintProgrammatic([fixtures.medium], { reporter: 'json' })
   })
-
-  bench('ESLint', async () => {
-    await eslint.lintFiles([fixtures.medium])
+  bench('Pickier (cli)', () => {
+    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
+  bench('ESLint (node)', () => {
+    try { execSync(`${eslintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
+  })
   bench('Biome', () => {
-    try {
-      execSync(`bunx @biomejs/biome lint ${fixtures.medium}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // Biome exits with code 1 if issues found
-    }
+    try { execSync(`${biomeCmd} lint ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
   bench('oxlint', () => {
-    try {
-      execSync(`bunx oxlint ${fixtures.medium}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // oxlint exits with code 1 if issues found
-    }
+    try { execSync(`${oxlintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
 })
 
-// Formatting Comparison
-group('⚡ Formatters - Medium File (418 lines)', () => {
-  bench('Pickier (format)', async () => {
-    const pickier = await import('pickier')
-    if ('runFormat' in pickier) {
-      await pickier.runFormat([fixtures.medium], { write: false })
-    }
-  })
-
-  bench('Prettier', async () => {
-    await prettier.format(fixtureContent.medium, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
-    })
-  })
-})
-
-group('⚡ Linters - Large File (1279 lines)', () => {
-  bench('Pickier', async () => {
+group(`Linting — Large File (${largeLines} lines)`, () => {
+  bench('Pickier (api)', async () => {
     await runLintProgrammatic([fixtures.large], { reporter: 'json' })
   })
-
-  bench('ESLint', async () => {
-    await eslint.lintFiles([fixtures.large])
+  bench('Pickier (cli)', () => {
+    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
+  bench('ESLint (node)', () => {
+    try { execSync(`${eslintCmd} ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
+  })
   bench('Biome', () => {
-    try {
-      execSync(`bunx @biomejs/biome lint ${fixtures.large}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // Biome exits with code 1 if issues found
-    }
+    try { execSync(`${biomeCmd} lint ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
   bench('oxlint', () => {
-    try {
-      execSync(`bunx oxlint ${fixtures.large}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // oxlint exits with code 1 if issues found
-    }
+    try { execSync(`${oxlintCmd} ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
 })
 
-// Formatting Comparison - Large File
-group('⚡ Formatters - Large File (1279 lines)', () => {
-  bench('Pickier (format)', async () => {
-    const pickier = await import('pickier')
-    if ('runFormat' in pickier) {
-      await pickier.runFormat([fixtures.large], { write: false })
-    }
+// ── Formatting ───────────────────────────────────────────────────────────────
+group(`Formatting — Medium File (${mediumLines} lines)`, () => {
+  bench('Pickier (api)', () => {
+    formatCode(fixtureContent.medium, cfg, 'bench.ts')
   })
-
+  bench('Pickier (cli)', () => {
+    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
+  })
   bench('Prettier', async () => {
-    await prettier.format(fixtureContent.large, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
-    })
+    await prettier.format(fixtureContent.medium, prettierOpts)
+  })
+  bench('Biome (stdin)', () => {
+    try {
+      execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed`, {
+        input: fixtureContent.medium, stdio: ['pipe', 'ignore', 'ignore'],
+      })
+    }
+    catch { /* ok */ }
   })
 })
 
-// Throughput benchmarks
-group('📊 Throughput - Lines per Second', () => {
-  const mediumLines = fixtureContent.medium.split('\n').length
-  const largeLines = fixtureContent.large.split('\n').length
-
-  bench(`Pickier (${mediumLines} lines)`, async () => {
-    await runLintProgrammatic([fixtures.medium], { reporter: 'json' })
+group(`Formatting — Large File (${largeLines} lines)`, () => {
+  bench('Pickier (api)', () => {
+    formatCode(fixtureContent.large, cfg, 'bench.ts')
   })
-
-  bench(`ESLint (${mediumLines} lines)`, async () => {
-    await eslint.lintFiles([fixtures.medium])
+  bench('Pickier (cli)', () => {
+    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
-  bench(`Biome (${mediumLines} lines)`, () => {
+  bench('Prettier', async () => {
+    await prettier.format(fixtureContent.large, prettierOpts)
+  })
+  bench('Biome (stdin)', () => {
     try {
-      execSync(`bunx @biomejs/biome lint ${fixtures.medium}`, {
-        stdio: 'ignore',
+      execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed`, {
+        input: fixtureContent.large, stdio: ['pipe', 'ignore', 'ignore'],
       })
     }
-    catch {
-      // Biome exits with code 1 if issues found
-    }
-  })
-
-  bench(`oxlint (${mediumLines} lines)`, () => {
-    try {
-      execSync(`bunx oxlint ${fixtures.medium}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // oxlint exits with code 1 if issues found
-    }
-  })
-
-  bench(`Pickier (${largeLines} lines)`, async () => {
-    await runLintProgrammatic([fixtures.large], { reporter: 'json' })
-  })
-
-  bench(`ESLint (${largeLines} lines)`, async () => {
-    await eslint.lintFiles([fixtures.large])
-  })
-
-  bench(`Biome (${largeLines} lines)`, () => {
-    try {
-      execSync(`bunx @biomejs/biome lint ${fixtures.large}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // Biome exits with code 1 if issues found
-    }
-  })
-
-  bench(`oxlint (${largeLines} lines)`, () => {
-    try {
-      execSync(`bunx oxlint ${fixtures.large}`, {
-        stdio: 'ignore',
-      })
-    }
-    catch {
-      // oxlint exits with code 1 if issues found
-    }
+    catch { /* ok */ }
   })
 })
 
-// Stress test - Multiple iterations
-group('💪 Stress Test - 50 Iterations (Small File)', () => {
-  bench('Pickier (50x)', async () => {
-    for (let i = 0; i < 50; i++) {
+// ── Stress test ───────────────────────────────────────────────────────────────
+group('Stress Test — Lint 50x Small File', () => {
+  bench('Pickier (api)', async () => {
+    for (let i = 0; i < 50; i++)
       await runLintProgrammatic([fixtures.small], { reporter: 'json' })
-    }
   })
-
-  bench('ESLint (50x)', async () => {
-    for (let i = 0; i < 50; i++) {
-      await eslint.lintFiles([fixtures.small])
-    }
+  bench('Pickier (cli)', () => {
+    for (let i = 0; i < 50; i++)
+      try { execSync(`${pickierZigBin} run ${fixtures.small} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
-  bench('Biome (50x)', () => {
-    for (let i = 0; i < 50; i++) {
-      try {
-        execSync(`bunx @biomejs/biome lint ${fixtures.small}`, {
-          stdio: 'ignore',
-        })
-      }
-      catch {
-        // Biome exits with code 1 if issues found
-      }
-    }
+  bench('ESLint (node)', () => {
+    for (let i = 0; i < 50; i++)
+      try { execSync(`${eslintCmd} ${fixtures.small}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
-
-  bench('oxlint (50x)', () => {
-    for (let i = 0; i < 50; i++) {
-      try {
-        execSync(`bunx oxlint ${fixtures.small}`, {
-          stdio: 'ignore',
-        })
-      }
-      catch {
-        // oxlint exits with code 1 if issues found
-      }
-    }
-  })
-
-  bench('Prettier (50x)', async () => {
-    for (let i = 0; i < 50; i++) {
-      await prettier.format(fixtureContent.small, {
-        parser: 'typescript',
-        semi: false,
-        singleQuote: true,
-      })
-    }
+  bench('Biome', () => {
+    for (let i = 0; i < 50; i++)
+      try { execSync(`${biomeCmd} lint ${fixtures.small}`, { stdio: 'ignore' }) } catch { /* ok */ }
   })
 })
 
-// Run all benchmarks
-await run({
-  colors: true, // Colorful output
-})
+await run({ colors: true })
 
 console.log(`\n${'='.repeat(80)}`)
-console.log('✅ Benchmark suite completed!')
-console.log('\n📊 Summary:')
-console.log('  - Pickier: Bun-native linter with built-in rules')
-console.log('  - ESLint: Industry standard JavaScript linter')
-console.log('  - Biome: Rust-based JS/TS linter (via CLI)')
-console.log('  - oxlint: Rust-based fast linter (via CLI)')
-console.log('  - Prettier: Industry standard formatter')
-console.log('\nFor detailed comparisons, run:')
-console.log('  bun run bench:lint      - Linting benchmarks only')
-console.log('  bun run bench:format    - Formatting benchmarks only')
-console.log('  bun run bench:combined  - Combined workflow benchmarks')
-console.log(`${'='.repeat(80)}\n`)
+console.log('For detailed suites:')
+console.log('  bun run bench:lint              — linting only')
+console.log('  bun run bench:format            — formatting only')
+console.log('  bun run bench:format-comparison — full format comparison')
+console.log('  bun run bench:combined          — combined lint+format')
+console.log('='.repeat(80) + '\n')

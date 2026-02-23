@@ -1,15 +1,31 @@
-import { exec } from 'node:child_process'
 /**
  * Linting Performance Benchmarks
- * Compares pickier vs ESLint
+ * Compares pickier vs ESLint vs oxlint vs Biome
  */
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { promisify } from 'node:util'
 import { bench, group, run } from 'mitata'
 import { runLintProgrammatic } from 'pickier'
 
-const execAsync = promisify(exec)
+function which(bin: string): string | null {
+  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
+  catch { return null }
+}
+
+// ESLint must run via node (not bun) — ESLint's ajv dependency has a Bun compat issue
+const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
+const eslintCmd = `node ${eslintBin}`
+const oxlintGlobal = which('oxlint')
+const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
+const biomeGlobal = which('biome')
+const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
+// Pickier Zig native binary — same one used in format-comparison bench
+const pickierBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
+
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
 
 // Load fixtures
 const fixtures = {
@@ -24,124 +40,88 @@ const fixtureContent = {
   large: readFileSync(fixtures.large, 'utf-8'),
 }
 
-// Helper to run ESLint programmatically
-async function runESLint(filePath: string) {
-  try {
-    const { ESLint } = await import('eslint')
-    const eslint = new ESLint({
-      overrideConfigFile: true,
-      overrideConfig: {
-        languageOptions: {
-          ecmaVersion: 'latest',
-          sourceType: 'module',
-          parserOptions: {
-            ecmaFeatures: {
-              jsx: true,
-            },
-          },
-        },
-        rules: {
-          'no-debugger': 'error',
-          'no-console': 'warn',
-          'no-unused-vars': 'error',
-          'semi': ['error', 'never'],
-          'quotes': ['error', 'single'],
-        },
-      },
-    })
-    const results = await eslint.lintFiles([filePath])
-    return results
-  }
-  catch (error) {
-    console.error('ESLint error:', error)
-    return []
-  }
+function cliESLint(filePath: string): void {
+  try { execSync(`${eslintCmd} ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected when issues found */ }
 }
 
-// Note: oxlint is not included in benchmarks as it's not easily installable via npm
-// You can add it manually if needed
+function cliOxlint(filePath: string): void {
+  try { execSync(`${oxlintCmd} ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected when issues found */ }
+}
 
-// Helper to run Pickier
+function cliBiome(filePath: string): void {
+  try { execSync(`${biomeCmd} lint ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected when issues found */ }
+}
+
+function cliPickier(filePath: string): void {
+  try { execSync(`${pickierBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected when issues found */ }
+}
+
 async function runPickier(filePath: string) {
   try {
-    const result = await runLintProgrammatic([filePath], { reporter: 'json' })
-    return result
+    return await runLintProgrammatic([filePath], { reporter: 'json' })
   }
-  catch (error) {
-    console.error('Pickier error:', error)
+  catch {
     return { errors: 0, warnings: 0, issues: [] }
   }
 }
 
-// Small file benchmarks
-group('Linting - Small File (~50 lines)', () => {
-  bench('pickier', async () => {
-    await runPickier(fixtures.small)
-  })
+console.log(`\n${'='.repeat(72)}`)
+console.log('  PICKIER vs ESLint vs oxlint vs Biome — Linting Benchmark')
+console.log(`${'='.repeat(72)}`)
+console.log(`  ESLint:  ${eslintBin} (via node — Bun has ajv compat issue)`)
+console.log(`  oxlint:  ${oxlintGlobal ?? '(via bunx)'}`)
+console.log(`  Biome:   ${biomeGlobal ?? '(via bunx)'}`)
+console.log(`  Pickier CLI: ${pickierBin}`)
+console.log(`  Note: 'pickier (api)' = programmatic in-process; 'pickier (cli)' = native Zig binary spawn`)
+console.log(`${'='.repeat(72)}\n`)
 
-  bench('eslint', async () => {
-    await runESLint(fixtures.small)
-  })
-})
-
-// Medium file benchmarks
-group('Linting - Medium File (~500 lines)', () => {
-  bench('pickier', async () => {
-    await runPickier(fixtures.medium)
-  })
-
-  bench('eslint', async () => {
-    await runESLint(fixtures.medium)
-  })
-})
-
-// Large file benchmarks
-group('Linting - Large File (~2000 lines)', () => {
-  bench('pickier', async () => {
-    await runPickier(fixtures.large)
-  })
-
-  bench('eslint', async () => {
-    await runESLint(fixtures.large)
-  })
-})
-
-// Multiple files benchmark
-group('Linting - All Files (batch)', () => {
-  bench('pickier', async () => {
-    await runPickier(Object.values(fixtures).join(' '))
-  })
-
-  bench('eslint', async () => {
-    for (const file of Object.values(fixtures)) {
-      await runESLint(file)
-    }
-  })
-})
-
-// Cold start benchmarks (simulates first run)
-group('Linting - Cold Start', () => {
-  bench('pickier (cold)', async () => {
-    const { runLintProgrammatic: fresh } = await import('pickier')
-    await fresh([fixtures.medium], { reporter: 'json' })
-  })
-
-  bench('eslint (cold)', async () => {
-    const { ESLint } = await import('eslint')
-    const eslint = new ESLint({
-      overrideConfigFile: true,
-      overrideConfig: {
-        languageOptions: {
-          ecmaVersion: 'latest',
-          sourceType: 'module',
-        },
-        rules: {
-          'no-debugger': 'error',
-          'no-console': 'warn',
-        },
-      },
+for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
+  group(`Linting — ${label}`, () => {
+    bench('pickier (api)', async () => {
+      await runPickier(fixtures[size])
     })
-    await eslint.lintFiles([fixtures.medium])
+
+    bench('pickier (cli)', () => {
+      cliPickier(fixtures[size])
+    })
+
+    bench('eslint (cli)', () => {
+      cliESLint(fixtures[size])
+    })
+
+    bench('oxlint (cli)', () => {
+      cliOxlint(fixtures[size])
+    })
+
+    bench('biome (cli)', () => {
+      cliBiome(fixtures[size])
+    })
+  })
+}
+
+group('Linting — All Files (batch)', () => {
+  bench('pickier (api)', async () => {
+    await runLintProgrammatic(Object.values(fixtures), { reporter: 'json' })
+  })
+
+  bench('pickier (cli)', () => {
+    for (const f of Object.values(fixtures)) cliPickier(f)
+  })
+
+  bench('eslint (cli)', () => {
+    for (const f of Object.values(fixtures)) cliESLint(f)
+  })
+
+  bench('oxlint (cli)', () => {
+    for (const f of Object.values(fixtures)) cliOxlint(f)
+  })
+
+  bench('biome (cli)', () => {
+    for (const f of Object.values(fixtures)) cliBiome(f)
   })
 })
 

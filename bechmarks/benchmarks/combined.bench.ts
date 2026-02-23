@@ -1,16 +1,37 @@
-import { exec } from 'node:child_process'
 /**
  * Combined Lint + Format Performance Benchmarks
  * Compares full workflow of linting and formatting
  */
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { promisify } from 'node:util'
 import { bench, group, run } from 'mitata'
 import { runLintProgrammatic } from 'pickier'
 import * as prettier from 'prettier'
 
-const execAsync = promisify(exec)
+function which(bin: string): string | null {
+  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
+  catch { return null }
+}
+
+// ESLint must run via node (not bun) — ESLint's ajv dependency has a Bun compat issue
+const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
+const eslintCmd = `node ${eslintBin}`
+const biomeGlobal = which('biome')
+const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
+const prettierGlobal = which('prettier')
+const prettierCmd = prettierGlobal ?? 'bunx prettier'
+const oxlintGlobal = which('oxlint')
+const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
+const oxfmtGlobal = which('oxfmt')
+const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
+const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
+
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
 
 // Load fixtures
 const fixtures = {
@@ -25,181 +46,108 @@ const fixtureContent = {
   large: readFileSync(fixtures.large, 'utf-8'),
 }
 
-// Helper to run Pickier (lint + format)
-async function runPickierFull(filePath: string) {
-  try {
-    // Run lint
-    await runLintProgrammatic([filePath], { reporter: 'json' })
-
-    // Run format
-    const pickier = await import('pickier')
-    if ('runFormat' in pickier) {
-      await pickier.runFormat([filePath], { write: false })
-    }
-
-    return true
-  }
-  catch (error) {
-    console.error('Pickier error:', error)
-    return false
-  }
+const prettierOpts = {
+  parser: 'typescript' as const,
+  semi: false,
+  singleQuote: true,
+  tabWidth: 2,
 }
 
-// Helper to run ESLint + Prettier
+// Pickier: programmatic lint + in-memory format (fastest possible)
+async function runPickierFull(filePath: string, content: string) {
+  const { formatCode, defaultConfig } = await import('pickier')
+  await runLintProgrammatic([filePath], { reporter: 'json' })
+  formatCode(content, defaultConfig, filePath)
+}
+
+// ESLint (CLI) + Prettier (in-memory) — fair comparison: same API tier where available
 async function runESLintPrettier(filePath: string, content: string) {
-  try {
-    // Run ESLint
-    const { ESLint } = await import('eslint')
-    const eslint = new ESLint({
-      overrideConfigFile: true,
-      overrideConfig: {
-        languageOptions: {
-          ecmaVersion: 'latest',
-          sourceType: 'module',
-        },
-        rules: {
-          'no-debugger': 'error',
-          'no-console': 'warn',
-        },
-      },
-    })
-    await eslint.lintFiles([filePath])
-
-    // Run Prettier
-    await prettier.format(content, {
-      parser: 'typescript',
-      semi: false,
-      singleQuote: true,
-    })
-
-    return true
-  }
-  catch (error) {
-    console.error('ESLint + Prettier error:', error)
-    return false
-  }
+  try { execSync(`${eslintCmd} ${filePath}`, { stdio: 'ignore' }) } catch { /* issues found */ }
+  await prettier.format(content, prettierOpts)
 }
 
-// Helper to run Biome (lint + format)
-async function runBiomeFull(filePath: string) {
-  try {
-    // Biome can do both in one command
-    await execAsync(`npx @biomejs/biome check ${filePath}`)
-    return true
-  }
-  catch {
-    return false
-  }
+// Pickier Zig: lint + format in one native binary invocation
+function runPickierZig(filePath: string) {
+  try { execSync(`${pickierZigBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
+  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
 }
 
-// Small file benchmarks
-group('Combined (Lint + Format) - Small File', () => {
-  bench('pickier', async () => {
-    await runPickierFull(fixtures.small)
+// Biome check (lint + format in one CLI command)
+function runBiomeFull(filePath: string) {
+  try { execSync(`${biomeCmd} check --quote-style=single --semicolons=as-needed ${filePath}`, { stdio: 'ignore' }) }
+  catch { /* non-zero exit expected */ }
+}
+
+// oxlint (lint) + oxfmt (format via stdin) — two separate Rust tools
+function runOxlintOxfmt(filePath: string, content: string) {
+  try { execSync(`${oxlintCmd} ${filePath}`, { stdio: 'ignore' }) } catch { /* issues found */ }
+  try {
+    execSync(`${oxfmtCmd} format --stdin-filepath ${filePath}`, {
+      input: content,
+      stdio: ['pipe', 'ignore', 'ignore'],
+    })
+  }
+  catch { /* non-zero exit expected */ }
+}
+
+console.log(`\n${'='.repeat(72)}`)
+console.log('  PICKIER vs ESLint+Prettier vs oxlint+oxfmt vs Biome — Combined Lint+Format')
+console.log(`${'='.repeat(72)}`)
+console.log(`  ESLint:   ${eslintBin} (via node — Bun has ajv compat issue)`)
+console.log(`  Biome:    ${biomeGlobal ?? '(via bunx)'}`)
+console.log(`  Prettier: ${prettierGlobal ?? '(via bunx)'}`)
+console.log(`  oxlint:   ${oxlintGlobal ?? '(via bunx)'}`)
+console.log(`  oxfmt:    ${oxfmtGlobal ?? '(via bunx)'}`)
+console.log(`  Pickier Zig: ${pickierZigBin}`)
+console.log(`  Note: 'pickier (api)' = programmatic API; 'pickier (cli)' = native Zig binary CLI`)
+console.log(`${'='.repeat(72)}\n`)
+
+for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
+  group(`Combined (Lint + Format) — ${label}`, () => {
+    bench('pickier (api)', async () => {
+      await runPickierFull(fixtures[size], fixtureContent[size])
+    })
+
+    bench('pickier (cli)', () => {
+      runPickierZig(fixtures[size])
+    })
+
+    bench('eslint + prettier', async () => {
+      await runESLintPrettier(fixtures[size], fixtureContent[size])
+    })
+
+    bench('oxlint + oxfmt', () => {
+      runOxlintOxfmt(fixtures[size], fixtureContent[size])
+    })
+
+    bench('biome', () => {
+      runBiomeFull(fixtures[size])
+    })
+  })
+}
+
+group('Combined (Lint + Format) — All Files (batch)', () => {
+  bench('pickier (api)', async () => {
+    for (const [k, f] of Object.entries(fixtures))
+      await runPickierFull(f, fixtureContent[k as keyof typeof fixtureContent])
+  })
+
+  bench('pickier (cli)', () => {
+    for (const f of Object.values(fixtures)) runPickierZig(f)
   })
 
   bench('eslint + prettier', async () => {
-    await runESLintPrettier(fixtures.small, fixtureContent.small)
+    for (const [k, f] of Object.entries(fixtures))
+      await runESLintPrettier(f, fixtureContent[k as keyof typeof fixtureContent])
   })
 
-  bench('biome', async () => {
-    await runBiomeFull(fixtures.small)
-  })
-})
-
-// Medium file benchmarks
-group('Combined (Lint + Format) - Medium File', () => {
-  bench('pickier', async () => {
-    await runPickierFull(fixtures.medium)
+  bench('oxlint + oxfmt', () => {
+    for (const [k, f] of Object.entries(fixtures))
+      runOxlintOxfmt(f, fixtureContent[k as keyof typeof fixtureContent])
   })
 
-  bench('eslint + prettier', async () => {
-    await runESLintPrettier(fixtures.medium, fixtureContent.medium)
-  })
-
-  bench('biome', async () => {
-    await runBiomeFull(fixtures.medium)
-  })
-})
-
-// Large file benchmarks
-group('Combined (Lint + Format) - Large File', () => {
-  bench('pickier', async () => {
-    await runPickierFull(fixtures.large)
-  })
-
-  bench('eslint + prettier', async () => {
-    await runESLintPrettier(fixtures.large, fixtureContent.large)
-  })
-
-  bench('biome', async () => {
-    await runBiomeFull(fixtures.large)
-  })
-})
-
-// Full project benchmark (all files)
-group('Combined (Lint + Format) - Full Project', () => {
-  bench('pickier (sequential)', async () => {
-    for (const file of Object.values(fixtures)) {
-      await runPickierFull(file)
-    }
-  })
-
-  bench('eslint + prettier (sequential)', async () => {
-    for (let i = 0; i < Object.values(fixtures).length; i++) {
-      await runESLintPrettier(
-        Object.values(fixtures)[i],
-        Object.values(fixtureContent)[i],
-      )
-    }
-  })
-
-  bench('biome (sequential)', async () => {
-    for (const file of Object.values(fixtures)) {
-      await runBiomeFull(file)
-    }
-  })
-})
-
-// Parallel execution benchmark
-group('Combined (Lint + Format) - Parallel Execution', () => {
-  bench('pickier (parallel)', async () => {
-    await Promise.all(Object.values(fixtures).map(file => runPickierFull(file)))
-  })
-
-  bench('eslint + prettier (parallel)', async () => {
-    await Promise.all(
-      Object.keys(fixtures).map((key) => {
-        const file = fixtures[key as keyof typeof fixtures]
-        const content = fixtureContent[key as keyof typeof fixtureContent]
-        return runESLintPrettier(file, content)
-      }),
-    )
-  })
-
-  bench('biome (parallel)', async () => {
-    await Promise.all(Object.values(fixtures).map(file => runBiomeFull(file)))
-  })
-})
-
-// Memory efficiency test (running multiple times)
-group('Combined - Memory Efficiency (10 iterations)', () => {
-  bench('pickier', async () => {
-    for (let i = 0; i < 10; i++) {
-      await runPickierFull(fixtures.medium)
-    }
-  })
-
-  bench('eslint + prettier', async () => {
-    for (let i = 0; i < 10; i++) {
-      await runESLintPrettier(fixtures.medium, fixtureContent.medium)
-    }
-  })
-
-  bench('biome', async () => {
-    for (let i = 0; i < 10; i++) {
-      await runBiomeFull(fixtures.medium)
-    }
+  bench('biome', () => {
+    for (const f of Object.values(fixtures)) runBiomeFull(f)
   })
 })
 

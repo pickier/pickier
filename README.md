@@ -320,7 +320,7 @@ Spacing:
 
 ## Benchmarks
 
-Measured on an Apple M3 Pro with Bun 1.3.9. Each tool uses equivalent settings (single quotes, no semicolons, 2-space indent). Pickier and Prettier use their in-memory APIs; oxfmt and Biome have no JS formatting API, so they are called via stdin pipe. Full benchmark source is in `bechmarks/benchmarks/format-comparison.bench.ts`.
+Measured on an Apple M3 Pro with Bun 1.3.10. Each tool uses equivalent settings (single quotes, no semicolons, 2-space indent). Pickier and Prettier use their in-memory APIs; oxfmt and Biome have no JS formatting API, so they are called via stdin pipe. Full benchmark source is in `bechmarks/benchmarks/format-comparison.bench.ts`.
 
 ### In-memory / Programmatic API
 
@@ -328,39 +328,51 @@ Pickier `formatCode()` and Prettier `format()` run in-process. oxfmt and Biome a
 
 | File | Pickier | Biome (stdin) | oxfmt (stdin) | Prettier |
 |------|--------:|--------------:|--------------:|---------:|
-| Small (52 lines, 1 KB) | **41 us** | 40 ms | 51 ms | 1.59 ms |
-| Medium (419 lines, 10 KB) | **417 us** | 42 ms | 50 ms | 10.2 ms |
+| Small (52 lines, 1 KB) | **41 µs** | 40 ms | 51 ms | 1.59 ms |
+| Medium (419 lines, 10 KB) | **417 µs** | 42 ms | 50 ms | 10.2 ms |
 | Large (1,279 lines, 31 KB) | **1.25 ms** | 46 ms | 50 ms | 28.1 ms |
 
-### CLI (single file)
+### Linting — Pickier vs ESLint vs oxlint vs Biome
 
-All four tools spawn a process and read the file from disk.
+From the `bench:lint` suite. `(api)` = programmatic in-process; `(cli)` = native Zig binary, the fair CLI-vs-CLI comparison. ESLint runs via `node` since its `ajv` has a Bun compat issue.
 
-| File | Pickier | Biome | oxfmt | Prettier |
-|------|--------:|------:|------:|---------:|
-| Small (52 lines) | **37 ms** | 43 ms | 68 ms | 105 ms |
-| Medium (419 lines) | **38 ms** | 53 ms | 71 ms | 143 ms |
-| Large (1,279 lines) | **40 ms** | 90 ms | 73 ms | 187 ms |
+| File | Pickier (api) | Pickier (cli) | ESLint (node) | oxlint | Biome |
+|------|-------------:|--------------:|--------------:|-------:|------:|
+| Small (52 lines) | **249 µs** | **19 ms** | 57 ms | 47 ms | 38 ms |
+| Medium (419 lines) | **1.73 ms** | **21 ms** | 57 ms | 47 ms | 41 ms |
+| Large (1,279 lines) | **4.43 ms** | **28 ms** | 57 ms | 49 ms | 45 ms |
+| All files (batch) | **40 µs** | **62 ms** | 172 ms | 144 ms | 129 ms |
+
+### Combined — Lint + Format Workflow
+
+From the `bench:combined` suite. `(api)` = programmatic in-process; `(cli)` = native Zig binary doing both lint + format. ESLint runs via `node`.
+
+| File | Pickier (api) | Pickier (cli) | ESLint + Prettier | oxlint + oxfmt | Biome |
+|------|-------------:|--------------:|------------------:|---------------:|------:|
+| Small (52 lines) | **303 µs** | **35 ms** | 63 ms | 94 ms | 41 ms |
+| Medium (419 lines) | **2.19 ms** | **38 ms** | 74 ms | 94 ms | 54 ms |
+| Large (1,279 lines) | **5.98 ms** | **49 ms** | 93 ms | 102 ms | 91 ms |
+| All files (batch) | **8.24 ms** | **125 ms** | 238 ms | 286 ms | 184 ms |
 
 ### CLI Batch (all files, sequential)
 
 | Tool | Time |
 |------|-----:|
-| Pickier | **121 ms** |
-| Biome | 187 ms |
-| oxfmt | 216 ms |
-| Prettier | 423 ms |
+| Pickier (Zig) | **50 ms** |
+| Biome | 167 ms |
+| oxfmt | 186 ms |
+| Prettier | 353 ms |
 
 ### Throughput (large file x 20)
 
 | Tool | Time |
 |------|-----:|
-| Pickier | **26 ms** |
-| Prettier | 524 ms |
-| Biome (stdin) | 957 ms |
-| oxfmt (stdin) | 1,040 ms |
+| Pickier | **21 ms** |
+| Prettier | 439 ms |
+| Biome (stdin) | 857 ms |
+| oxfmt (stdin) | 892 ms |
 
-> Pickier's in-memory API is **22-39x faster than Prettier** and orders of magnitude faster than tools that must spawn a process. On CLI, Pickier's compiled binary beats Biome's native Rust binary across all file sizes — **37ms vs 43ms on small files**, and pulling further ahead on larger files. At throughput scale (20x large file), Pickier is **20x faster** than Prettier and **37x faster** than Biome/oxfmt.
+> Pickier's in-memory API is **22-39x faster than Prettier** and orders of magnitude faster than tools that must spawn a process. On CLI batch, Pickier's compiled binary is **3.2x faster than Biome** and **6.9x faster than Prettier**. At throughput scale (20x large file), Pickier is **21x faster** than Prettier and **40x faster** than Biome/oxfmt.
 
 ```bash
 # reproduce locally
