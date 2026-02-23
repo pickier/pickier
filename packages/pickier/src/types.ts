@@ -77,7 +77,17 @@ export interface PickierConfig {
   pluginRules?: RulesConfigMap
 }
 
-export type PickierOptions = Partial<PickierConfig>
+// User-facing config type — all fields optional, merged with defaults at runtime
+export type PickierOptions = Partial<{
+  verbose: boolean
+  ignores: string[]
+  lint: Partial<PickierLintConfig>
+  format: Partial<PickierFormatConfig>
+  rules: Partial<PickierRulesConfig>
+  tailwind: PickierTailwindConfig
+  plugins: Array<PickierPlugin | string>
+  pluginRules: RulesConfigMap
+}>
 
 // Plugin system types
 export type RulesConfigMap = Record<string, RuleSeverity | [RuleSeverity, unknown]>

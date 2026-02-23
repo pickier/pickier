@@ -1,4 +1,4 @@
-import type { PickierConfig, RulesConfigMap } from './types'
+import type { PickierConfig, PickierOptions, RulesConfigMap } from './types'
 import { readFileSync } from 'node:fs'
 import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
@@ -175,7 +175,7 @@ export const colors: {
 }
 
 // Shared CLI utilities (moved from cli/utils.ts)
-export function mergeConfig(base: PickierConfig, override: Partial<PickierConfig>): PickierConfig {
+export function mergeConfig(base: PickierConfig, override: PickierOptions): PickierConfig {
   // Merge ignores arrays: combine base + override, deduplicate
   const mergedIgnores = override.ignores
     ? [...new Set([...(base.ignores || []), ...override.ignores])]
@@ -196,12 +196,13 @@ export function mergeConfig(base: PickierConfig, override: Partial<PickierConfig
   return {
     ...base,
     ...override,
+    verbose: override.verbose ?? base.verbose,
     ignores: mergedIgnores,
     lint: { ...base.lint, ...(override.lint || {}) },
     format: { ...base.format, ...(override.format || {}) },
     rules: { ...base.rules, ...(override.rules || {}) },
     pluginRules: mergedPluginRules as any,
-  }
+  } as PickierConfig
 }
 
 // Cached copy of defaultConfig for NO_AUTO_CONFIG fast path
@@ -235,11 +236,11 @@ export async function loadConfigFromPath(pathLike: string | undefined): Promise<
 
   if (ext === '.json') {
     const raw = readFileSync(abs, 'utf8')
-    return mergeConfig(defaultConfig, JSON.parse(raw) as Partial<PickierConfig>)
+    return mergeConfig(defaultConfig, JSON.parse(raw) as PickierOptions)
   }
 
   const mod = await import(abs)
-  return mergeConfig(defaultConfig, (mod.default || mod) as Partial<PickierConfig>)
+  return mergeConfig(defaultConfig, (mod.default || mod) as PickierOptions)
 }
 
 export function expandPatterns(patterns: string[]): string[] {
