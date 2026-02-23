@@ -3,12 +3,11 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
-import pLimit from 'p-limit'
 import { glob as tinyGlob } from 'tinyglobby'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
-import { colors, ENV, expandPatterns, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
+import { colors, createLimiter, ENV, expandPatterns, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
 let _logger: Logger | null = null
@@ -183,7 +182,7 @@ export async function runLintProgrammatic(
 
   // OPTIMIZATION: Parallel file processing with concurrency limit
   const concurrency = ENV.CONCURRENCY
-  const limit = pLimit(concurrency)
+  const limit = createLimiter(concurrency)
 
   const processFile = async (file: string): Promise<LintIssue[]> => {
     if (signal?.aborted)
@@ -1530,7 +1529,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
 
     // OPTIMIZATION: Parallel file processing with concurrency limit
     const concurrency = ENV.CONCURRENCY
-    const limit = pLimit(concurrency)
+    const limit = createLimiter(concurrency)
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Starting to process ${files.length} files with concurrency ${concurrency}...`)
 

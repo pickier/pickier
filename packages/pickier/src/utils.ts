@@ -11,6 +11,42 @@ import { defaultConfig } from './config'
 export const MAX_FIXER_PASSES = 5
 
 /**
+ * Concurrency limiter — runs at most `concurrency` async tasks simultaneously.
+ * Returns a scheduler function identical in signature to p-limit:
+ *   const limit = createLimiter(8)
+ *   await Promise.all(items.map(x => limit(() => process(x))))
+ */
+export function createLimiter(concurrency: number): <T>(fn: () => Promise<T>) => Promise<T> {
+  let active = 0
+  const queue: Array<() => void> = []
+
+  const next = () => {
+    if (queue.length > 0 && active < concurrency) {
+      active++
+      queue.shift()!()
+    }
+  }
+
+  return <T>(fn: () => Promise<T>): Promise<T> => {
+    return new Promise<T>((resolve, reject) => {
+      const run = () => {
+        fn().then(
+          (val) => { active--; resolve(val); next() },
+          (err) => { active--; reject(err); next() },
+        )
+      }
+      if (active < concurrency) {
+        active++
+        run()
+      }
+      else {
+        queue.push(run)
+      }
+    })
+  }
+}
+
+/**
  * Environment variable configuration with defaults.
  * Centralized to avoid scattered parsing and provide documentation.
  */
