@@ -42,7 +42,7 @@ describe('import topology', () => {
 
   it('run.ts does NOT statically import linter.ts', () => {
     const src = readFileSync(join(SRC_DIR, 'run.ts'), 'utf8')
-    // Static import of linter would pull in plugins, tinyglobby, p-limit, Logger
+    // Static import of linter would pull in plugins Logger
     // at startup, adding ~30ms to every CLI invocation
     expect(src).not.toMatch(/^import\s+.*from\s+['"]\.\/linter['"]/m)
   })

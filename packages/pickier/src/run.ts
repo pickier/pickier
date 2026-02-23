@@ -13,7 +13,7 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
   const mode = options.mode || 'auto'
 
   // FAST PATH: format mode with a single concrete file (no glob chars)
-  // Avoids importing linter.ts and its heavy deps (plugins, tinyglobby, p-limit, logger)
+  // Avoids importing linter.ts and its heavy deps (plugins, logger)
   if (mode === 'format' && globs.length === 1 && !/[*?[\]{}()!]/.test(globs[0])) {
     try {
       const p = globs[0]
