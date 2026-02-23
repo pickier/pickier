@@ -2,6 +2,7 @@ import type { PickierConfig } from './types'
 
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
+const YAML_EXTS = new Set(['.yaml', '.yml'])
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
 const RE_LEADING_WS = /^[ \t]*/
@@ -42,6 +43,22 @@ function isCodeFileExt(filePath: string): boolean {
 
 function isJsonFileExt(filePath: string): boolean {
   return JSON_EXTS.has(getFileExt(filePath))
+}
+
+function isYamlFileExt(filePath: string): boolean {
+  return YAML_EXTS.has(getFileExt(filePath))
+}
+
+function formatYaml(src: string, cfg: PickierConfig): string {
+  try {
+    const parsed = Bun.YAML.parse(src)
+    const indent = cfg.format.indentStyle === 'tabs' ? '\t' : cfg.format.indent
+    const result = Bun.YAML.stringify(parsed, null, indent)
+    return result.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
+  }
+  catch {
+    return src
+  }
 }
 
 function toSpaces(count: number): string {
@@ -343,6 +360,13 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
   // import management (ts/js only)
   if (isCodeFileExt(filePath))
     joined = formatImports(joined)
+
+  // yaml formatting via Bun.YAML
+  if (isYamlFileExt(filePath)) {
+    const formatted = formatYaml(joined, cfg)
+    if (formatted !== joined)
+      joined = formatted
+  }
 
   // json/package/tsconfig sorting
   if (isJsonFileExt(filePath)) {
