@@ -113,7 +113,7 @@ function areCapturesUsed(content: string, regexStart: number, regexEnd: number):
   // Look for .match( or .matchAll( or .replace( or .replaceAll( or .search( or .split(
   if (content[beforeIdx] === '(') {
     // Find the method name before the (
-    let methodEnd = beforeIdx
+    const methodEnd = beforeIdx
     let methodStart = methodEnd - 1
     while (methodStart >= 0 && (content[methodStart] === ' ' || content[methodStart] === '\t')) methodStart--
     // Now methodStart should point to the end of the method name

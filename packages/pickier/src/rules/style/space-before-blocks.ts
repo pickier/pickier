@@ -75,7 +75,7 @@ export const spaceBeforeBlocksRule: RuleModule = {
     for (const line of lines) {
       // Add space before { when preceded by ) or word character
       // But not after $, =, :, (, ,, [, {
-      let fixed = line.replace(/([)a-zA-Z0-9_])\{/g, '$1 {')
+      const fixed = line.replace(/([)a-zA-Z0-9_])\{/g, '$1 {')
       result.push(fixed)
     }
 

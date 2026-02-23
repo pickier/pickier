@@ -69,7 +69,7 @@ export const linkImageStyleRule: RuleModule = {
               column: match.index! + 1,
               ruleId: 'markdown/link-image-style',
               message: 'Link style should be consistent throughout document',
-              severity: 'error',
+              severity: 'warning',
             })
           }
         }
@@ -100,7 +100,7 @@ export const linkImageStyleRule: RuleModule = {
               column: match.index! + 1,
               ruleId: 'markdown/link-image-style',
               message: 'Link style should be consistent throughout document',
-              severity: 'error',
+              severity: 'warning',
             })
           }
         }

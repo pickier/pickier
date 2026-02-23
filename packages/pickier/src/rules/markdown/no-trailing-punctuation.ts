@@ -15,8 +15,16 @@ export const noTrailingPunctuationRule: RuleModule = {
     const options = (ctx.options as { punctuation?: string }) || {}
     const punctuation = options.punctuation || '.,;:!?'
 
+    let inFence = false
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+
+      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Check for ATX style headings
       const atxMatch = line.match(/^#{1,6}\s+(.+?)(?:\s*#+\s*)?$/)

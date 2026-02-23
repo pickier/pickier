@@ -15,15 +15,14 @@
 - Lint and format in one tool
 - Zero-config defaults; simple, typed `pickier.config.ts` when you need it
 - Import organization: splits type/value imports, sorts modules/specifiers, removes unused named imports
-- JSON and config sorting for common files _(e.g. `package.json`, `tsconfig.json`)_
-- **Tailwind CSS class ordering** — enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX files with auto-fix
-- **Markdown linting with 53+ rules** for documentation quality _(headings, lists, links, code blocks, tables, etc.)_
-  - 27 rules support auto-fix for common formatting issues
-- Flexible formatting: `indent`, `indentStyle` _(tabs or spaces)_, `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
+- JSON and config sorting for common files (e.g. `package.json`, `tsconfig.json`)
+- Tailwind CSS class ordering — enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX files with auto-fix
+- Markdown linting for documentation quality (headings, lists, links, code blocks, tables, etc.) with auto-fix support
+- Flexible formatting: `indent`, `indentStyle` (tabs or spaces), `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
 - Smart whitespace cleanup
-- **Package.json validation with 20 publint rules** for correct npm publishing _(exports ordering, file format, module system, etc.)_
-- ESLint-style plugin system for lint rules _(load plugins, enable/disable rules, WIP labeling)_
-- CI-friendly reporters _(stylish, compact, JSON)_ and strict `--max-warnings` control
+- Package.json validation for correct npm publishing (exports ordering, file format, module system, etc.)
+- ESLint-style plugin system for lint rules (load plugins, enable/disable rules, WIP labeling)
+- CI-friendly reporters (stylish, compact, JSON) and strict `--max-warnings` control
 - Programmatic API for custom tooling and editor integrations
 
 ## Install

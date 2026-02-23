@@ -105,7 +105,9 @@ Pickier supports the following file extensions:
 
 ### Disable Conflicting Formatters
 
-To avoid conflicts with other formatting extensions, you may want to disable them for file types that Pickier handles:```json
+To avoid conflicts with other formatting extensions, you may want to disable them for file types that Pickier handles:
+
+```json
 {
   "[typescript]": {
     "editor.defaultFormatter": "pickier.vscode"
@@ -117,8 +119,9 @@ To avoid conflicts with other formatting extensions, you may want to disable the
     "editor.defaultFormatter": "pickier.vscode"
   }
 }
+```
 
-```### Working with ESLint/Prettier
+### Working with ESLint/Prettier
 
 Pickier can work alongside ESLint and Prettier, but you may want to configure them to avoid overlapping rules:
 
@@ -147,6 +150,7 @@ Example keybindings.json:```json
     "when": "editorTextFocus"
   }
 ]
+
 ```## Troubleshooting
 
 ### Common Issues

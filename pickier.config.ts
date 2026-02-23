@@ -23,6 +23,8 @@ const config: PickierOptions = {
     '**/vscode/examples/**',
     '**/SUMMARY_COMPARISON.md',
     '**/bechmarks/**',
+    '**/CHANGELOG.md', // Changelogs repeat section headings per version by design
+    '**/docs/**', // Docs files have complex formatting not suited for strict markdown linting
   ],
 
   // Lint-specific options

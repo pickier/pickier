@@ -341,7 +341,7 @@ export function extractPackageNameFromUrl(resolvedUrl: string): string | null {
       return null
 
     // Extract the package name part (everything before /-/)
-    let pkgPath = pathname.substring(1, separatorIndex) // Remove leading /
+    const pkgPath = pathname.substring(1, separatorIndex) // Remove leading /
 
     // Handle scoped packages (@scope/name)
     if (pkgPath.startsWith('@')) {

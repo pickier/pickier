@@ -263,15 +263,19 @@ function test() {
 
 ### Extension Not Working
 
-1.**Check extension is enabled**```json
-   { "pickier.enable": true }
-   ```2.**Verify file is supported**- Only`.ts`, `.tsx`, `.js`, `.jsx`, etc. are supported
+1.**Check extension is enabled**
 
-   - Check `pickier.config.ts`extensions list
+   ```json
+   { "pickier.enable": true }
+   ```
+
+2.**Verify file is supported**- Only`.ts`, `.tsx`, `.js`, `.jsx`, etc. are supported
+
+- Check `pickier.config.ts`extensions list
 
 3.**Reload window**- Press`Cmd+Shift+P`
 
-   - Run "Developer: Reload Window"
+- Run "Developer: Reload Window"
 
 ### No Issues Showing
 
@@ -279,33 +283,44 @@ function test() {
 2.**Check config**- Ensure rules are enabled
 3.**View Output Channel**- Run "Pickier: Show Output Channel"
 
-   - Look for errors
+- Look for errors
 
 ### CodeLens Not Appearing
 
 1.**Check setting**```json
    { "pickier.codeLens.enable": true }
+
    ```
 
 2.**Reload window**- CodeLens may need window reload after config change
 
 ### Performance Issues
 
-1.**Disable lint on change**```json
+1.**Disable lint on change**
+
+   ```json
    { "pickier.lintOnChange": false }
-   ```2.**Reduce file scope**in`pickier.config.ts````ts
+   ```
+
+2.**Reduce file scope**in`pickier.config.ts`
+
+   ```ts
    {
      ignores: ['**/large-folder/**']
    }
    ```
 
-3.**Disable expensive rules**```ts
+3.**Disable expensive rules**
+
+   ```ts
    {
      pluginRules: {
        'regexp/no-super-linear-backtracking': 'off'
      }
    }
-   ```## Advanced
+   ```
+
+## Advanced
 
 ### Custom Configuration Path
 
@@ -332,19 +347,29 @@ Each workspace folder can have its own`pickier.config.ts`.
   "prettier.enable": false,
   "eslint.format.enable": false
 }
-```**Format on save:**```json
+```
+
+**Format on save:**
+
+```json
 
 {
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "pickier.pickier-vscode"
 }
 
-```### Pre-commit Hooks```bash
+```
+
+### Pre-commit Hooks
+
+```bash
 
 # .husky/pre-commit
 
 npx pickier run . --mode lint --fix
-```## FAQ
+```
+
+## FAQ
 
 ### Q: How is this different from ESLint extension
 

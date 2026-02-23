@@ -56,6 +56,7 @@ console.log('Allowed')
 ### Basic Migration
 
 **ESLint config (before):**
+
 ```javascript
 // .eslintrc.js
 module.exports = {
@@ -69,6 +70,7 @@ module.exports = {
 ```
 
 **Pickier config (after):**
+
 ```typescript
 // pickier.config.ts
 export default {
@@ -87,6 +89,7 @@ export default {
 ### Plugin Migration
 
 **ESLint with plugins:**
+
 ```javascript
 module.exports = {
   plugins: ['@typescript-eslint'],
@@ -97,6 +100,7 @@ module.exports = {
 ```
 
 **Pickier equivalent:**
+
 ```typescript
 export default {
   pluginRules: {

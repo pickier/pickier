@@ -67,6 +67,15 @@ export const referenceLinksImagesRule: RuleModule = {
         if (/^[xX ]$/.test(label))
           continue
 
+        // Skip array/tuple literals: ['value', ...] or ["value", ...] or [identifier, ...]
+        // These appear in docs as inline code examples outside of fences
+        if (/^['"]/.test(label.trim()) || /,/.test(label))
+          continue
+
+        // Skip shell/script bracket expressions like [ -n "$var" ]
+        if (/^-[a-z]\s/.test(label.trim()))
+          continue
+
         if (!definitions.has(label)) {
           issues.push({
             filePath: ctx.filePath,

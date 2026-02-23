@@ -78,8 +78,9 @@ const GROUP_ORDER: Array<[RegExp, number]> = [
 ]
 
 // Matches variant prefixes that appear BEFORE any [...] bracket.
-// e.g. "hover:", "md:", "dark:hover:" — but NOT "[mask-type:alpha]".
-const VARIANT_RE = /^((?:[a-z][a-z0-9]*(?:-[a-z0-9]+)*):)+(?!\[)/
+// e.g. "hover:", "md:", "dark:hover:", "2xl:" — but NOT "[mask-type:alpha]".
+// Segments may start with a digit (e.g. "2xl").
+const VARIANT_RE = /^((?:[a-z0-9][a-z0-9]*(?:-[a-z0-9]+)*):)+(?!\[)/
 
 // Strips leading variant prefixes safely (won't eat into arbitrary properties).
 function stripVariants(cls: string): string {
