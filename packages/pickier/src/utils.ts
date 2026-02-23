@@ -1,6 +1,6 @@
 import type { PickierConfig, PickierOptions, RulesConfigMap } from './types'
-import { readFileSync } from 'node:fs'
-import { extname, isAbsolute, resolve } from 'node:path'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { extname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { defaultConfig } from './config'
 
@@ -9,6 +9,167 @@ import { defaultConfig } from './config'
  * This prevents infinite loops when fixers keep modifying content.
  */
 export const MAX_FIXER_PASSES = 5
+
+// ---------------------------------------------------------------------------
+// Homegrown glob — uses Bun.Glob when available, falls back to Node fs walk.
+// Matches the tinyglobby API subset used in this project:
+//   glob(patterns, { dot?, ignore?, onlyFiles?, absolute? })
+// ---------------------------------------------------------------------------
+
+interface GlobOptions {
+  dot?: boolean
+  ignore?: string[]
+  onlyFiles?: boolean
+  absolute?: boolean
+  cwd?: string
+}
+
+/**
+ * Convert a glob pattern to a RegExp.
+ * Supports: * ** ? [...] and negation is handled at call-site.
+ */
+function globToRegex(pattern: string): RegExp {
+  let src = ''
+  let i = 0
+  while (i < pattern.length) {
+    const ch = pattern[i]
+    if (ch === '*') {
+      if (pattern[i + 1] === '*') {
+        // ** matches any path segment including slashes
+        src += '.*'
+        i += 2
+        // skip optional trailing slash after **
+        if (pattern[i] === '/') i++
+      }
+      else {
+        // * matches anything except /
+        src += '[^/]*'
+        i++
+      }
+    }
+    else if (ch === '?') {
+      src += '[^/]'
+      i++
+    }
+    else if (ch === '[') {
+      const end = pattern.indexOf(']', i)
+      if (end === -1) {
+        src += '\\['
+        i++
+      }
+      else {
+        src += pattern.slice(i, end + 1)
+        i = end + 1
+      }
+    }
+    else if ('.+^${}()|\\'.includes(ch)) {
+      src += `\\${ch}`
+      i++
+    }
+    else {
+      src += ch
+      i++
+    }
+  }
+  return new RegExp(`^${src}$`)
+}
+
+function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
+  for (const p of patterns) {
+    const re = globToRegex(p)
+    // match against full path or just the basename
+    if (re.test(filePath) || re.test(filePath.replace(/\\/g, '/')))
+      return true
+  }
+  return false
+}
+
+/**
+ * Walk a directory recursively, yielding file paths.
+ * Skips directories matching ignore patterns.
+ */
+function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Generator<string> {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  }
+  catch {
+    return
+  }
+  for (const name of entries) {
+    if (!dot && name.startsWith('.')) continue
+    const full = join(dir, name)
+    const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+    if (ignore.length && matchesAnyPattern(rel, ignore)) continue
+    let st
+    try { st = statSync(full) }
+    catch { continue }
+    if (st.isDirectory()) {
+      yield* walkDir(full, ignore, dot, cwd)
+    }
+    else {
+      yield full
+    }
+  }
+}
+
+/**
+ * Glob files matching the given patterns.
+ * Uses Bun.Glob when running under Bun for maximum performance,
+ * falls back to a pure Node fs recursive walk otherwise.
+ */
+export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<string[]> {
+  const cwd = opts.cwd ?? process.cwd()
+  const ignore = opts.ignore ?? []
+  const dot = opts.dot ?? false
+  const absolute = opts.absolute ?? true
+
+  // Fast path: Bun.Glob (available in Bun runtime)
+  if (typeof (globalThis as any).Bun?.Glob !== 'undefined') {
+    const BunGlob = (globalThis as any).Bun.Glob
+    const results: string[] = []
+    for (const pattern of patterns) {
+      const g = new BunGlob(pattern)
+      for await (const file of g.scan({ cwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
+        const full = isAbsolute(file) ? file : join(cwd, file)
+        const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+        if (ignore.length && matchesAnyPattern(rel, ignore)) continue
+        results.push(absolute ? full : rel)
+      }
+    }
+    return results
+  }
+
+  // Fallback: Node fs recursive walk
+  const results: string[] = []
+  for (const pattern of patterns) {
+    // If pattern has no glob chars, treat as literal path
+    if (!/[*?[{]/.test(pattern)) {
+      const full = isAbsolute(pattern) ? pattern : join(cwd, pattern)
+      try {
+        const st = statSync(full)
+        if (!st.isDirectory()) {
+          const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+          if (!ignore.length || !matchesAnyPattern(rel, ignore))
+            results.push(absolute ? full : rel)
+        }
+        else {
+          for (const f of walkDir(full, ignore, dot, cwd))
+            results.push(absolute ? f : (f.startsWith(cwd + '/') ? f.slice(cwd.length + 1) : f))
+        }
+      }
+      catch { /* skip missing */ }
+      continue
+    }
+    const re = globToRegex(pattern)
+    for (const f of walkDir(cwd, ignore, dot, cwd)) {
+      const rel = f.startsWith(cwd + '/') ? f.slice(cwd.length + 1) : f
+      if (re.test(rel) || re.test(rel.replace(/\\/g, '/')))
+        results.push(absolute ? f : rel)
+    }
+  }
+  return results
+}
 
 /**
  * Concurrency limiter — runs at most `concurrency` async tasks simultaneously.

@@ -3,10 +3,9 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { relative } from 'node:path'
 import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
-import { glob as tinyGlob } from 'tinyglobby'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
-import { colors, ENV, expandPatterns, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath } from './utils'
+import { colors, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath } from './utils'
 
 let _logger: Logger | null = null
 function getLogger(): Logger {
@@ -254,21 +253,21 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
       }
     }
     catch {
-      entries = await withTimeout(tinyGlob(patterns, {
+      entries = await withTimeout(glob(patterns, {
         dot: false,
         ignore: cfg.ignores,
         onlyFiles: true,
         absolute: true,
-      }), timeoutMs, 'tinyGlob')
+      }), timeoutMs, 'glob')
     }
   }
   else {
-    entries = await withTimeout(tinyGlob(patterns, {
+    entries = await withTimeout(glob(patterns, {
       dot: false,
       ignore: cfg.ignores,
       onlyFiles: true,
       absolute: true,
-    }), timeoutMs, 'tinyGlob')
+    }), timeoutMs, 'glob')
   }
 
   trace('globbed entries', entries.length)

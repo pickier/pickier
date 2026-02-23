@@ -3,11 +3,10 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
-import { glob as tinyGlob } from 'tinyglobby'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
-import { colors, createLimiter, ENV, expandPatterns, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
+import { colors, createLimiter, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
 let _logger: Logger | null = null
@@ -134,21 +133,21 @@ export async function runLintProgrammatic(
       }
     }
     catch {
-      entries = await withTimeout(tinyGlob(patterns, {
+      entries = await withTimeout(glob(patterns, {
         dot: false,
         ignore: globIgnores,
         onlyFiles: true,
         absolute: true,
-      }), timeoutMs, 'tinyGlob')
+      }), timeoutMs, 'glob')
     }
   }
   else if (!entries.length) {
-    entries = await withTimeout(tinyGlob(patterns, {
+    entries = await withTimeout(glob(patterns, {
       dot: false,
       ignore: globIgnores,
       onlyFiles: true,
       absolute: true,
-    }), timeoutMs, 'tinyGlob')
+    }), timeoutMs, 'glob')
   }
 
   if (signal?.aborted)
@@ -1437,27 +1436,26 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       }
       catch (e) {
         if (enableDiagnostics)
-          getLogger().info(`[pickier:diagnostics] Fast scan failed: ${(e as any)?.message}, falling back to tinyglobby`)
-        // If fallback fails, use tinyglobby with timeout
-        entries = await withTimeout(tinyGlob(patterns, {
+          getLogger().info(`[pickier:diagnostics] Fast scan failed: ${(e as any)?.message}, falling back to glob`)
+        entries = await withTimeout(glob(patterns, {
           dot: false,
           ignore: globIgnores,
           onlyFiles: true,
           absolute: true,
-        }), timeoutMs, 'tinyGlob')
+        }), timeoutMs, 'glob')
       }
     }
     else if (!entries.length) {
       if (enableDiagnostics)
-        getLogger().info(`[pickier:diagnostics] Using tinyglobby with timeout ${timeoutMs}ms...`)
-      entries = await withTimeout(tinyGlob(patterns, {
+        getLogger().info(`[pickier:diagnostics] Using glob with timeout ${timeoutMs}ms...`)
+      entries = await withTimeout(glob(patterns, {
         dot: false,
         ignore: globIgnores,
         onlyFiles: true,
         absolute: true,
-      }), timeoutMs, 'tinyGlob')
+      }), timeoutMs, 'glob')
       if (enableDiagnostics)
-        getLogger().info(`[pickier:diagnostics] tinyglobby found ${entries.length} files`)
+        getLogger().info(`[pickier:diagnostics] glob found ${entries.length} files`)
     }
 
     trace('globbed entries', entries.length)

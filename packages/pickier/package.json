@@ -70,8 +70,7 @@
     "test:watch": "PICKIER_NO_AUTO_CONFIG=1 bun test --watch"
   },
   "dependencies": {
-    "@stacksjs/clapp": "^0.2.0",
-    "tinyglobby": "^0.2.15"
+    "@stacksjs/clapp": "^0.2.0"
   },
   "devDependencies": {
     "bunfig": "^0.15.6"
