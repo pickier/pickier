@@ -2,30 +2,42 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-
-const ZIG_BIN = join(__dirname, '..', '..', '..', '..', 'zig', 'zig-out', 'bin', 'pickier-zig')
+import { runLint } from '../../../src/linter'
 
 function tmp(): string {
-  return mkdtempSync(join(tmpdir(), 'pickier-zig-parity-'))
+  return mkdtempSync(join(tmpdir(), 'pickier-parity-'))
 }
 
-function runZig(dir: string, file: string): { exitCode: number, output: string } {
-  try {
-    const output = execSync(`${ZIG_BIN} lint ${file}`, { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-    return { exitCode: 0, output }
-  } catch (e: any) {
-    return { exitCode: e.status ?? 1, output: (e.stdout || '') + (e.stderr || '') }
-  }
+function makeUnusedVarsConfig(dir: string): string {
+  const cfgPath = join(dir, 'pickier.config.json')
+  writeFileSync(cfgPath, JSON.stringify({
+    verbose: false,
+    ignores: [],
+    lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+    format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+    rules: { noDebugger: 'off', noConsole: 'off' },
+    plugins: [{ name: 'pickier', rules: {} }],
+    pluginRules: { 'general/no-unused-vars': 'error', 'style/max-statements-per-line': 'off', 'pickier/prefer-const': 'off' },
+  }, null, 2), 'utf8')
+  return cfgPath
 }
 
-const zigExists = existsSync(ZIG_BIN)
-const describeZig = zigExists ? describe : describe.skip
+function makePreferConstConfig(dir: string): string {
+  const cfgPath = join(dir, 'pickier.config.json')
+  writeFileSync(cfgPath, JSON.stringify({
+    verbose: false,
+    ignores: [],
+    lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+    format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+    rules: { noDebugger: 'off', noConsole: 'off' },
+    pluginRules: { 'pickier/prefer-const': 'error', 'pickier/no-unused-vars': 'off', 'style/max-statements-per-line': 'off' },
+  }, null, 2), 'utf8')
+  return cfgPath
+}
 
-describeZig('zig parity: no-unused-vars edge cases', () => {
+describe('no-unused-vars edge cases', () => {
   describe('destructuring alias handling', () => {
-    it('does not flag property keys in destructuring aliases', () => {
+    it('does not flag property keys in destructuring aliases', async () => {
       const dir = tmp()
       const src = [
         'const obj = { logicalId: "test", value: 42 }',
@@ -34,12 +46,11 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      // Should not have no-unused-vars errors (may have console warning)
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
 
-    it('flags unused alias values', () => {
+    it('flags unused alias values', async () => {
       const dir = tmp()
       const src = [
         'const obj = { logicalId: "test" }',
@@ -48,11 +59,11 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(1)
     })
 
-    it('handles rest elements in destructuring', () => {
+    it('handles rest elements in destructuring', async () => {
       const dir = tmp()
       const src = [
         'const arr = [1, 2, 3, 4, 5]',
@@ -61,11 +72,11 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
 
-    it('handles multiple aliases in destructuring', () => {
+    it('handles multiple aliases in destructuring', async () => {
       const dir = tmp()
       const src = [
         'const config = { host: "localhost", port: 3000 }',
@@ -74,13 +85,13 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
   })
 
   describe('multi-line return type annotations', () => {
-    it('correctly identifies function body with multi-line object return type', () => {
+    it('correctly identifies function body with multi-line object return type', async () => {
       const dir = tmp()
       const src = [
         'interface FileHash { path: string; hash: string }',
@@ -100,13 +111,11 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      // newHashes IS used — should not flag it
-      expect(result.output).not.toContain('newHashes')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
 
-    it('correctly identifies function body with single-line object return type', () => {
+    it('correctly identifies function body with single-line object return type', async () => {
       const dir = tmp()
       const src = [
         'function getResult(input: string): { value: string } {',
@@ -116,11 +125,11 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
 
-    it('correctly identifies function body after Promise<{ ... }> return type', () => {
+    it('correctly identifies function body after Promise<{ ... }> return type', async () => {
       const dir = tmp()
       const src = [
         'async function fetchData(url: string): Promise<{ data: string }> {',
@@ -131,13 +140,13 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
   })
 
   describe('template literal handling', () => {
-    it('does not match function keyword inside template literals', () => {
+    it('does not match function keyword inside template literals', async () => {
       const dir = tmp()
       const src = [
         'const code = `export function handler() { return 1 }`',
@@ -145,13 +154,13 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
   })
 
   describe('multi-line function parameters', () => {
-    it('handles function with params spanning multiple lines', () => {
+    it('handles function with params spanning multiple lines', async () => {
       const dir = tmp()
       const src = [
         'function createUser(',
@@ -165,14 +174,14 @@ describeZig('zig parity: no-unused-vars edge cases', () => {
         '',
       ].join('\n')
       writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-      const result = runZig(dir, 'a.ts')
-      expect(result.output).not.toContain('no-unused-vars')
+      const code = await runLint([dir], { config: makeUnusedVarsConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
     })
   })
 })
 
-describeZig('zig parity: prefer-const edge cases', () => {
-  it('does not false-positive on commas inside string literals', () => {
+describe('prefer-const edge cases', () => {
+  it('does not false-positive on commas inside string literals', async () => {
     const dir = tmp()
     const src = [
       'let cc = \'public, max-age=3600\'',
@@ -181,11 +190,11 @@ describeZig('zig parity: prefer-const edge cases', () => {
       '',
     ].join('\n')
     writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-    const result = runZig(dir, 'a.ts')
-    expect(result.output).not.toContain('prefer-const')
+    const code = await runLint([dir], { config: makePreferConstConfig(dir), reporter: 'json' })
+    expect(code).toBe(0)
   })
 
-  it('correctly flags let that is never reassigned', () => {
+  it('correctly flags let that is never reassigned', async () => {
     const dir = tmp()
     const src = [
       'let cc = \'public, max-age=3600\'',
@@ -193,7 +202,7 @@ describeZig('zig parity: prefer-const edge cases', () => {
       '',
     ].join('\n')
     writeFileSync(join(dir, 'a.ts'), src, 'utf8')
-    const result = runZig(dir, 'a.ts')
-    expect(result.output).toContain('prefer-const')
+    const code = await runLint([dir], { config: makePreferConstConfig(dir), reporter: 'json' })
+    expect(code).toBe(1)
   })
 })

@@ -266,8 +266,6 @@ export const UNIVERSAL_IGNORES = [
   '**/.github/**',
   '**/coverage/**',
   '**/.nyc_output/**',
-  '**/tmp/**',
-  '**/temp/**',
   '**/.tmp/**',
   '**/.temp/**',
   '**/vendor/**',
