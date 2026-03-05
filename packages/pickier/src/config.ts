@@ -209,6 +209,7 @@ export async function getConfig(): Promise<PickierConfig> {
   if (!_config) {
     _config = await loadConfig({
       name: 'pickier',
+      alias: 'code-style',
       defaultConfig,
     })
   }

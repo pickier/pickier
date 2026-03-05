@@ -430,12 +430,24 @@ export async function loadConfigFromPath(pathLike: string | undefined): Promise<
   const ext = extname(abs).toLowerCase()
 
   if (ext === '.json') {
-    const raw = readFileSync(abs, 'utf8')
-    return mergeConfig(defaultConfig, JSON.parse(raw) as PickierOptions)
+    try {
+      const raw = readFileSync(abs, 'utf8')
+      return mergeConfig(defaultConfig, JSON.parse(raw) as PickierOptions)
+    }
+    catch {
+      console.warn(`[pickier:warn] Config file not found: ${abs}. Using default config values.`)
+      return mergeConfig(defaultConfig, {})
+    }
   }
 
-  const mod = await import(abs)
-  return mergeConfig(defaultConfig, (mod.default || mod) as PickierOptions)
+  try {
+    const mod = await import(abs)
+    return mergeConfig(defaultConfig, (mod.default || mod) as PickierOptions)
+  }
+  catch {
+    console.warn(`[pickier:warn] Config file not found: ${abs}. Using default config values.`)
+    return mergeConfig(defaultConfig, {})
+  }
 }
 
 export function expandPatterns(patterns: string[]): string[] {
