@@ -172,3 +172,8 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 - When adding new rules, implement both`check`and`fix`(if applicable) in the appropriate plugin
 - Rule IDs follow`plugin/rule-name`convention but config also supports bare rule names for convenience
 - Tests must set`PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config
+
+
+## Git Commits
+
+When committing changes, do not include a `Co-Authored-By` line for Claude in commit messages.
