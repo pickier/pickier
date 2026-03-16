@@ -23,9 +23,12 @@ const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
 // Pickier Zig native binary — same one used in format-comparison bench
 const pickierBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
 
 // Load fixtures
 const fixtures = {

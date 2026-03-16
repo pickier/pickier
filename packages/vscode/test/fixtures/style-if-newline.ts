@@ -7,7 +7,8 @@ function testIfNewline() {
   // ISSUE: if-else on same line (inconsistent with multiline blocks)
   if (x > 100) {
     console.log('Large')
-  } else { console.log('Small') }
+  }
+else { console.log('Small') }
 
   // ISSUE: Mixed single-line and multi-line
   if (x === 0) return 0

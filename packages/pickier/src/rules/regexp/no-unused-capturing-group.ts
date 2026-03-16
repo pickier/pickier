@@ -240,7 +240,8 @@ function findIssues(content: string, ctx: RuleContext): LintIssue[] {
         const skipEnd = skipRegexLiteral(content, idx)
         if (skipEnd > idx + 1) {
           idx = skipEnd
-        } else {
+        }
+else {
           idx++
         }
         continue

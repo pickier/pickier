@@ -27,11 +27,16 @@ const oxfmtGlobal = which('oxfmt')
 const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
 const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
 
 // Load fixtures
 const fixtures = {
@@ -62,14 +67,17 @@ async function runPickierFull(filePath: string, content: string) {
 
 // ESLint (CLI) + Prettier (in-memory) — fair comparison: same API tier where available
 async function runESLintPrettier(filePath: string, content: string) {
-  try { execSync(`${eslintCmd} ${filePath}`, { stdio: 'ignore' }) } catch { /* issues found */ }
+  try { execSync(`${eslintCmd} ${filePath}`, { stdio: 'ignore' }) }
+catch { /* issues found */ }
   await prettier.format(content, prettierOpts)
 }
 
 // Pickier Zig: lint + format in one native binary invocation
 function runPickierZig(filePath: string) {
-  try { execSync(`${pickierZigBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
-  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
+  try { execSync(`${pickierZigBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
+catch { /* ok */ }
+  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
+catch { /* ok */ }
 }
 
 // Biome check (lint + format in one CLI command)
@@ -80,7 +88,8 @@ function runBiomeFull(filePath: string) {
 
 // oxlint (lint) + oxfmt (format via stdin) — two separate Rust tools
 function runOxlintOxfmt(filePath: string, content: string) {
-  try { execSync(`${oxlintCmd} ${filePath}`, { stdio: 'ignore' }) } catch { /* issues found */ }
+  try { execSync(`${oxlintCmd} ${filePath}`, { stdio: 'ignore' }) }
+catch { /* issues found */ }
   try {
     execSync(`${oxfmtCmd} format --stdin-filepath ${filePath}`, {
       input: content,

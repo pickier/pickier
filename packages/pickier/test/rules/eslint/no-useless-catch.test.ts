@@ -27,7 +27,8 @@ describe('eslint/no-useless-catch', () => {
     writeFileSync(join(dir, 'a.ts'), [
       'try {',
       '  doSomething()',
-      '} catch (e) {',
+      '}
+catch (e) {',
       '  throw e',
       '}',
       '',
@@ -41,7 +42,8 @@ describe('eslint/no-useless-catch', () => {
     writeFileSync(join(dir, 'b.ts'), [
       'try {',
       '  doSomething()',
-      '} catch (e) {',
+      '}
+catch (e) {',
       '  console.error(e)',
       '  throw e',
       '}',
@@ -56,7 +58,8 @@ describe('eslint/no-useless-catch', () => {
     writeFileSync(join(dir, 'c.ts'), [
       'try {',
       '  doSomething()',
-      '} catch (e) {',
+      '}
+catch (e) {',
       '  handleError(e)',
       '}',
       '',

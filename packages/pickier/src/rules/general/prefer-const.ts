@@ -21,7 +21,8 @@ function splitTopLevel(s: string, sep: string): string[] {
         parts.push(s.slice(start, i))
         start = i + 1
       }
-    } else {
+    }
+else {
       if ((inStr === 'single' && c === '\'') || (inStr === 'double' && c === '"') || (inStr === 'template' && c === '`')) inStr = null
     }
   }

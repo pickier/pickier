@@ -24,9 +24,12 @@ const oxlintGlobal = which('oxlint')
 const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
 const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
 
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),
@@ -61,16 +64,20 @@ group(`Linting — Medium File (${mediumLines} lines)`, () => {
     await runLintProgrammatic([fixtures.medium], { reporter: 'json' })
   })
   bench('Pickier (cli)', () => {
-    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode lint`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('ESLint (node)', () => {
-    try { execSync(`${eslintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${eslintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('Biome', () => {
-    try { execSync(`${biomeCmd} lint ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${biomeCmd} lint ${fixtures.medium}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('oxlint', () => {
-    try { execSync(`${oxlintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${oxlintCmd} ${fixtures.medium}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
 })
 
@@ -79,16 +86,20 @@ group(`Linting — Large File (${largeLines} lines)`, () => {
     await runLintProgrammatic([fixtures.large], { reporter: 'json' })
   })
   bench('Pickier (cli)', () => {
-    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode lint`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('ESLint (node)', () => {
-    try { execSync(`${eslintCmd} ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${eslintCmd} ${fixtures.large}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('Biome', () => {
-    try { execSync(`${biomeCmd} lint ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${biomeCmd} lint ${fixtures.large}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('oxlint', () => {
-    try { execSync(`${oxlintCmd} ${fixtures.large}`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${oxlintCmd} ${fixtures.large}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
 })
 
@@ -98,7 +109,8 @@ group(`Formatting — Medium File (${mediumLines} lines)`, () => {
     formatCode(fixtureContent.medium, cfg, 'bench.ts')
   })
   bench('Pickier (cli)', () => {
-    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${pickierZigBin} run ${fixtures.medium} --mode format --check`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('Prettier', async () => {
     await prettier.format(fixtureContent.medium, prettierOpts)
@@ -118,7 +130,8 @@ group(`Formatting — Large File (${largeLines} lines)`, () => {
     formatCode(fixtureContent.large, cfg, 'bench.ts')
   })
   bench('Pickier (cli)', () => {
-    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode format --check`, { stdio: 'ignore' }) } catch { /* ok */ }
+    try { execSync(`${pickierZigBin} run ${fixtures.large} --mode format --check`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('Prettier', async () => {
     await prettier.format(fixtureContent.large, prettierOpts)
@@ -141,15 +154,18 @@ group('Stress Test — Lint 50x Small File', () => {
   })
   bench('Pickier (cli)', () => {
     for (let i = 0; i < 50; i++)
-      try { execSync(`${pickierZigBin} run ${fixtures.small} --mode lint`, { stdio: 'ignore' }) } catch { /* ok */ }
+      try { execSync(`${pickierZigBin} run ${fixtures.small} --mode lint`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('ESLint (node)', () => {
     for (let i = 0; i < 50; i++)
-      try { execSync(`${eslintCmd} ${fixtures.small}`, { stdio: 'ignore' }) } catch { /* ok */ }
+      try { execSync(`${eslintCmd} ${fixtures.small}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
   bench('Biome', () => {
     for (let i = 0; i < 50; i++)
-      try { execSync(`${biomeCmd} lint ${fixtures.small}`, { stdio: 'ignore' }) } catch { /* ok */ }
+      try { execSync(`${biomeCmd} lint ${fixtures.small}`, { stdio: 'ignore' }) }
+catch { /* ok */ }
   })
 })
 

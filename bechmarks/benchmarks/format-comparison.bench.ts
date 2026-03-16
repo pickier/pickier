@@ -69,9 +69,12 @@ const prettierCmd = prettierGlobal ?? 'npx --yes prettier'
 const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
 // Warm up npx cache so the first bench iteration isn't penalised
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
 
 // ---------------------------------------------------------------------------
 // Helpers

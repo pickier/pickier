@@ -45,7 +45,8 @@ describe('style/brace-style', () => {
     const content = `
 if (condition) {
   doSomething()
-} else {
+}
+else {
   doSomethingElse()
 }
 `
@@ -77,7 +78,8 @@ if (condition) {
     const content = `
 try {
   doSomething()
-} catch (error) {
+}
+catch (error) {
   handleError(error)
 }
 `
@@ -108,9 +110,11 @@ try {
     const content = `
 try {
   doSomething()
-} catch (error) {
+}
+catch (error) {
   handleError(error)
-} finally {
+}
+finally {
   cleanup()
 }
 `

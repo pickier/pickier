@@ -933,7 +933,8 @@ function getCommentLines(content: string): Set<number> {
             // Skip flags
             while (i < content.length && /[gimsuy]/.test(content[i])) i++
             i-- // will be incremented by for loop
-          } else {
+          }
+else {
             state = 'block-comment'
             i++ // skip next char
           }
@@ -947,7 +948,8 @@ function getCommentLines(content: string): Set<number> {
             const bc = content[k]
             if ('=([{,;!&|?:~^%+-'.includes(bc) || bc === '\n') {
               isRegex = true
-            } else if (/[a-z]/.test(bc)) {
+            }
+else if (/[a-z]/.test(bc)) {
               const slice = content.slice(Math.max(0, k - 6), k + 1)
               if (/\b(?:return|case|typeof|void|in|of|new|throw|delete)$/.test(slice)) {
                 isRegex = true
@@ -965,7 +967,8 @@ function getCommentLines(content: string): Set<number> {
             }
             while (i < content.length && /[gimsuy]/.test(content[i])) i++
             i--
-          } else {
+          }
+else {
             lineHasCode = true
           }
         }

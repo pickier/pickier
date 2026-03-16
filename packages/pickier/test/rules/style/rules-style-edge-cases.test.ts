@@ -44,9 +44,11 @@ it('should handle else if chains with single statements', async () => {
   const content = `
 if (condition1) {
   statement1()
-} else if (condition2) {
+}
+else if (condition2) {
   statement2()
-} else {
+}
+else {
   statement3()
 }
 `
@@ -195,9 +197,11 @@ it('should handle mixed single and multiple statement blocks', async () => {
 if (condition1) {
   statement1()
   statement2()
-} else if (condition2) {
+}
+else if (condition2) {
   singleStatement()
-} else {
+}
+else {
   statement3()
   statement4()
 }

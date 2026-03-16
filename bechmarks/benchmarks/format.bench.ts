@@ -25,8 +25,10 @@ const oxfmtGlobal = which('oxfmt')
 const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
 const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) } catch { /* ignore */ }
+try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
+try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
+catch { /* ignore */ }
 
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),

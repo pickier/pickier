@@ -173,8 +173,6 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 - Rule IDs follow`plugin/rule-name`convention but config also supports bare rule names for convenience
 - Tests must set`PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config
 
-
-
 ---
 
 ## Linting
@@ -185,7 +183,7 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 
 ## Frontend
 
-- Use **stx** for templating — never write vanilla JS (`var`, `document.*`, `window.*`) in stx templates
+- Use **stx** for templating — never write vanilla JS (`var`, `document._`, `window._`) in stx templates
 - Use **crosswind** as the default CSS framework which enables standard Tailwind-like utility classes
 - stx `<script>` tags should only contain stx-compatible code (signals, composables, directives)
 

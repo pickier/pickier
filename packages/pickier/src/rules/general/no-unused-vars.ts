@@ -164,7 +164,8 @@ export const noUnusedVarsRule: RuleModule = {
               if (ch === '\'' || ch === '"' || ch === '`') { dStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template' }
               else if (ch === openChar) dDepth++
               else if (ch === closeChar) { dDepth--; if (dDepth === 0) { endIdx = ci; break } }
-            } else {
+            }
+else {
               if ((dStr === 'single' && ch === '\'') || (dStr === 'double' && ch === '"') || (dStr === 'template' && ch === '`')) dStr = null
             }
           }
@@ -185,7 +186,8 @@ export const noUnusedVarsRule: RuleModule = {
                 if (ch === '(' || ch === '{' || ch === '[') fDepth++
                 if (ch === ')' || ch === '}' || ch === ']') fDepth--
                 if (ch === ',' && fDepth === 0) { fields.push(fCurrent.trim()); fCurrent = ''; continue }
-              } else {
+              }
+else {
                 if ((fStr === 'single' && ch === '\'') || (fStr === 'double' && ch === '"') || (fStr === 'template' && ch === '`')) fStr = null
               }
               fCurrent += ch
@@ -214,7 +216,8 @@ export const noUnusedVarsRule: RuleModule = {
                 }
                 const nameMatch = value.match(/^([$A-Z_][\w$]*)/i)
                 if (nameMatch) names.push(nameMatch[1])
-              } else {
+              }
+else {
                 // Simple field: name or name = default
                 let fieldName = field
                 // Strip default value
@@ -836,11 +839,13 @@ export const noUnusedVarsRule: RuleModule = {
           if (inBody) {
             if (ch === '`') {
               mainTmplStack.pop()
-            } else if (ch === '$' && ci + 1 < codeClean.length && codeClean[ci + 1] === '{') {
+            }
+else if (ch === '$' && ci + 1 < codeClean.length && codeClean[ci + 1] === '{') {
               mainTmplStack[mainTmplStack.length - 1] = 0
               masked += '  '
               ci++
-            } else {
+            }
+else {
               masked += ' '
             }
             continue
@@ -851,24 +856,30 @@ export const noUnusedVarsRule: RuleModule = {
             if (ch === '`') {
               mainTmplStack.push(-1)
               masked += ' '
-            } else if (ch === '\'') {
+            }
+else if (ch === '\'') {
               mainInSingle = true
               masked += ch
-            } else if (ch === '"') {
+            }
+else if (ch === '"') {
               mainInDouble = true
               masked += ch
-            } else if (ch === '{') {
+            }
+else if (ch === '{') {
               mainTmplStack[mainTmplStack.length - 1]++
               masked += ch
-            } else if (ch === '}') {
+            }
+else if (ch === '}') {
               if (mainTmplStack[mainTmplStack.length - 1] > 0) {
                 mainTmplStack[mainTmplStack.length - 1]--
                 masked += ch
-              } else {
+              }
+else {
                 mainTmplStack[mainTmplStack.length - 1] = -1
                 masked += ' '
               }
-            } else {
+            }
+else {
               masked += ch
             }
             continue
@@ -878,13 +889,16 @@ export const noUnusedVarsRule: RuleModule = {
           if (ch === '`') {
             mainTmplStack.push(-1)
             masked += ' '
-          } else if (ch === '\'') {
+          }
+else if (ch === '\'') {
             mainInSingle = true
             masked += ch
-          } else if (ch === '"') {
+          }
+else if (ch === '"') {
             mainInDouble = true
             masked += ch
-          } else {
+          }
+else {
             masked += ch
           }
         }

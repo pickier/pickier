@@ -78,15 +78,15 @@ By default, `pickier` lints. Use `--fix` to auto-fix problems or `--format` to f
 Lints by default. Add `--fix` to auto-fix or `--format` to format files.
 
 ```bash
-# These are equivalent:
+# These are equivalent
 pickier .
 pickier lint .
 
-# These are equivalent:
+# These are equivalent
 pickier . --fix
 pickier lint . --fix
 
-# These are equivalent:
+# These are equivalent
 pickier . --format
 pickier format . --write
 ```
@@ -337,10 +337,10 @@ From the `bench:lint` suite. `(api)` = programmatic in-process; `(cli)` = native
 
 | File | Pickier (api) | Pickier (cli) | ESLint (node) | oxlint | Biome |
 |------|-------------:|--------------:|--------------:|-------:|------:|
-| Small (52 lines) | **249 µs** | **19 ms** | 57 ms | 47 ms | 38 ms |
-| Medium (419 lines) | **1.73 ms** | **21 ms** | 57 ms | 47 ms | 41 ms |
-| Large (1,279 lines) | **4.43 ms** | **28 ms** | 57 ms | 49 ms | 45 ms |
-| All files (batch) | **40 µs** | **62 ms** | 172 ms | 144 ms | 129 ms |
+| Small (52 lines) | **249 µs**|**19 ms** | 57 ms | 47 ms | 38 ms |
+| Medium (419 lines) | **1.73 ms**|**21 ms** | 57 ms | 47 ms | 41 ms |
+| Large (1,279 lines) | **4.43 ms**|**28 ms** | 57 ms | 49 ms | 45 ms |
+| All files (batch) | **40 µs**|**62 ms** | 172 ms | 144 ms | 129 ms |
 
 ### Combined — Lint + Format Workflow
 
@@ -348,10 +348,10 @@ From the `bench:combined` suite. `(api)` = programmatic in-process; `(cli)` = na
 
 | File | Pickier (api) | Pickier (cli) | ESLint + Prettier | oxlint + oxfmt | Biome |
 |------|-------------:|--------------:|------------------:|---------------:|------:|
-| Small (52 lines) | **303 µs** | **35 ms** | 63 ms | 94 ms | 41 ms |
-| Medium (419 lines) | **2.19 ms** | **38 ms** | 74 ms | 94 ms | 54 ms |
-| Large (1,279 lines) | **5.98 ms** | **49 ms** | 93 ms | 102 ms | 91 ms |
-| All files (batch) | **8.24 ms** | **125 ms** | 238 ms | 286 ms | 184 ms |
+| Small (52 lines) | **303 µs**|**35 ms** | 63 ms | 94 ms | 41 ms |
+| Medium (419 lines) | **2.19 ms**|**38 ms** | 74 ms | 94 ms | 54 ms |
+| Large (1,279 lines) | **5.98 ms**|**49 ms** | 93 ms | 102 ms | 91 ms |
+| All files (batch) | **8.24 ms**|**125 ms** | 238 ms | 286 ms | 184 ms |
 
 ### CLI Batch (all files, sequential)
 
@@ -371,7 +371,7 @@ From the `bench:combined` suite. `(api)` = programmatic in-process; `(cli)` = na
 | Biome (stdin) | 857 ms |
 | oxfmt (stdin) | 892 ms |
 
-> Pickier's in-memory API is **22-39x faster than Prettier** and orders of magnitude faster than tools that must spawn a process. On CLI batch, Pickier's compiled binary is **3.2x faster than Biome** and **6.9x faster than Prettier**. At throughput scale (20x large file), Pickier is **21x faster** than Prettier and **40x faster** than Biome/oxfmt.
+> Pickier's in-memory API is **22-39x faster than Prettier**and orders of magnitude faster than tools that must spawn a process. On CLI batch, Pickier's compiled binary is**3.2x faster than Biome**and**6.9x faster than Prettier**. At throughput scale (20x large file), Pickier is**21x faster**than Prettier and**40x faster** than Biome/oxfmt.
 
 ```bash
 # reproduce locally
