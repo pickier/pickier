@@ -26,7 +26,7 @@ export const descriptiveLinkTextRule: RuleModule = {
       const stripped = line.replace(/``[^`]+``/g, m => ' '.repeat(m.length)).replace(/`[^`]+`/g, m => ' '.repeat(m.length))
 
       // Find links [text](url)
-      const matches = stripped.matchAll(/\[(?:[^\]]+)\]\([^)]+\)/g)
+      const matches = stripped.matchAll(/\[([^\]]+)\]\([^)]+\)/g)
 
       for (const match of matches) {
         const linkText = match[1].toLowerCase().trim()

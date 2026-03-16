@@ -15,7 +15,7 @@ export const referenceLinksImagesRule: RuleModule = {
     const definitions = new Set<string>()
 
     for (const line of lines) {
-      const defMatch = line.match(/^\[(?:[^\]]+)\]:\s*\S+/)
+      const defMatch = line.match(/^\[([^\]]+)\]:\s*\S+/)
       if (defMatch) {
         definitions.add(defMatch[1].toLowerCase())
       }
@@ -58,7 +58,7 @@ export const referenceLinksImagesRule: RuleModule = {
       stripped = stripped.replace(/!?\[[^\]]*\]\([^)]*\)/g, m => ' '.repeat(m.length))
 
       // Find reference links [text][label] or [label]
-      const linkMatches = stripped.matchAll(/\[(?:[^\]]+)\](?:\[(?:[^\]]+)\])?(?!\()/g)
+      const linkMatches = stripped.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)
 
       for (const match of linkMatches) {
         const label = (match[2] || match[1]).toLowerCase()

@@ -18,7 +18,7 @@ export const listIndentRule: RuleModule = {
       const line = lines[i]
 
       // Check for list item (ordered or unordered)
-      const match = line.match(/^(?:\s*)(?:[*\-+]|\d+\.)\s+/)
+      const match = line.match(/^(\s*)(?:[*\-+]|\d+\.)\s+/)
 
       if (match) {
         inList = true

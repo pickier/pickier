@@ -698,8 +698,7 @@ describe('integration', () => {
     const input = [
       'try {',
       'doSomething()',
-      '}
-catch (e) {',
+      '} catch (e) {',
       'handleError(e)',
       '}',
       '',
@@ -1047,9 +1046,7 @@ describe('indentation edge cases', () => {
   })
 
   it('handles try-catch-finally indentation', () => {
-    const input = 'try {\na()\n}
-catch (e) {\nb(e)\n}
-finally {\nc()\n}\n'
+    const input = 'try {\na()\n} catch (e) {\nb(e)\n} finally {\nc()\n}\n'
     const result = fmt(input)
     expect(result).toContain('  a()')
     expect(result).toContain('  b(e)')
@@ -1245,11 +1242,9 @@ describe('complex real-world edge cases', () => {
     const input = [
       'if (a) {',
       'doA()',
-      '}
-else if (b) {',
+      '} else if (b) {',
       'doB()',
-      '}
-else {',
+      '} else {',
       'doC()',
       '}',
       '',
@@ -1306,8 +1301,7 @@ else {',
       'for (const item of items) {',
       'if (item.valid) {',
       'results.push(item)',
-      '}
-else {',
+      '} else {',
       'console.log("invalid")',
       '}',
       '}',

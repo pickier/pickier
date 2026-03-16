@@ -5,7 +5,7 @@ const JSON_EXTS = new Set(['.json', '.jsonc'])
 const YAML_EXTS = new Set(['.yaml', '.yml'])
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
-const _RE_LEADING_WS = /^[ \t]*/
+const RE_LEADING_WS = /^[ \t]*/
 const RE_CLOSING_BRACE = /^\}/
 const RE_OPENING_BRACE = /\{\s*$/
 const RE_FOR_LOOP = /^\s*for\s*\(/

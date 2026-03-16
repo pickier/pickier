@@ -28,8 +28,7 @@ describe('eslint/no-empty', () => {
       'const x = 1',
       'if (x > 0) {',
       '  console.log(x)',
-      '}
-else {}',
+      '} else {}',
       '',
     ].join('\n'), 'utf8')
     const code = await runLint([dir], { config: cfg(dir), reporter: 'json' })
@@ -39,8 +38,7 @@ else {}',
   it('flags empty try block', async () => {
     const dir = tmp()
     writeFileSync(join(dir, 'b.ts'), [
-      'try {}
-catch (e) {',
+      'try {} catch (e) {',
       '  console.error(e)',
       '}',
       '',

@@ -810,8 +810,7 @@ describe('no-unused-vars: template literal scenarios', () => {
         '  for (const record of event.Records) {',
         '    try {',
         '      await processMessage(record.body)',
-        '    }
-catch (err) {',
+        '    } catch (err) {',
         '      failedIds.push(record.messageId)',
         '    }',
         '  }',

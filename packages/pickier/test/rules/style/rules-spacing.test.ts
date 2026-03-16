@@ -35,8 +35,7 @@ describe('style/keyword-spacing', () => {
 
   it('should flag missing space before keyword after brace', async () => {
     const cfg = configWith('style/keyword-spacing')
-    const issues = await lintText('if (x) { foo() }
-else { bar() }\n', cfg, 'test.ts')
+    const issues = await lintText('if (x) { foo() }else { bar() }\n', cfg, 'test.ts')
     const ruleIssues = issues.filter(i => i.ruleId === 'style/keyword-spacing')
     expect(ruleIssues.length).toBeGreaterThan(0)
     expect(ruleIssues.some(i => i.message.includes('before'))).toBe(true)
@@ -44,16 +43,14 @@ else { bar() }\n', cfg, 'test.ts')
 
   it('should flag missing space before catch after paren', async () => {
     const cfg = configWith('style/keyword-spacing')
-    const issues = await lintText('try { foo() }
-catch (e) {}\n', cfg, 'test.ts')
+    const issues = await lintText('try { foo() }catch(e) {}\n', cfg, 'test.ts')
     const ruleIssues = issues.filter(i => i.ruleId === 'style/keyword-spacing')
     expect(ruleIssues.length).toBeGreaterThan(0)
   })
 
   it('should not flag properly spaced keywords', async () => {
     const cfg = configWith('style/keyword-spacing')
-    const code = 'if (x) { foo() }
-else { bar() }\n'
+    const code = 'if (x) { foo() } else { bar() }\n'
     const issues = await lintText(code, cfg, 'test.ts')
     const ruleIssues = issues.filter(i => i.ruleId === 'style/keyword-spacing')
     expect(ruleIssues).toHaveLength(0)
@@ -81,16 +78,13 @@ else { bar() }\n'
   })
 
   it('should fix missing space before else after brace', () => {
-    const result = keywordSpacingRule.fix!('if (x) { foo() }
-else { bar() }\n', ctx)
+    const result = keywordSpacingRule.fix!('if (x) { foo() }else { bar() }\n', ctx)
     expect(result).toContain('} else')
   })
 
   it('should fix missing space before and after catch', () => {
-    const result = keywordSpacingRule.fix!('try { foo() }
-catch (e) {}\n', ctx)
-    expect(result).toContain('}
-catch (e)')
+    const result = keywordSpacingRule.fix!('try { foo() }catch(e) {}\n', ctx)
+    expect(result).toContain('} catch (e)')
   })
 })
 
