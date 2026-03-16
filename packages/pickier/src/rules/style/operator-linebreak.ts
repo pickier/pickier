@@ -1,6 +1,6 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
-const OPERATORS = ['&&', '||', '??', '?', ':', '+', '-', '*', '/', '%', '**', '|', '&', '^', '<<', '>>', '>>>']
+const _OPERATORS = ['&&', '||', '??', '?', ':', '+', '-', '*', '/', '%', '**', '|', '&', '^', '<<', '>>', '>>>']
 const LINE_END_OP_RE = /(\&\&|\|\||\?\?|\?|\+|(?<!=)-(?!=)|\*|\/|%|\*\*|\|(?!\|)|&(?!&)|\^|<<|>>>?)\s*$/
 
 function isInStringOrComment(line: string, index: number): boolean {

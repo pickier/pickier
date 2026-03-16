@@ -18,7 +18,7 @@ export const noEmphasisAsHeadingRule: RuleModule = {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }

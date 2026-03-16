@@ -17,7 +17,7 @@ export const noBareUrlsRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }
@@ -35,7 +35,7 @@ export const noBareUrlsRule: RuleModule = {
         continue
 
       // Skip reference link definition lines: [label]: url
-      if (/^\[([^\]]+)\]:\s*\S+/.test(line))
+      if (/^\[(?:[^\]]+)\]:\s*\S+/.test(line))
         continue
 
       // Strip inline code spans before checking
@@ -64,7 +64,7 @@ export const noBareUrlsRule: RuleModule = {
     let inFence = false
     let inHtmlComment = false
     const fixedLines = lines.map((line) => {
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         return line
       }
@@ -81,7 +81,7 @@ export const noBareUrlsRule: RuleModule = {
         return line
 
       // Skip reference link definition lines
-      if (/^\[([^\]]+)\]:\s*\S+/.test(line))
+      if (/^\[(?:[^\]]+)\]:\s*\S+/.test(line))
         return line
 
       return line.replace(/(?<![<(="'])https?:\/\/[^\s<>`)\]"']+(?![>\])"'])/g, '<$&>')

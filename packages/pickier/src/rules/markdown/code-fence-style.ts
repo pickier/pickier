@@ -114,13 +114,13 @@ export const codeFenceStyleRule: RuleModule = {
     const fixedLines = lines.map((line) => {
       if (targetStyle === 'backtick') {
         // Convert tildes to backticks
-        return line.replace(/^(~{3,})(.*)$/, (match, tildes, rest) => {
+        return line.replace(/^(~{3,})(.*)$/, (_match, _tildes, rest) => {
           return `\`\`\`${rest}`
         })
       }
       else {
         // Convert backticks to tildes
-        return line.replace(/^(`{3,})(.*)$/, (match, backticks, rest) => {
+        return line.replace(/^(`{3,})(.*)$/, (_match, _backticks, rest) => {
           return `~~~${rest}`
         })
       }

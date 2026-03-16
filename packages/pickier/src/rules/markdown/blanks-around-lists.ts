@@ -19,7 +19,7 @@ export const blanksAroundListsRule: RuleModule = {
       const prevLine = i > 0 ? lines[i - 1] : ''
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         if (inList)
           inList = false
@@ -29,7 +29,7 @@ export const blanksAroundListsRule: RuleModule = {
         continue
 
       // Check if this is a list item or a continuation of one (indented text following a list item)
-      const isListItem = /^(\s*)([*\-+]|\d+\.)\s+/.test(line)
+      const isListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(line)
       const isListContinuation = inList && !isListItem && line.trim().length > 0 && /^\s+/.test(line)
 
       if (isListItem && !inList) {
@@ -53,7 +53,7 @@ export const blanksAroundListsRule: RuleModule = {
         inList = false
 
         // Check if previous line was a list item
-        const prevLineIsListItem = /^(\s*)([*\-+]|\d+\.)\s+/.test(prevLine)
+        const prevLineIsListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(prevLine)
         if (prevLineIsListItem) {
           issues.push({
             filePath: ctx.filePath,
@@ -77,7 +77,7 @@ export const blanksAroundListsRule: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
-      const isListItem = /^(\s*)([*\-+]|\d+\.)\s+/.test(line)
+      const isListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(line)
 
       if (isListItem && !inList) {
         // Start of list - add blank line before if needed
@@ -96,7 +96,7 @@ export const blanksAroundListsRule: RuleModule = {
       else if (!isListItem && line.trim().length === 0) {
         // Blank line might end list
         const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-        const nextIsListItem = /^(\s*)([*\-+]|\d+\.)\s+/.test(nextLine)
+        const nextIsListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(nextLine)
         if (!nextIsListItem && inList) {
           inList = false
         }

@@ -1,8 +1,8 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Match => without proper spacing
-const ARROW_NO_SPACE_BEFORE = /\S=>/g
-const ARROW_NO_SPACE_AFTER = /=>\S/g
+const _ARROW_NO_SPACE_BEFORE = /\S=>/g
+const _ARROW_NO_SPACE_AFTER = /=>\S/g
 const ARROW_RE = /=>/g
 
 function isInStringOrComment(line: string, index: number): boolean {

@@ -16,7 +16,7 @@ export const linkImageReferenceDefinitionsRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const defMatch = line.match(/^\[([^\]]+)\]:\s*\S+/)
+      const defMatch = line.match(/^\[(?:[^\]]+)\]:\s*\S+/)
       if (defMatch) {
         definitions.set(defMatch[1].toLowerCase(), i + 1)
       }
@@ -27,12 +27,12 @@ export const linkImageReferenceDefinitionsRule: RuleModule = {
 
     for (const line of lines) {
       // Skip definition lines
-      if (line.match(/^\[([^\]]+)\]:\s*\S+/)) {
+      if (line.match(/^\[(?:[^\]]+)\]:\s*\S+/)) {
         continue
       }
 
       // Find reference links [text][label] or [label]
-      const linkMatches = line.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)
+      const linkMatches = line.matchAll(/\[(?:[^\]]+)\](?:\[(?:[^\]]+)\])?(?!\()/g)
 
       for (const match of linkMatches) {
         const label = (match[2] || match[1]).toLowerCase()

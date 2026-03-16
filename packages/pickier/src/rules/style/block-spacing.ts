@@ -97,14 +97,14 @@ export const blockSpacingRule: RuleModule = {
     for (const line of lines) {
       // Fix single-line blocks: {content} -> { content }
       // But not empty braces {} and not template literals ${}
-      let fixed = line.replace(/(?<!\$)\{(\S)([^}]*?)(\S)\}/g, (m, first, middle, last) => {
+      let fixed = line.replace(/(?<!\$)\{(\S)([^}]*?)(\S)\}/g, (_m, first, middle, last) => {
         return `{ ${first}${middle}${last} }`
       })
       // Handle case where just the open or close needs space
-      fixed = fixed.replace(/(?<!\$)\{(\S)([^}]*?)\s\}/g, (m, first, rest) => {
+      fixed = fixed.replace(/(?<!\$)\{(\S)([^}]*?)\s\}/g, (_m, first, rest) => {
         return `{ ${first}${rest} }`
       })
-      fixed = fixed.replace(/(?<!\$)\{\s([^}]*?)(\S)\}/g, (m, rest, last) => {
+      fixed = fixed.replace(/(?<!\$)\{\s([^}]*?)(\S)\}/g, (_m, rest, last) => {
         return `{ ${rest}${last} }`
       })
       result.push(fixed)

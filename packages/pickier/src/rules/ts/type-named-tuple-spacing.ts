@@ -13,7 +13,7 @@ function isInStringOrComment(line: string, index: number): boolean {
 // Named tuple member without space after colon: [name:string]
 // Matches identifier followed by colon and a type (without space after colon)
 // The pattern looks inside square brackets for `identifier:Type` (no space after colon)
-const NAMED_TUPLE_NO_SPACE_RE = /\[\s*([a-zA-Z_$][a-zA-Z0-9_$?]*):(\S)/g
+const _NAMED_TUPLE_NO_SPACE_RE = /\[\s*([a-zA-Z_$][a-zA-Z0-9_$?]*):(\S)/g
 
 // Also handle multiple members: [name:string, age:number]
 // We check each `identifier:Type` pair that lacks a space

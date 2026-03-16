@@ -62,7 +62,7 @@ export const noSuperLinearBacktrackingRule: RuleModule = {
         continue
       }
       const collapsed = flat.replace(/\s+/g, '')
-      if (/(?:\.\*\??){2,}/.test(collapsed) || /(?:\.\+\??){2,}/.test(collapsed) || /\.\*\??\.\+\??|\.\+\??\.\*\??/.test(collapsed)) {
+      if (/(?:\.\*\??){2,}/.test(collapsed) || /(?:\.\+\??){2,}/.test(collapsed) || /\.\*\??\.\+\?|\.\+\??\.\*\?/.test(collapsed)) {
         mark(idx, literal.length, 'Multiple adjacent unlimited wildcard quantifiers can cause super-linear backtracking')
         continue
       }

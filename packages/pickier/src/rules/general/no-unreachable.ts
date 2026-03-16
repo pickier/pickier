@@ -11,7 +11,7 @@ export const noUnreachableRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const trimmed = line.trim()
+      const _trimmed = line.trim()
 
       // Check for return, throw, break, continue statements
       if (/^\s*(?:return|throw|break|continue)\b/.test(line)) {

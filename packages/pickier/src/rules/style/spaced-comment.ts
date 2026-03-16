@@ -1,9 +1,9 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Match // without space after (but allow ///, //! for triple-slash directives and shebang-like)
-const LINE_COMMENT_NO_SPACE = /\/\/([^\s/!])/
+const _LINE_COMMENT_NO_SPACE = /\/\/([^\s/!])/
 // Match /* without space after (but allow /** for JSDoc)
-const BLOCK_COMMENT_NO_SPACE = /\/\*([^\s*!])/
+const _BLOCK_COMMENT_NO_SPACE = /\/\*([^\s*!])/
 
 export const spacedCommentRule: RuleModule = {
   meta: {
@@ -16,7 +16,7 @@ export const spacedCommentRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const trimmed = line.trim()
+      const _trimmed = line.trim()
 
       // Check line comments: // without space
       const lineCommentIdx = line.indexOf('//')

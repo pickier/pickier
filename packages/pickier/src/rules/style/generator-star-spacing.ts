@@ -3,7 +3,7 @@ import type { LintIssue, RuleContext, RuleModule } from '../../types'
 // Match function* patterns (declarations and expressions)
 const FUNCTION_STAR_RE = /\bfunction\s*\*/g
 // Match *methodName( patterns in class/object context (line starts with optional async then *)
-const METHOD_STAR_RE = /^(\s*(?:async\s+)?)\*\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/gm
+const _METHOD_STAR_RE = /^(\s*(?:async\s+)?)\*\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/gm
 
 function isInStringOrComment(line: string, index: number): boolean {
   const before = line.slice(0, index)

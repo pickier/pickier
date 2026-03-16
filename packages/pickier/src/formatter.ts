@@ -232,7 +232,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   let entries: string[] = []
   const simpleDirPattern = patterns.length === 1 && /\*\*\/*\*$/.test(patterns[0])
   if (simpleDirPattern) {
-    const base = patterns[0].replace(/\/?\*\*\/*\*\*?$/, '')
+    const base = patterns[0].replace(/\/?\*\*\/*\*\*$/, '')
     try {
       const { readdirSync, statSync } = await import('node:fs')
       const { join } = await import('node:path')

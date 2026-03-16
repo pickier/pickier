@@ -18,7 +18,7 @@ export const singleTitleRule: RuleModule = {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
 
       // Track fenced code blocks to avoid false positives on comments like `# comment`
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFencedCodeBlock = !inFencedCodeBlock
         continue
       }

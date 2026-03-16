@@ -156,7 +156,7 @@ export const preferObjectSpreadRule: RuleModule = {
       // This is a basic fixer - complex cases may need manual intervention
       line = line.replace(
         /\bObject\.assign\s*\(\s*\{\}\s*,\s*([^)]+)\)/g,
-        (match, args) => {
+        (_match, args) => {
           // Split args by comma (simple heuristic)
           const argList = args.split(',').map((a: string) => a.trim())
           return `{${argList.map((arg: string) => `...${arg}`).join(', ')}}`

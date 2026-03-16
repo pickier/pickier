@@ -21,7 +21,7 @@ export const codeBlockStyleRule: RuleModule = {
       const line = lines[i]
 
       // Check for fenced code block marker (opening or closing)
-      const isFenced = /^(`{3,}|~{3,})/.test(line)
+      const isFenced = /^(?:`{3,}|~{3,})/.test(line)
 
       if (isFenced) {
         // Toggle fence state
@@ -62,7 +62,7 @@ export const codeBlockStyleRule: RuleModule = {
       }
 
       // Check for indented code block (4 spaces or tab)
-      const isIndented = /^( {4}|\t)/.test(line) && line.trim().length > 0
+      const isIndented = /^(?: {4}|\t)/.test(line) && line.trim().length > 0
 
       if (isIndented) {
         // Need to verify it's actually a code block, not just indented text in a list

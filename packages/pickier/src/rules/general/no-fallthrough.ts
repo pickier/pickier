@@ -49,7 +49,7 @@ export const noFallthroughRule: RuleModule = {
         }
 
         // Check for break, return, throw, or continue
-        if (/\b(break|return|throw|continue)\b/.test(trimmed)) {
+        if (/\b(?:break|return|throw|continue)\b/.test(trimmed)) {
           hasFallthrough = false
         }
 

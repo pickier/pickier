@@ -33,7 +33,7 @@ export const noNew: RuleModule = {
       const newPattern = /^\s*new\s+\w+/
       if (newPattern.test(line)) {
         // Check if it's part of an assignment, return, or argument
-        const isAssignment = /^\s*(const|let|var|this\.\w+)\s*=\s*new\s+/
+        const isAssignment = /^\s*(?:const|let|var|this\.\w+)\s*=\s*new\s+/
         const isReturn = /^\s*return\s+new\s+/
         const isArgument = /^\s*new\s+\w[^;]*,/ // Simplified check for arguments
         const isInExpression = /[=:,(]\s*new\s+/

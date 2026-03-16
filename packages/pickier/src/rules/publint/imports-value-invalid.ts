@@ -21,7 +21,7 @@ export const importsValueInvalid: RuleModule = {
       if (!value.startsWith('.')) return
       if (value.startsWith('./')) return
 
-      const suggestValue = './' + value.replace(/^[/]+/, '')
+      const suggestValue = `./${value.replace(/^[/]+/, '')}`
       issues.push(createIssue(
         context.filePath,
         content,

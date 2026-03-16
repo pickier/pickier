@@ -17,7 +17,7 @@ export const headingIncrementRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }

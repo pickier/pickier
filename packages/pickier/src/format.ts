@@ -5,7 +5,7 @@ const JSON_EXTS = new Set(['.json', '.jsonc'])
 const YAML_EXTS = new Set(['.yaml', '.yml'])
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
-const RE_LEADING_WS = /^[ \t]*/
+const _RE_LEADING_WS = /^[ \t]*/
 const RE_CLOSING_BRACE = /^\}/
 const RE_OPENING_BRACE = /\{\s*$/
 const RE_FOR_LOOP = /^\s*for\s*\(/
@@ -100,7 +100,6 @@ function fixQuotes(content: string, preferred: 'single' | 'double', filePath: st
     lines[i] = fixQuotesLine(lines[i], preferred)
   return lines.join('\n')
 }
-
 
 /**
  * Fix quotes for a single line (extracted from fixQuotes for use in fused pipeline).
@@ -557,7 +556,6 @@ function unmaskStrings(text: string, strings: string[]): string {
     return text
   return text.replace(/@@S(\d+)@@/g, (_, idx: string) => strings[Number(idx)] ?? '')
 }
-
 
 type ImportKind = 'value' | 'type' | 'side-effect'
 

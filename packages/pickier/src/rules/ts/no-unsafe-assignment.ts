@@ -62,7 +62,7 @@ export const noUnsafeAssignmentRule: RuleModule = {
         const castIdx = match.index
 
         // Check if this cast is being assigned to something
-        const after = cleanedLine.slice(castIdx + match[0].length).trim()
+        const _after = cleanedLine.slice(castIdx + match[0].length).trim()
         const before = cleanedLine.slice(0, castIdx).trim()
 
         // If there's an assignment before this cast, it's being assigned

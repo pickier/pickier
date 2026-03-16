@@ -101,7 +101,7 @@ function checkFileRef(
 function fileExistsWithFallbacks(resolved: string): boolean {
   if (existsSync(resolved)) return true
   // Try common fallback extensions
-  if (existsSync(resolved + '.js')) return true
-  if (existsSync(resolved + '/index.js')) return true
+  if (existsSync(`${resolved}.js`)) return true
+  if (existsSync(`${resolved}/index.js`)) return true
   return false
 }

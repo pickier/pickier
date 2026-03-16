@@ -101,7 +101,7 @@ export const typeGenericSpacingRule: RuleModule = {
       let fixed = line
 
       // Remove spaces after `<` in generic type positions: `Foo< T>` -> `Foo<T>`
-      fixed = fixed.replace(FIX_OPEN_RE, (match, ident) => {
+      fixed = fixed.replace(FIX_OPEN_RE, (_match, ident) => {
         return `${ident}<`
       })
 

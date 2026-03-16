@@ -57,11 +57,11 @@ export const noFloatingPromisesRule: RuleModule = {
       // - return statement
       // - .then() or .catch() or .finally()
       // - void keyword (intentional fire-and-forget)
-      if (/\b(await|return|void)\s/.test(cleanedLine)) {
+      if (/\b(?:await|return|void)\s/.test(cleanedLine)) {
         continue
       }
 
-      if (/\.(then|catch|finally)\s*\(/.test(cleanedLine)) {
+      if (/\.(?:then|catch|finally)\s*\(/.test(cleanedLine)) {
         continue
       }
 

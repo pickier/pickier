@@ -24,7 +24,7 @@ export const noDupeKeysRule: RuleModule = {
       // Find potential object block
       const seenKeys = new Map<string, number>()
       let braceDepth = (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length
-      const startLine = i
+      const _startLine = i
 
       // Parse properties in potential object
       for (let j = i + 1; j < lines.length && braceDepth > 0; j++) {

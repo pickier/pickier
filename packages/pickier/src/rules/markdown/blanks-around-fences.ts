@@ -14,7 +14,7 @@ export const blanksAroundFencesRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const isFence = /^(`{3,}|~{3,})/.test(line.trim())
+      const isFence = /^(?:`{3,}|~{3,})/.test(line.trim())
 
       if (isFence) {
         if (!inFence) {
@@ -66,7 +66,7 @@ export const blanksAroundFencesRule: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
-      const isFence = /^(`{3,}|~{3,})/.test(line.trim())
+      const isFence = /^(?:`{3,}|~{3,})/.test(line.trim())
 
       if (isFence) {
         if (!inFence) {

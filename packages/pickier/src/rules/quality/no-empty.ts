@@ -45,7 +45,7 @@ export const noEmptyRule: RuleModule = {
     // Also check for multi-line empty blocks
     for (let i = 0; i < lines.length - 1; i++) {
       const line = lines[i]
-      const nextLine = lines[i + 1]
+      const _nextLine = lines[i + 1]
 
       // Check for { on one line and } on the next with nothing in between
       if (/\{\s*$/.test(line.trim())) {

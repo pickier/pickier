@@ -136,7 +136,7 @@ export const preferNullishCoalescingRule: RuleModule = {
         }
 
         // Skip if it's a boolean literal
-        if (/\b(true|false)\b/.test(leftOperand)) {
+        if (/\b(?:true|false)\b/.test(leftOperand)) {
           continue
         }
 

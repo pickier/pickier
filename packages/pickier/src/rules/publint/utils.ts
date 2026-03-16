@@ -88,8 +88,8 @@ export function getPublishedField(pkg: Record<string, any>, field: string): [any
 }
 
 // ESM/CJS format detection (from publint's utils.js)
-const ESM_CONTENT_RE = /([\s;]|^)(import[\w,{}\s*]*from|import\s*['"*{]|export\b\s*(?:[*{]|default|type|function|const|var|let|async function)|import\.meta\b)/m
-const CJS_CONTENT_RE = /([\s;]|^)(module.exports\b|exports\.\w|require\s*\(|global\.\w|Object\.(defineProperty|defineProperties|assign)\s*\(\s*exports\b)/m
+const ESM_CONTENT_RE = /(?:[\s;]|^)(?:import[\w,{}\s*]*from|import\s*['"*{]|export\b\s*(?:[*{]|default|type|function|const|var|let|async function)|import\.meta\b)/m
+const CJS_CONTENT_RE = /(?:[\s;]|^)(?:module.exports\b|exports\.\w|require\s*\(|global\.\w|Object\.(?:defineProperty|defineProperties|assign)\s*\(\s*exports\b)/m
 
 export type CodeFormat = 'ESM' | 'CJS' | 'mixed' | 'unknown'
 

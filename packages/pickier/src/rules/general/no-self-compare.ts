@@ -18,7 +18,7 @@ export const noSelfCompareRule: RuleModule = {
 
       while ((match = comparePattern.exec(line)) !== null) {
         const left = match[1].replace(/\s/g, '')
-        const operator = match[2]
+        const _operator = match[2]
         const right = match[3].replace(/\s/g, '')
 
         if (left === right) {

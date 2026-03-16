@@ -25,7 +25,7 @@ export const braceStyle: RuleModule = {
       if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue
 
       // Check for closing brace followed by else/catch/finally on same line
-      const closingBraceWithNext = /\}\s+(else|catch|finally)\b/
+      const closingBraceWithNext = /\}\s+(?:else|catch|finally)\b/
       if (closingBraceWithNext.test(trimmed)) {
         issues.push({
           filePath: context.filePath,

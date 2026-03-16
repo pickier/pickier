@@ -18,7 +18,7 @@ export const commandsShowOutputRule: RuleModule = {
       const line = lines[i]
 
       // Track code blocks
-      if (/^(`{3,}|~{3,})/.test(line)) {
+      if (/^(?:`{3,}|~{3,})/.test(line)) {
         if (!inCodeBlock) {
           inCodeBlock = true
           codeBlockStartLine = i

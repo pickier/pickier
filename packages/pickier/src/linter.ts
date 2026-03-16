@@ -88,7 +88,7 @@ export async function runLintProgrammatic(
 
   // Filter ignore patterns based on whether we're globbing inside or outside the project
   const isGlobbingOutsideProject = patterns.some((p) => {
-    const base = p.replace(/\/?\*\*\/*\*\*?$/, '')
+    const base = p.replace(/\/?\*\*\/*\*\*$/, '')
     const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
     return !absBase.startsWith(process.cwd())
   })
@@ -112,7 +112,7 @@ export async function runLintProgrammatic(
 
   const simpleDirPattern = patterns.length === 1 && /\*\*\/*\*$/.test(patterns[0])
   if (!entries.length && simpleDirPattern) {
-    const base = patterns[0].replace(/\/?\*\*\/*\*\*?$/, '')
+    const base = patterns[0].replace(/\/?\*\*\/*\*\*$/, '')
     const rootBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
     try {
       const stack: string[] = [rootBase]
@@ -1375,7 +1375,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
     // Universal ignores (like **/node_modules/**, **/dist/**) always apply
     // Project-specific ignores (like **/*.test.ts, docs/**) only apply within the project
     const isGlobbingOutsideProject = patterns.some((p) => {
-      const base = p.replace(/\/?\*\*\/*\*\*?$/, '')
+      const base = p.replace(/\/?\*\*\/*\*\*$/, '')
       const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
       return !absBase.startsWith(process.cwd())
     })
@@ -1410,7 +1410,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
 
     const simpleDirPattern = patterns.length === 1 && /\*\*\/*\*$/.test(patterns[0])
     if (!entries.length && simpleDirPattern) {
-      const base = patterns[0].replace(/\/?\*\*\/*\*\*?$/, '')
+      const base = patterns[0].replace(/\/?\*\*\/*\*\*$/, '')
       if (enableDiagnostics)
         getLogger().info(`[pickier:diagnostics] Using fast directory scan for: ${base}`)
       try {

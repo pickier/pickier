@@ -15,13 +15,13 @@ export const fencedCodeLanguageRule: RuleModule = {
       const line = lines[i]
 
       // Check for code fence without language
-      const match = line.match(/^(`{3,}|~{3,})\s*$/)
+      const match = line.match(/^(?:`{3,}|~{3,})\s*$/)
 
       if (match) {
         // Check if this is an opening fence (not closing)
         let isOpening = true
         for (let j = i - 1; j >= 0; j--) {
-          if (/^(`{3,}|~{3,})/.test(lines[j])) {
+          if (/^(?:`{3,}|~{3,})/.test(lines[j])) {
             isOpening = false
             break
           }

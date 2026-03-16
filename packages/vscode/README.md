@@ -40,7 +40,9 @@ Access commands via Command Palette (Cmd/Ctrl+Shift+P):
 
 ### Configuration
 
-Configure Pickier in VS Code settings:```json
+Configure Pickier in VS Code settings:
+
+```json
 {
   "pickier.enable": true,
   "pickier.lintOnSave": true,
@@ -80,6 +82,7 @@ export default {
     semi: false
   }
 } satisfies PickierConfig
+
 ```
 
 ## Supported Languages

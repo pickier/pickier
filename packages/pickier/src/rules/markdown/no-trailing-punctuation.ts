@@ -19,7 +19,7 @@ export const noTrailingPunctuationRule: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }
@@ -46,7 +46,7 @@ export const noTrailingPunctuationRule: RuleModule = {
 
       // Check for Setext style headings
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-      if (/^(=+|-+)\s*$/.test(nextLine) && line.trim().length > 0) {
+      if (/^(?:=+|-+)\s*$/.test(nextLine) && line.trim().length > 0) {
         const content = line.trim()
         const lastChar = content[content.length - 1]
 
@@ -84,7 +84,7 @@ export const noTrailingPunctuationRule: RuleModule = {
 
       // Check for Setext style headings
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-      if (/^(=+|-+)\s*$/.test(nextLine) && line.trim().length > 0) {
+      if (/^(?:=+|-+)\s*$/.test(nextLine) && line.trim().length > 0) {
         return line.replace(punctRegex, '')
       }
 

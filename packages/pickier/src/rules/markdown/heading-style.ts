@@ -25,7 +25,7 @@ export const headingStyleRule: RuleModule = {
       const atxMatch = line.match(/^#{1,6}\s/)
 
       // Check for Setext style headings (underlined with = or -)
-      const setextMatch = nextLine.match(/^(=+|-+)\s*$/) && line.trim().length > 0
+      const setextMatch = nextLine.match(/^(?:=+|-+)\s*$/) && line.trim().length > 0
 
       if (atxMatch) {
         if (style === 'setext') {

@@ -15,7 +15,7 @@ export const noReversedLinksRule: RuleModule = {
       const line = lines[i]
 
       // Check for reversed link syntax: (text)[url] instead of [text](url)
-      const matches = line.matchAll(/\(([^)]+)\)\[([^\]]+)\]/g)
+      const matches = line.matchAll(/\(([^)]+)\)\[(?:[^\]]+)\]/g)
 
       for (const match of matches) {
         const column = match.index! + 1

@@ -11,7 +11,7 @@ export const noLonelyIfRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const trimmed = line.trim()
+      const _trimmed = line.trim()
 
       // Check for else followed by { on same or next line
       if (/^\s*else\s*(?:\{\s*)?$/.test(line)) {

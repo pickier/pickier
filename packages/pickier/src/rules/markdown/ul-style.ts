@@ -21,7 +21,7 @@ export const ulStyleRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }
@@ -114,7 +114,7 @@ export const ulStyleRule: RuleModule = {
 
     let inFence = false
     const fixedLines = lines.map((line) => {
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         return line
       }

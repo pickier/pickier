@@ -20,7 +20,7 @@ export const noMissingSpaceClosedAtxRule: RuleModule = {
       if (match) {
         const openHashes = match[1]
         const content = match[2]
-        const closeHashes = match[3]
+        const _closeHashes = match[3]
 
         // Check if there's no space before closing hashes
         if (!content.endsWith(' ')) {

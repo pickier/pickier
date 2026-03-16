@@ -22,12 +22,12 @@ bun test
 
 # Run specific test suites
 
-bun test:core          # Core functionality tests
-bun test:format        # Formatting tests
-bun test:lint          # Linting tests
-bun test:rules         # All rule tests
-bun test:plugin        # Plugin system tests
-bun test:watch         # Watch mode
+bun test:core # Core functionality tests
+bun test:format # Formatting tests
+bun test:lint # Linting tests
+bun test:rules # All rule tests
+bun test:plugin # Plugin system tests
+bun test:watch # Watch mode
 
 # Build the package
 
@@ -39,14 +39,17 @@ bun run build
 
 # Compile native binaries
 
-bun run -C packages/pickier compile        # Current platform
-bun run -C packages/pickier compile:all    # All platforms
+bun run -C packages/pickier compile # Current platform
+bun run -C packages/pickier compile:all # All platforms
 
 # Type checking
 
 bun --bun tsc --noEmit
-```### Testing Locally```bash
+```
 
+### Testing Locally
+
+```bash
 # Run the TypeScript CLI directly (fastest for development)
 
 bun packages/pickier/bin/cli.ts run . --mode lint
@@ -58,8 +61,11 @@ bun packages/pickier/dist/bin/cli.js run . --mode lint
 # Run the compiled native binary (after compiling)
 
 ./packages/pickier/bin/pickier-<platform> run . --mode lint
+```
 
-```### Using Pickier```bash
+### Using Pickier
+
+```bash
 
 # Unified command (preferred)
 
@@ -166,12 +172,14 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 - Follow existing conventions: 2-space indentation, single quotes, no semicolons (unless required)
 - Core rules (`noDebugger`, `noConsole`) are built-in; plugin rules extend functionality
 - Prefer async/await over callbacks
-- Use trace logging (`trace(...)`) for debugging, controlled by `PICKIER_TRACE=1`## Important Notes
+- Use trace logging (`trace(...)`) for debugging, controlled by `PICKIER_TRACE=1`
+
+## Important Notes
 
 - The CLI supports `pickier run --mode <auto|lint|format>` as well as `pickier lint` and `pickier format` as shorthand commands
-- When adding new rules, implement both`check`and`fix`(if applicable) in the appropriate plugin
-- Rule IDs follow`plugin/rule-name`convention but config also supports bare rule names for convenience
-- Tests must set`PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config
+- When adding new rules, implement both `check` and `fix` (if applicable) in the appropriate plugin
+- Rule IDs follow `plugin/rule-name` convention but config also supports bare rule names for convenience
+- Tests must set `PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config
 
 ---
 

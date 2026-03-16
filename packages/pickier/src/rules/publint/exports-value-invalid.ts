@@ -19,7 +19,7 @@ export const exportsValueInvalid: RuleModule = {
       if (typeof value !== 'string') return
       if (value.startsWith('./')) return
 
-      const suggestValue = './' + value.replace(/^[/]+/, '')
+      const suggestValue = `./${value.replace(/^[/]+/, '')}`
       issues.push(createIssue(
         context.filePath,
         content,

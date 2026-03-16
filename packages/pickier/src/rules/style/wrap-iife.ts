@@ -1,8 +1,8 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Match IIFEs without wrapping parens: function(){ ... }() or function(){ ... }.call()
-const IIFE_RE = /(?<!\()function\s*\([^)]*\)\s*\{/g
-const ARROW_IIFE_RE = /(?<!\()\([^)]*\)\s*=>\s*\{/g
+const _IIFE_RE = /(?<!\()function\s*\([^)]*\)\s*\{/g
+const _ARROW_IIFE_RE = /(?<!\()\([^)]*\)\s*=>\s*\{/g
 
 export const wrapIifeRule: RuleModule = {
   meta: {

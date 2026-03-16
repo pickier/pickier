@@ -17,7 +17,7 @@ export const useIsNaNRule: RuleModule = {
       let match
 
       while ((match = nanPattern.exec(line)) !== null) {
-        const variable = match[1] || match[4]
+        const _variable = match[1] || match[4]
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

@@ -18,7 +18,7 @@ export const blanksAroundHeadingsRule: RuleModule = {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
 
       // Track fenced code blocks to avoid false positives on comments like `# comment`
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFencedCodeBlock = !inFencedCodeBlock
         continue
       }
@@ -30,7 +30,7 @@ export const blanksAroundHeadingsRule: RuleModule = {
       const isAtxHeading = /^#{1,6}\s/.test(line)
 
       // Check for Setext style headings (next line is = or -)
-      const isSetextHeading = i + 1 < lines.length && /^(=+|-+)\s*$/.test(nextLine) && line.trim().length > 0
+      const isSetextHeading = i + 1 < lines.length && /^(?:=+|-+)\s*$/.test(nextLine) && line.trim().length > 0
 
       if (isAtxHeading) {
         // Check if previous line exists and is not blank (unless it's the first line)
@@ -99,7 +99,7 @@ export const blanksAroundHeadingsRule: RuleModule = {
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFencedCodeBlock = !inFencedCodeBlock
         result.push(line)
         continue
@@ -111,7 +111,7 @@ export const blanksAroundHeadingsRule: RuleModule = {
       }
 
       const isAtxHeading = /^#{1,6}\s/.test(line)
-      const isSetextHeading = i + 1 < lines.length && /^(=+|-+)\s*$/.test(nextLine) && line.trim().length > 0
+      const isSetextHeading = i + 1 < lines.length && /^(?:=+|-+)\s*$/.test(nextLine) && line.trim().length > 0
 
       // Add blank line before heading if needed
       if (isAtxHeading || isSetextHeading) {
@@ -130,7 +130,7 @@ export const blanksAroundHeadingsRule: RuleModule = {
       }
 
       // Add blank line after Setext heading underline if needed
-      if (i > 0 && /^(=+|-+)\s*$/.test(line) && lines[i - 1].trim().length > 0) {
+      if (i > 0 && /^(?:=+|-+)\s*$/.test(line) && lines[i - 1].trim().length > 0) {
         const lineAfterUnderline = i + 1 < lines.length ? lines[i + 1] : ''
         if (lineAfterUnderline.trim().length > 0) {
           result.push('')

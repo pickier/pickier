@@ -20,13 +20,13 @@ const BINARY_OPS = [
 ]
 
 // Pattern to detect if a trimmed line starts with a binary operator
-const LINE_STARTS_WITH_OP_RE = new RegExp(
+const _LINE_STARTS_WITH_OP_RE = new RegExp(
   `^(${BINARY_OPS.map(op => op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s`,
 )
 
 // Word-boundary operators need special handling to avoid matching identifiers
 const WORD_OPS = new Set(['in', 'instanceof'])
-const WORD_OP_RE = /^(instanceof|in)\s/
+const WORD_OP_RE = /^(?:instanceof|in)\s/
 
 function startsWithBinaryOp(trimmed: string): boolean {
   // Check word operators first (need word boundary)

@@ -1,7 +1,7 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Match return (expr) where parens are not needed
-const RETURN_PARENS_RE = /\breturn\s+\(([^()]*)\)\s*[;\n]/g
+const _RETURN_PARENS_RE = /\breturn\s+\(([^()]*)\)\s*[;\n]/g
 // Match simple expressions that don't need parens: identifiers, literals, member access
 const SIMPLE_EXPR_RE = /^[a-zA-Z_$][a-zA-Z0-9_$.[\]'"`]*$/
 

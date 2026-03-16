@@ -16,7 +16,7 @@ export const noHardTabsRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks (tabs are often required, e.g. Makefiles)
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }

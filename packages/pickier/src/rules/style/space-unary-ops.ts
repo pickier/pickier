@@ -3,7 +3,7 @@ import type { LintIssue, RuleContext, RuleModule } from '../../types'
 // Word operators that need space after them
 const WORD_OPS = ['typeof', 'void', 'delete', 'new', 'throw', 'yield', 'await']
 // Symbol operators that should NOT have space
-const SYMBOL_OPS = ['!', '~', '++', '--']
+const _SYMBOL_OPS = ['!', '~', '++', '--']
 
 function isInStringOrComment(line: string, index: number): boolean {
   const before = line.slice(0, index)

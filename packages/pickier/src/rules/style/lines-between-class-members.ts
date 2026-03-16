@@ -1,7 +1,7 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Detect class member starts: methods, properties, getters, setters, static members
-const CLASS_MEMBER_RE = /^\s*(public|private|protected|static|readonly|abstract|override|async|get|set|\*|#|[a-zA-Z_$])/
+const CLASS_MEMBER_RE = /^\s*(?:public|private|protected|static|readonly|abstract|override|async|get|set|\*|#|[a-zA-Z_$])/
 
 export const linesBetweenClassMembersRule: RuleModule = {
   meta: {

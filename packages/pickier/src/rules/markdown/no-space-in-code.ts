@@ -16,7 +16,7 @@ export const noSpaceInCodeRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }
@@ -49,7 +49,7 @@ export const noSpaceInCodeRule: RuleModule = {
     const result: string[] = []
 
     for (const line of lines) {
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         result.push(line)
         continue

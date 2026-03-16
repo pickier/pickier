@@ -1,9 +1,7 @@
 <p align="center"><img src=".github/art/cover.jpg" alt="Social Card of this repo"></p>
 
-[![npm version][npm-version-src]][npm-version-href]
-[![GitHub Actions][github-actions-src]][github-actions-href]
-<!-- [![npm downloads][npm-downloads-src]][npm-downloads-href] -->
-<!-- [![Codecov][codecov-src]][codecov-href] -->
+[![npm version](https://img.shields.io/npm/v/pickier?style=flat-square)](https://npmjs.com/package/pickier)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/pickier/pickier/ci.yml?style=flat-square&branch=main)](https://github.com/pickier/pickier/actions?query=workflow%3Aci)
 
 # Pickier
 
@@ -200,7 +198,7 @@ export default config
 
 Pickier supports an ESLint-style plugin system for lint rules organized into focused categories.
 
-**Available Plugins:**
+#### Available Plugins
 
 | Plugin | Description | Rules |
 |--------|-------------|-------|
@@ -222,7 +220,7 @@ pluginRules: {
 }
 ```
 
-**Custom Plugin Example:**
+#### Custom Plugin Example
 
 ```ts
 // sample-plugin.ts
@@ -263,7 +261,7 @@ export const samplePlugin: PickierPlugin = {
 }
 ```
 
-**Register the plugin in your config:**
+#### Register the Plugin in Your Config
 
 ```ts
 // pickier.config.ts
@@ -283,7 +281,7 @@ export default config
 
 ### Formatting Details
 
-**Semicolons**
+#### Semicolons
 
 Controlled by `format.semi` (default `false`). When `true`, Pickier safely removes only stylistic semicolons:
 
@@ -292,7 +290,7 @@ Controlled by `format.semi` (default `false`). When `true`, Pickier safely remov
 - Removes lines that are just empty statements (`;`)
 - Keeps normal end-of-line semicolons otherwise (non-destructive)
 
-**Imports (TypeScript/JavaScript)**
+#### Imports (TypeScript/JavaScript)
 
 Groups and rewrites the top import block:
 
@@ -312,7 +310,7 @@ Spacing:
 - Ensures a single blank line between the import block and the rest of the file
 - Respects `format.finalNewline` at EOF
 
-**Built-in Rules**
+#### Built-in Rules
 
 - `noDebugger` — removes `debugger` statements when `--fix` is used
 - `noConsole` — controls severity (turn off for libraries that allow console logs)
@@ -495,12 +493,3 @@ We would like to extend our thanks to the following sponsors for funding Stacks 
 The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
 
 Made with 💙
-
-<!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/pickier?style=flat-square
-[npm-version-href]: https://npmjs.com/package/pickier
-[github-actions-src]: https://img.shields.io/github/actions/workflow/status/pickier/pickier/ci.yml?style=flat-square&branch=main
-[github-actions-href]: https://github.com/pickier/pickier/actions?query=workflow%3Aci
-
-<!-- [codecov-src]: https://img.shields.io/codecov/c/gh/pickier/pickier/main?style=flat-square -->
-<!-- [codecov-href]: https://codecov.io/gh/pickier/pickier -->

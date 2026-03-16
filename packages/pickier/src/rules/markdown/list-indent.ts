@@ -18,7 +18,7 @@ export const listIndentRule: RuleModule = {
       const line = lines[i]
 
       // Check for list item (ordered or unordered)
-      const match = line.match(/^(\s*)([*\-+]|\d+\.)\s+/)
+      const match = line.match(/^(?:\s*)(?:[*\-+]|\d+\.)\s+/)
 
       if (match) {
         inList = true
@@ -46,7 +46,7 @@ export const listIndentRule: RuleModule = {
         // Blank line might end the list context
         if (inList) {
           const nextNonBlank = lines.slice(i + 1).find(l => l.trim().length > 0)
-          if (nextNonBlank && !/^(\s*)([*\-+]|\d+\.)\s+/.test(nextNonBlank)) {
+          if (nextNonBlank && !/^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(nextNonBlank)) {
             inList = false
             levelIndents.clear()
           }

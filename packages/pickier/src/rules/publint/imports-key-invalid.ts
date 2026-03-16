@@ -17,7 +17,7 @@ export const importsKeyInvalid: RuleModule = {
 
     for (const key of Object.keys(importsValue)) {
       if (!key.startsWith('#')) {
-        const suggestKey = '#' + key.replace(/^[/]+/, '')
+        const suggestKey = `#${key.replace(/^[/]+/, '')}`
         const path = importsPath.concat(key)
         issues.push(createIssue(
           context.filePath,

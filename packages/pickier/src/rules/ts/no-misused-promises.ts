@@ -56,13 +56,13 @@ export const noMisusedPromisesRule: RuleModule = {
       // Pattern: if (asyncFunction()) or if (!await asyncFunction())
       const ifMatch = cleanedLine.match(/\bif\s*\(\s*(!?)\s*([\w$]+\s*\([^)]*\))/)
       if (ifMatch) {
-        const negation = ifMatch[1]
+        const _negation = ifMatch[1]
         const call = ifMatch[2]
 
         // Check if it looks like an async function call
         if (/async|Async|fetch|Fetch|load|Load|get|Get|save|Save/.test(call)) {
           // Make sure it's not awaited
-          const beforeIf = cleanedLine.slice(0, cleanedLine.indexOf(ifMatch[0]))
+          const _beforeIf = cleanedLine.slice(0, cleanedLine.indexOf(ifMatch[0]))
           const insideIf = cleanedLine.slice(cleanedLine.indexOf('if (') + 4)
 
           if (!/\bawait\s/.test(insideIf)) {

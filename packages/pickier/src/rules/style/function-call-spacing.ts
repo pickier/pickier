@@ -123,7 +123,7 @@ export const functionCallSpacingRule: RuleModule = {
         const m = matches[j]
         const start = m.index
         const end = start + m.fullMatch.length
-        fixed = fixed.slice(0, start) + m.identifier + '(' + fixed.slice(end)
+        fixed = `${fixed.slice(0, start)}${m.identifier}(${fixed.slice(end)}`
       }
 
       result.push(fixed)

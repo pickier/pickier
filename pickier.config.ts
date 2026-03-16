@@ -9,7 +9,7 @@ const config: PickierOptions = {
   verbose: true,
 
   // Glob patterns to ignore
-  ignores: [
+  ignores: ['CLAUDE.md', '*/CHANGELOG.md', 
     '**/node_modules/**',
     '**/dist/**',
     '**/build/**',

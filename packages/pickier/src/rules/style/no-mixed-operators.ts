@@ -121,12 +121,12 @@ function areParenthesized(line: string, ops: OperatorMatch[]): boolean {
 }
 
 const MIXED_LOGICAL_GROUPS = [
-  { groups: [0, 1], label: '&& and ||' },   // && mixed with ||
-  { groups: [0, 2], label: '&& and ??' },   // && mixed with ??
-  { groups: [1, 2], label: '|| and ??' },   // || mixed with ??
-  { groups: [3, 4], label: '& and |' },     // bitwise & mixed with |
-  { groups: [3, 5], label: '& and ^' },     // bitwise & mixed with ^
-  { groups: [4, 5], label: '| and ^' },     // bitwise | mixed with ^
+  { groups: [0, 1], label: '&& and ||' }, // && mixed with ||
+  { groups: [0, 2], label: '&& and ??' }, // && mixed with ??
+  { groups: [1, 2], label: '|| and ??' }, // || mixed with ??
+  { groups: [3, 4], label: '& and |' }, // bitwise & mixed with |
+  { groups: [3, 5], label: '& and ^' }, // bitwise & mixed with ^
+  { groups: [4, 5], label: '| and ^' }, // bitwise | mixed with ^
 ]
 
 export const noMixedOperatorsRule: RuleModule = {

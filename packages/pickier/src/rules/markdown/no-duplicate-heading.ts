@@ -26,7 +26,7 @@ export const noDuplicateHeadingRule: RuleModule = {
       const line = lines[i]
 
       // Track fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
         inFence = !inFence
         continue
       }
@@ -46,11 +46,11 @@ export const noDuplicateHeadingRule: RuleModule = {
       // Check for Setext style headings
       if (!content) {
         const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-        if (/^(=+)\s*$/.test(nextLine) && line.trim().length > 0) {
+        if (/^(?:=+)\s*$/.test(nextLine) && line.trim().length > 0) {
           level = 1
           content = line.trim()
         }
-        else if (/^(-+)\s*$/.test(nextLine) && line.trim().length > 0) {
+        else if (/^(?:-+)\s*$/.test(nextLine) && line.trim().length > 0) {
           level = 2
           content = line.trim()
         }

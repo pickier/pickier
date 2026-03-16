@@ -40,7 +40,7 @@ export const linkImageStyleRule: RuleModule = {
         continue
 
       // Skip definition lines
-      if (line.match(/^\[([^\]]+)\]:\s*\S+/)) {
+      if (line.match(/^\[(?:[^\]]+)\]:\s*\S+/)) {
         continue
       }
 
@@ -76,7 +76,7 @@ export const linkImageStyleRule: RuleModule = {
       }
 
       // Check for reference links [text][label]
-      const refMatches = line.matchAll(/\[[^\]]+\]\[([^\]]+)\]/g)
+      const refMatches = line.matchAll(/\[[^\]]+\]\[(?:[^\]]+)\]/g)
 
       for (const match of refMatches) {
         if (style === 'inline') {

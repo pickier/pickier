@@ -99,7 +99,7 @@ function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Gen
   for (const name of entries) {
     if (!dot && name.startsWith('.')) continue
     const full = join(dir, name)
-    const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+    const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
     if (ignore.length && matchesAnyPattern(rel, ignore)) continue
     let st
     try { st = statSync(full) }
@@ -132,7 +132,7 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
       const g = new BunGlob(pattern)
       for await (const file of g.scan({ cwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
         const full = isAbsolute(file) ? file : join(cwd, file)
-        const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+        const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
         if (ignore.length && matchesAnyPattern(rel, ignore)) continue
         results.push(absolute ? full : rel)
       }
@@ -149,13 +149,13 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
       try {
         const st = statSync(full)
         if (!st.isDirectory()) {
-          const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full
+          const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
           if (!ignore.length || !matchesAnyPattern(rel, ignore))
             results.push(absolute ? full : rel)
         }
         else {
           for (const f of walkDir(full, ignore, dot, cwd))
-            results.push(absolute ? f : (f.startsWith(cwd + '/') ? f.slice(cwd.length + 1) : f))
+            results.push(absolute ? f : (f.startsWith(`${cwd}/`) ? f.slice(cwd.length + 1) : f))
         }
       }
       catch { /* skip missing */ }
@@ -163,7 +163,7 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
     }
     const re = globToRegex(pattern)
     for (const f of walkDir(cwd, ignore, dot, cwd)) {
-      const rel = f.startsWith(cwd + '/') ? f.slice(cwd.length + 1) : f
+      const rel = f.startsWith(`${cwd}/`) ? f.slice(cwd.length + 1) : f
       if (re.test(rel) || re.test(rel.replace(/\\/g, '/')))
         results.push(absolute ? f : rel)
     }

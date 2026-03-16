@@ -19,14 +19,14 @@ export const descriptiveLinkTextRule: RuleModule = {
       const line = lines[i]
 
       // Skip fenced code blocks
-      if (/^(`{3,}|~{3,})/.test(line.trim())) { inFence = !inFence; continue }
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) { inFence = !inFence; continue }
       if (inFence) continue
 
       // Strip inline code spans before checking
       const stripped = line.replace(/``[^`]+``/g, m => ' '.repeat(m.length)).replace(/`[^`]+`/g, m => ' '.repeat(m.length))
 
       // Find links [text](url)
-      const matches = stripped.matchAll(/\[([^\]]+)\]\([^)]+\)/g)
+      const matches = stripped.matchAll(/\[(?:[^\]]+)\]\([^)]+\)/g)
 
       for (const match of matches) {
         const linkText = match[1].toLowerCase().trim()

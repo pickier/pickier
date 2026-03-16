@@ -25,7 +25,7 @@ export const properNamesRule: RuleModule = {
       const line = lines[i]
 
       // Track code blocks
-      if (/^(`{3,}|~{3,})/.test(line)) {
+      if (/^(?:`{3,}|~{3,})/.test(line)) {
         inCodeBlock = !inCodeBlock
         continue
       }

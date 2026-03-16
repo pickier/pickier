@@ -63,12 +63,12 @@ export const listMarkerSpaceRule: RuleModule = {
     const lines = text.split(/\r?\n/)
     const fixedLines = lines.map((line) => {
       // Fix unordered list marker spacing
-      line = line.replace(/^(\s*)([*\-+])\s+/, (match, indent, marker) => {
+      line = line.replace(/^(\s*)([*\-+])\s+/, (_match, indent, marker) => {
         return `${indent}${marker}${' '.repeat(ulSingle)}`
       })
 
       // Fix ordered list marker spacing
-      line = line.replace(/^(\s*)(\d+\.)\s+/, (match, indent, marker) => {
+      line = line.replace(/^(\s*)(\d+\.)\s+/, (_match, indent, marker) => {
         return `${indent}${marker}${' '.repeat(olSingle)}`
       })
 
