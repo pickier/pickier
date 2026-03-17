@@ -75,8 +75,9 @@ export const preferOptionalChainRule: RuleModule = {
         })
       }
 
-      // Pattern 2: obj.a && obj.a.b (chained property access)
-      const pattern2 = /([\w$.]+)\s*&&\s*\1\.([\w$]+)/g
+      // Pattern 2: obj.a && obj.a.b (chained property access with dots)
+      // Only match chains that contain dots to avoid duplicating pattern1 matches
+      const pattern2 = /([\w$]+\.[\w$.]+)\s*&&\s*\1\.([\w$]+)/g
       pattern2.lastIndex = 0
 
       // eslint-disable-next-line no-cond-assign
@@ -141,9 +142,9 @@ export const preferOptionalChainRule: RuleModule = {
         '$1?.$2',
       )
 
-      // Fix pattern: obj.a && obj.a.b => obj.a?.b
+      // Fix pattern: obj.a && obj.a.b => obj.a?.b (only dotted chains)
       fixedLine = fixedLine.replace(
-        /([\w$.]+)\s*&&\s*\1\.([\w$]+)/g,
+        /([\w$]+\.[\w$.]+)\s*&&\s*\1\.([\w$]+)/g,
         '$1?.$2',
       )
 

@@ -247,10 +247,14 @@ function findIssues(content: string, ctx: RuleContext): LintIssue[] {
       const quote = ch
       idx++
       while (idx < content.length) {
-        // eslint-disable-next-line max-statements-per-line
-        if (content[idx] === '\\') { idx += 2; continue }
-        // eslint-disable-next-line max-statements-per-line
-        if (content[idx] === quote) { idx++; break }
+        if (content[idx] === '\\') {
+          idx += 2
+          continue
+        }
+        if (content[idx] === quote) {
+          idx++
+          break
+        }
         idx++
       }
       continue

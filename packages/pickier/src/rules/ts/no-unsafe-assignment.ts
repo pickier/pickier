@@ -122,10 +122,12 @@ export const noUnsafeAssignmentRule: RuleModule = {
             }
           }
 
-          // Also check for direct property assignment
+          // Also check for direct property assignment (but not variable declarations already handled)
           // Pattern: obj.foo = JSON.parse(...)
           const propAssignMatch = before.match(/([\w$.]+)\s*=\s*$/)
-          if (propAssignMatch) {
+          // Skip if this is a variable declaration (with or without type annotation)
+          const isVarDecl = /(?:const|let|var)\s+/.test(before)
+          if (propAssignMatch && !assignMatch && !isVarDecl) {
             const actualIdx = originalLine.indexOf(match[0])
             issues.push({
               filePath: ctx.filePath,

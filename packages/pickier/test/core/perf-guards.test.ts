@@ -118,9 +118,11 @@ describe('pre-compiled regex patterns in format.ts', () => {
 
   for (const name of expectedPatterns) {
     it(`${name} is defined at module level`, () => {
-      // Must be a top-level const (not inside a function)
-      const pattern = new RegExp(`^const ${name}\\s*=\\s*/`, 'm')
-      expect(src).toMatch(pattern)
+      // Must be a top-level const (not inside a function) — either regex literal or new RegExp()
+      const regexLiteral = new RegExp(`^const _?${name}\\s*=\\s*/`, 'm')
+      const regexpConstructor = new RegExp(`^const _?${name}\\s*=\\s*new RegExp\\(`, 'm')
+      const found = regexLiteral.test(src) || regexpConstructor.test(src)
+      expect(found).toBe(true)
     })
   }
 })
