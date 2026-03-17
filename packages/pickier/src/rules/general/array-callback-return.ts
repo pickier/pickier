@@ -31,7 +31,7 @@ export const arrayCallbackReturnRule: RuleModule = {
       const line = lines[i]
       let match
 
-      while ((match = methodPattern.exec(line)) !== null) {
+      for (match = methodPattern.exec(line); match !== null; match = methodPattern.exec(line)) {
         const methodName = match[1]
         const startIndex = match.index + match[0].length
 

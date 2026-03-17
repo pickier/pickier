@@ -16,7 +16,7 @@ export const noAsyncPromiseExecutorRule: RuleModule = {
       const asyncPromisePattern = /new\s+Promise\s*\(\s*async\s*(?:\(|function)/g
 
       let match
-      while ((match = asyncPromisePattern.exec(line)) !== null) {
+      for (match = asyncPromisePattern.exec(line); match !== null; match = asyncPromisePattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

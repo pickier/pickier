@@ -17,7 +17,7 @@ export const preferArrowCallbackRule: RuleModule = {
       const callbackPattern = /\.(map|filter|reduce|forEach|some|every|find|findIndex)\s*\(\s*function\s*\(/g
       let match
 
-      while ((match = callbackPattern.exec(line)) !== null) {
+      for (match = callbackPattern.exec(line); match !== null; match = callbackPattern.exec(line)) {
         // Skip if in comment
         if (line.substring(0, match.index).includes('//'))
           continue

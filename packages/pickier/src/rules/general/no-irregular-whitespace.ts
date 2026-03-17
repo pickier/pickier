@@ -37,27 +37,30 @@ export const noIrregularWhitespaceRule: RuleModule = {
         let charName = 'irregular whitespace'
 
         // Provide specific names for better error messages
-        switch (charCode) {
-          case 0x00A0: charName = 'NO-BREAK SPACE'; break
-          case 0x1680: charName = 'OGHAM SPACE MARK'; break
-          case 0x180E: charName = 'MONGOLIAN VOWEL SEPARATOR'; break
-          case 0x2000: charName = 'EN QUAD'; break
-          case 0x2001: charName = 'EM QUAD'; break
-          case 0x2002: charName = 'EN SPACE'; break
-          case 0x2003: charName = 'EM SPACE'; break
-          case 0x2004: charName = 'THREE-PER-EM SPACE'; break
-          case 0x2005: charName = 'FOUR-PER-EM SPACE'; break
-          case 0x2006: charName = 'SIX-PER-EM SPACE'; break
-          case 0x2007: charName = 'FIGURE SPACE'; break
-          case 0x2008: charName = 'PUNCTUATION SPACE'; break
-          case 0x2009: charName = 'THIN SPACE'; break
-          case 0x200A: charName = 'HAIR SPACE'; break
-          case 0x2028: charName = 'LINE SEPARATOR'; break
-          case 0x2029: charName = 'PARAGRAPH SEPARATOR'; break
-          case 0x202F: charName = 'NARROW NO-BREAK SPACE'; break
-          case 0x205F: charName = 'MEDIUM MATHEMATICAL SPACE'; break
-          case 0x3000: charName = 'IDEOGRAPHIC SPACE'; break
-          case 0xFEFF: charName = 'ZERO WIDTH NO-BREAK SPACE'; break
+        const charNames: Record<number, string> = {
+          0x00A0: 'NO-BREAK SPACE',
+          0x1680: 'OGHAM SPACE MARK',
+          0x180E: 'MONGOLIAN VOWEL SEPARATOR',
+          0x2000: 'EN QUAD',
+          0x2001: 'EM QUAD',
+          0x2002: 'EN SPACE',
+          0x2003: 'EM SPACE',
+          0x2004: 'THREE-PER-EM SPACE',
+          0x2005: 'FOUR-PER-EM SPACE',
+          0x2006: 'SIX-PER-EM SPACE',
+          0x2007: 'FIGURE SPACE',
+          0x2008: 'PUNCTUATION SPACE',
+          0x2009: 'THIN SPACE',
+          0x200A: 'HAIR SPACE',
+          0x2028: 'LINE SEPARATOR',
+          0x2029: 'PARAGRAPH SEPARATOR',
+          0x202F: 'NARROW NO-BREAK SPACE',
+          0x205F: 'MEDIUM MATHEMATICAL SPACE',
+          0x3000: 'IDEOGRAPHIC SPACE',
+          0xFEFF: 'ZERO WIDTH NO-BREAK SPACE',
+        }
+        if (charNames[charCode]) {
+          charName = charNames[charCode]
         }
 
         issues.push({

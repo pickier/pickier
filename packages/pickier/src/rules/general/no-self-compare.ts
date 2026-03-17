@@ -16,7 +16,7 @@ export const noSelfCompareRule: RuleModule = {
       const comparePattern = /(\w+(?:\.\w+|\[[^\]]+\])*)\s*(===|!==|==|!=|<|>|<=|>=)\s*(\w+(?:\.\w+|\[[^\]]+\])*)/g
       let match
 
-      while ((match = comparePattern.exec(line)) !== null) {
+      for (match = comparePattern.exec(line); match !== null; match = comparePattern.exec(line)) {
         const left = match[1].replace(/\s/g, '')
         const _operator = match[2]
         const right = match[3].replace(/\s/g, '')

@@ -16,7 +16,7 @@ export const noWithRule: RuleModule = {
       const withPattern = /\bwith\s*\(/g
       let match
 
-      while ((match = withPattern.exec(line)) !== null) {
+      for (match = withPattern.exec(line); match !== null; match = withPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

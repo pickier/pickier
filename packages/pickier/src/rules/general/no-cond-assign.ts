@@ -17,7 +17,7 @@ export const noCondAssignRule: RuleModule = {
       const pattern = /\b(if|while)\s*\([^)]*\b(\w+)\s*=\s*(?!=)[^)]*\)/g
       let match
 
-      while ((match = pattern.exec(line)) !== null) {
+      for (match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
         // Check it's not == or ===
         const conditionPart = match[0]
         if (/===|==/.test(conditionPart))

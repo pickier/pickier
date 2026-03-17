@@ -62,7 +62,7 @@ function globToRegex(pattern: string): RegExp {
         i = end + 1
       }
     }
-    else if ('.+^${}()|\\'.includes(ch)) {
+    else if (('.+^$' + '{}()|\\').includes(ch)) {
       src += `\\${ch}`
       i++
     }

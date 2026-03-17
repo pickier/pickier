@@ -16,7 +16,7 @@ export const noProtoRule: RuleModule = {
       const protoPattern = /__proto__/g
       let match
 
-      while ((match = protoPattern.exec(line)) !== null) {
+      for (match = protoPattern.exec(line); match !== null; match = protoPattern.exec(line)) {
         // Skip if in comment or string literal
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

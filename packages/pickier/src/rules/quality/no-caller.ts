@@ -16,7 +16,7 @@ export const noCallerRule: RuleModule = {
       const callerPattern = /\barguments\s*\.\s*(caller|callee)\b/g
 
       let match
-      while ((match = callerPattern.exec(line)) !== null) {
+      for (match = callerPattern.exec(line); match !== null; match = callerPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

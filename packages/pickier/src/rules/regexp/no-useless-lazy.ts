@@ -27,7 +27,7 @@ export const noUselessLazy: RuleModule = {
       const regexPattern = /\/(?![/*])([^/\n\r\\]|\\.)+\/[gimsuvy]*/g
       let match
 
-      while ((match = regexPattern.exec(line)) !== null) {
+      for (match = regexPattern.exec(line); match !== null; match = regexPattern.exec(line)) {
         const regex = match[0]
         const pattern = regex.slice(1, regex.lastIndexOf('/'))
 

@@ -16,7 +16,7 @@ export const noReturnAssignRule: RuleModule = {
       const pattern = /\breturn\s[^;]*\b\w+\s*=\s*(?!=)/g
       let match
 
-      while ((match = pattern.exec(line)) !== null) {
+      for (match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
         // Make sure it's not == or ===
         const returnPart = match[0]
         if (/===|==/.test(returnPart))

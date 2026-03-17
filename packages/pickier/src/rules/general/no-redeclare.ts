@@ -19,7 +19,7 @@ export const noRedeclareRule: RuleModule = {
       const declPattern = /\b(var|let|const)\s+(\w+)/g
       let match
 
-      while ((match = declPattern.exec(line)) !== null) {
+      for (match = declPattern.exec(line); match !== null; match = declPattern.exec(line)) {
         const varName = match[2]
         const prevLine = declared.get(varName)
 
@@ -40,7 +40,7 @@ export const noRedeclareRule: RuleModule = {
 
       // Also check function declarations
       const funcPattern = /\bfunction\s+(\w+)/g
-      while ((match = funcPattern.exec(line)) !== null) {
+      for (match = funcPattern.exec(line); match !== null; match = funcPattern.exec(line)) {
         const funcName = match[1]
         const prevLine = declared.get(funcName)
 

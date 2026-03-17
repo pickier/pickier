@@ -37,7 +37,7 @@ export const noParamReassignRule: RuleModule = {
           const assignPattern = new RegExp(`\\b${param}\\s*=\\s*[^=]`, 'g')
 
           let match
-          while ((match = assignPattern.exec(line)) !== null) {
+          for (match = assignPattern.exec(line); match !== null; match = assignPattern.exec(line)) {
             // Make sure it's not a comparison (==, ===)
             if (!line.slice(match.index).match(/^\w+\s*===?/)) {
               issues.push({

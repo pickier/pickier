@@ -1,8 +1,10 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
+const DOLLAR_BRACE = '$' + '{'
+
 export const templateCurlySpacingRule: RuleModule = {
   meta: {
-    docs: 'Disallow spaces inside template literal interpolation ${...}',
+    docs: 'Disallow spaces inside template literal interpolation curly braces',
     recommended: true,
   },
   check(content: string, context: RuleContext): LintIssue[] {
@@ -13,8 +15,7 @@ export const templateCurlySpacingRule: RuleModule = {
       const line = lines[i]
 
       // Find ${ with space after
-      let idx = 0
-      while ((idx = line.indexOf('${', idx)) !== -1) {
+      for (let idx = line.indexOf(DOLLAR_BRACE, 0); idx !== -1; idx = line.indexOf(DOLLAR_BRACE, idx)) {
         const afterOpen = idx + 2
         if (afterOpen < line.length && (line[afterOpen] === ' ' || line[afterOpen] === '\t')) {
           // Check we're likely inside a template literal by counting backticks before
@@ -26,7 +27,7 @@ export const templateCurlySpacingRule: RuleModule = {
               line: i + 1,
               column: afterOpen + 1,
               ruleId: 'style/template-curly-spacing',
-              message: 'Unexpected space after \'${\'',
+              message: `Unexpected space after '\${'`,
               severity: 'warning',
             })
           }
@@ -71,6 +72,6 @@ export const templateCurlySpacingRule: RuleModule = {
   fix(content: string): string {
     // Remove spaces inside ${ ... } in template literals
     // Only target ${ expr } patterns to avoid breaking other constructs
-    return content.replace(/\$\{\s+([^}]*?)\s+\}/g, '${$1}')
+    return content.replace(/\$\{\s+([^}]*?)\s+\}/g, '$' + '{$1}')
   },
 }

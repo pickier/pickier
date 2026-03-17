@@ -17,7 +17,7 @@ export const noUselessCallRule: RuleModule = {
       const applyPattern = /\.\s*apply\s*\(\s*(undefined|null)\s*,/g
 
       let match
-      while ((match = callPattern.exec(line)) !== null) {
+      for (match = callPattern.exec(line); match !== null; match = callPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -28,7 +28,7 @@ export const noUselessCallRule: RuleModule = {
         })
       }
 
-      while ((match = applyPattern.exec(line)) !== null) {
+      for (match = applyPattern.exec(line); match !== null; match = applyPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

@@ -39,7 +39,7 @@ export const templateTagSpacingRule: RuleModule = {
       let match
       TAG_SPACE_RE.lastIndex = 0
 
-      while ((match = TAG_SPACE_RE.exec(line)) !== null) {
+      for (match = TAG_SPACE_RE.exec(line); match !== null; match = TAG_SPACE_RE.exec(line)) {
         const identifier = match[1]
         const idx = match.index
 
@@ -83,7 +83,7 @@ export const templateTagSpacingRule: RuleModule = {
       let match
 
       TAG_SPACE_RE.lastIndex = 0
-      while ((match = TAG_SPACE_RE.exec(line)) !== null) {
+      for (match = TAG_SPACE_RE.exec(line); match !== null; match = TAG_SPACE_RE.exec(line)) {
         const identifier = match[1]
         const idx = match.index
 

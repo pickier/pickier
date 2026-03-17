@@ -16,7 +16,7 @@ export const useIsNaNRule: RuleModule = {
       const nanPattern = /\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*(===|!==|==|!=)\s*NaN\b|\bNaN\s*(===|!==|==|!=)\s*(\w+(?:\.\w+|\[[^\]]+\])*)/g
       let match
 
-      while ((match = nanPattern.exec(line)) !== null) {
+      for (match = nanPattern.exec(line); match !== null; match = nanPattern.exec(line)) {
         const _variable = match[1] || match[4]
         issues.push({
           filePath: ctx.filePath,

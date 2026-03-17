@@ -1,4 +1,4 @@
-console.log('Building...')
+process.stdout.write('Building...\n')
 
 // pickier-disable-next-line ts/no-top-level-await
 await Bun.build({
@@ -10,6 +10,6 @@ await Bun.build({
   format: 'esm',
 })
 
-console.log('Built successfully!')
+process.stdout.write('Built successfully!\n')
 
 export {}

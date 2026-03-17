@@ -17,7 +17,7 @@ export const wrapIifeRule: RuleModule = {
     const fnCallRe = /[^a-zA-Z_$](function\s*\([^)]*\)\s*\{[^}]*\})\s*\(/g
     let match
 
-    while ((match = fnCallRe.exec(content)) !== null) {
+    for (match = fnCallRe.exec(content); match !== null; match = fnCallRe.exec(content)) {
       // Check if already wrapped: (function(){})()
       if (match.index > 0 && content[match.index] === '(')
         continue

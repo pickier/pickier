@@ -22,7 +22,7 @@ export const noUnusedVarsRule: RuleModule = {
     // Pre-compute which lines start inside a multi-line template literal body.
     // Used to skip analysis of generated code inside template content in both loops.
     const lineStartsInTemplate: boolean[] = new Array(lines.length).fill(false)
-    {
+    const computeTemplateLines = () => {
       const tmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr
       let tInSingle = false
       let tInDouble = false
@@ -32,22 +32,47 @@ export const noUnusedVarsRule: RuleModule = {
         const s = lines[li]
         for (let k = 0; k < s.length; k++) {
           const ch = s[k]
-          if (tEscaped) { tEscaped = false; continue }
+          if (tEscaped) {
+            tEscaped = false
+            continue
+          }
           const inBody = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
           const inExpr = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] >= 0
-          if (ch === '\\' && (tInSingle || tInDouble || inBody)) { tEscaped = true; continue }
-          if (tInSingle) { if (ch === '\'') tInSingle = false; continue }
-          if (tInDouble) { if (ch === '"') tInDouble = false; continue }
+          if (ch === '\\' && (tInSingle || tInDouble || inBody)) {
+            tEscaped = true
+            continue
+          }
+          if (tInSingle) {
+            if (ch === '\'') tInSingle = false
+            continue
+          }
+          if (tInDouble) {
+            if (ch === '"') tInDouble = false
+            continue
+          }
           if (inBody) {
-            if (ch === '`') { tmplStack.pop() }
-            else if (ch === '$' && k + 1 < s.length && s[k + 1] === '{') { tmplStack[tmplStack.length - 1] = 0; k++ }
+            if (ch === '`') {
+              tmplStack.pop()
+            }
+            else if (ch === '$' && k + 1 < s.length && s[k + 1] === '{') {
+              tmplStack[tmplStack.length - 1] = 0
+              k++
+            }
             continue
           }
           if (inExpr) {
-            if (ch === '`') { tmplStack.push(-1) }
-            else if (ch === '\'') { tInSingle = true }
-            else if (ch === '"') { tInDouble = true }
-            else if (ch === '{') { tmplStack[tmplStack.length - 1]++ }
+            if (ch === '`') {
+              tmplStack.push(-1)
+            }
+            else if (ch === '\'') {
+              tInSingle = true
+            }
+            else if (ch === '"') {
+              tInDouble = true
+            }
+            else if (ch === '{') {
+              tmplStack[tmplStack.length - 1]++
+            }
             else if (ch === '}') {
               if (tmplStack[tmplStack.length - 1] > 0) tmplStack[tmplStack.length - 1]--
               else tmplStack[tmplStack.length - 1] = -1
@@ -56,20 +81,28 @@ export const noUnusedVarsRule: RuleModule = {
             continue
           }
           // Outside template
-          if (ch === '`') { tmplStack.push(-1) }
-          else if (ch === '\'') { tInSingle = true }
-          else if (ch === '"') { tInDouble = true }
+          if (ch === '`') {
+            tmplStack.push(-1)
+          }
+          else if (ch === '\'') {
+            tInSingle = true
+          }
+          else if (ch === '"') {
+            tInDouble = true
+          }
           else if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
         }
       }
     }
+    computeTemplateLines()
 
     for (let i = 0; i < lines.length; i++) {
       // Skip lines inside template literal body (generated code, not real code)
       if (lineStartsInTemplate[i])
         continue
       const line = lines[i]
-      const decl = line.match(/^\s*(?:const|let|var)\s+(.+?);?\s*$/)
+      const declRe = new RegExp('^\\s*(?:const|let|var)\\s+(.+?)' + ';' + '?\\s*$')
+      const decl = line.match(declRe)
       if (!decl)
         continue
       const after = decl[1]
@@ -158,14 +191,30 @@ export const noUnusedVarsRule: RuleModule = {
           let dEsc = false
           for (let ci = 0; ci < part.length; ci++) {
             const ch = part[ci]
-            if (dEsc) { dEsc = false; continue }
-            if (ch === '\\' && dStr) { dEsc = true; continue }
-            if (!dStr) {
-              if (ch === '\'' || ch === '"' || ch === '`') { dStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template' }
-              else if (ch === openChar) dDepth++
-              else if (ch === closeChar) { dDepth--; if (dDepth === 0) { endIdx = ci; break } }
+            if (dEsc) {
+              dEsc = false
+              continue
             }
-else {
+            if (ch === '\\' && dStr) {
+              dEsc = true
+              continue
+            }
+            if (!dStr) {
+              if (ch === '\'' || ch === '"' || ch === '`') {
+                dStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template'
+              }
+              else if (ch === openChar) {
+                dDepth++
+              }
+              else if (ch === closeChar) {
+                dDepth--
+                if (dDepth === 0) {
+                  endIdx = ci
+                  break
+                }
+              }
+            }
+            else {
               if ((dStr === 'single' && ch === '\'') || (dStr === 'double' && ch === '"') || (dStr === 'template' && ch === '`')) dStr = null
             }
           }

@@ -33,7 +33,7 @@ export const noMultiSpaces: RuleModule = {
       const multiSpacePattern = / {2,}/g
       let match
 
-      while ((match = multiSpacePattern.exec(codeAfterIndent)) !== null) {
+      for (match = multiSpacePattern.exec(codeAfterIndent); match !== null; match = multiSpacePattern.exec(codeAfterIndent)) {
         const column = leadingWhitespace.length + match.index + 1
 
         // Skip if it's in a string literal

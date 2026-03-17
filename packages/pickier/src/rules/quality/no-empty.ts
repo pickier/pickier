@@ -17,7 +17,7 @@ export const noEmptyRule: RuleModule = {
       const emptyBlockPattern = /\{\s*\}/g
       let match
 
-      while ((match = emptyBlockPattern.exec(line)) !== null) {
+      for (match = emptyBlockPattern.exec(line); match !== null; match = emptyBlockPattern.exec(line)) {
         // Try to determine if this is a statement block, not an object literal
         const beforeBlock = line.substring(0, match.index).trim()
 

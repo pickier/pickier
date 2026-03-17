@@ -17,7 +17,7 @@ export const noUnsafeNegationRule: RuleModule = {
       const instanceofPattern = /!\s*\w+\s+instanceof\s+/g
 
       let match
-      while ((match = inPattern.exec(line)) !== null) {
+      for (match = inPattern.exec(line); match !== null; match = inPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -28,7 +28,7 @@ export const noUnsafeNegationRule: RuleModule = {
         })
       }
 
-      while ((match = instanceofPattern.exec(line)) !== null) {
+      for (match = instanceofPattern.exec(line); match !== null; match = instanceofPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

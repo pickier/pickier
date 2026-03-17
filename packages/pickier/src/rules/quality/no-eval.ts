@@ -16,7 +16,7 @@ export const noEvalRule: RuleModule = {
       const evalPattern = /\beval\s*\(/g
       let match
 
-      while ((match = evalPattern.exec(line)) !== null) {
+      for (match = evalPattern.exec(line); match !== null; match = evalPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

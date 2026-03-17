@@ -176,7 +176,7 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 
 ## Important Notes
 
-- The CLI supports `pickier run --mode <auto|lint|format>` as well as `pickier lint` and `pickier format` as shorthand commands
+- The CLI supports `pickier run --mode auto`, `pickier run --mode lint`, or `pickier run --mode format` as well as `pickier lint` and `pickier format` as shorthand commands
 - When adding new rules, implement both `check` and `fix` (if applicable) in the appropriate plugin
 - Rule IDs follow `plugin/rule-name` convention but config also supports bare rule names for convenience
 - Tests must set `PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config

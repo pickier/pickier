@@ -16,7 +16,7 @@ export const noCompareNegZeroRule: RuleModule = {
       const pattern = /([!=]==?)\s*-0\b|\b-0\s*([!=]==?)/g
 
       let match
-      while ((match = pattern.exec(line)) !== null) {
+      for (match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

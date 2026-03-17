@@ -59,7 +59,7 @@ export const noGlobalAssignRule: RuleModule = {
         const assignPattern = new RegExp(`\\b${global}\\s*=\\s*[^=]`, 'g')
 
         let match
-        while ((match = assignPattern.exec(line)) !== null) {
+        for (match = assignPattern.exec(line); match !== null; match = assignPattern.exec(line)) {
           // Make sure it's not a comparison
           if (!line.slice(match.index).match(new RegExp(`^${global}\\s*===?`))) {
             issues.push({

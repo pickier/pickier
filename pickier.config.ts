@@ -9,8 +9,7 @@ const config: PickierOptions = {
   verbose: true,
 
   // Glob patterns to ignore
-  ignores: ['CLAUDE.md', '*/CHANGELOG.md', 
-    '**/node_modules/**',
+  ignores: [    '**/node_modules/**',
     '**/dist/**',
     '**/build/**',
     '**/pantry/**',
@@ -23,7 +22,7 @@ const config: PickierOptions = {
     '**/vscode/examples/**',
     '**/SUMMARY_COMPARISON.md',
     '**/bechmarks/**',
-    '**/CHANGELOG.md', // Changelogs repeat section headings per version by design
+    // Changelogs repeat section headings per version by design
     '**/docs/**', // Docs files have complex formatting not suited for strict markdown linting
   ],
 

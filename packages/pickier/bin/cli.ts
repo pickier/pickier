@@ -178,7 +178,7 @@ async function main() {
 
   cli.command('version', 'Show the version of the CLI').action(async () => {
     const { version: ver } = await import('../package.json')
-    console.log(ver)
+    process.stdout.write(`${ver}\n`)
   })
 
   cli.version(version)

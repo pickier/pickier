@@ -602,13 +602,11 @@ export function formatImports(source: string): string {
   const codeText = rest
   const isWordChar = (c: string) => c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c === '_' || c === '$'
   const used = (name: string): boolean => {
-    let pos = 0
-    while ((pos = codeText.indexOf(name, pos)) !== -1) {
+    for (let pos = codeText.indexOf(name, 0); pos !== -1; pos = codeText.indexOf(name, pos + name.length)) {
       const before = pos > 0 ? codeText[pos - 1] : ' '
       const after = pos + name.length < codeText.length ? codeText[pos + name.length] : ' '
       if (!isWordChar(before) && !isWordChar(after))
         return true
-      pos += name.length
     }
     return false
   }

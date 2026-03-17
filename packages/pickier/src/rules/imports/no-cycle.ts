@@ -51,7 +51,7 @@ export const noCycleRule: RuleModule = {
       const importRegex = /\bimport(?:\s{2,}|\s+\S.*?(?:[\n\r\u2028\u2029]\s*|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]))from\s+['"]([^'"]+)['"]/g
 
       let match
-      while ((match = importRegex.exec(content)) !== null) {
+      for (match = importRegex.exec(content); match !== null; match = importRegex.exec(content)) {
         const importPath = match[1]
 
         // Only check relative imports

@@ -16,7 +16,7 @@ export const noVarRule: RuleModule = {
       const varPattern = /\bvar\s+/g
       let match
 
-      while ((match = varPattern.exec(line)) !== null) {
+      for (match = varPattern.exec(line); match !== null; match = varPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

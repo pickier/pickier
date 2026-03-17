@@ -25,7 +25,7 @@ export const noConstAssignRule: RuleModule = {
       const assignPattern = /\b(\w+)\s*=(?!=)/g // matches = but not == or ===
       let match
 
-      while ((match = assignPattern.exec(line)) !== null) {
+      for (match = assignPattern.exec(line); match !== null; match = assignPattern.exec(line)) {
         const varName = match[1]
 
         // Check if this is an assignment (not a declaration)

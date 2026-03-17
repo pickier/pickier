@@ -21,7 +21,7 @@ export const noSequencesRule: RuleModule = {
       const suspiciousPattern = /\)\s*,\s*\w+\s*\(/g
       let match
 
-      while ((match = suspiciousPattern.exec(line)) !== null) {
+      for (match = suspiciousPattern.exec(line); match !== null; match = suspiciousPattern.exec(line)) {
         // Skip if in comment
         if (line.substring(0, match.index).includes('//'))
           continue

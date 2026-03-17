@@ -17,7 +17,7 @@ export const noOctalRule: RuleModule = {
       const octalPattern = /\b0[0-7]+\b/g
 
       let match
-      while ((match = octalPattern.exec(line)) !== null) {
+      for (match = octalPattern.exec(line); match !== null; match = octalPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

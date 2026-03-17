@@ -26,7 +26,7 @@ export const noExtraBooleanCastRule: RuleModule = {
 
       for (const pattern of patterns) {
         let match
-        while ((match = pattern.exec(line)) !== null) {
+        for (match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
           // Skip if in comment
           const beforeMatch = line.substring(0, match.index)
           if (beforeMatch.includes('//'))

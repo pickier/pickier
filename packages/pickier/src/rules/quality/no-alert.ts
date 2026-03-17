@@ -16,7 +16,7 @@ export const noAlertRule: RuleModule = {
       const alertPattern = /\b(alert|confirm|prompt)\s*\(/g
       let match
 
-      while ((match = alertPattern.exec(line)) !== null) {
+      for (match = alertPattern.exec(line); match !== null; match = alertPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

@@ -17,7 +17,7 @@ export const noSparseArraysRule: RuleModule = {
       const sparsePattern = /\[([^\]]*)\]/g
       let match
 
-      while ((match = sparsePattern.exec(line)) !== null) {
+      for (match = sparsePattern.exec(line); match !== null; match = sparsePattern.exec(line)) {
         // Check if it's really sparse (not just trailing comma)
         const content = match[1]
         if (/,\s*,/.test(content)) {

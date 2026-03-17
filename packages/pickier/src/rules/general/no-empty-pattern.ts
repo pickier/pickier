@@ -17,7 +17,7 @@ export const noEmptyPatternRule: RuleModule = {
       const emptyArrayPattern = /\[\s*\]\s*=/g
 
       let match
-      while ((match = emptyObjectPattern.exec(line)) !== null) {
+      for (match = emptyObjectPattern.exec(line); match !== null; match = emptyObjectPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))
@@ -33,7 +33,7 @@ export const noEmptyPatternRule: RuleModule = {
         })
       }
 
-      while ((match = emptyArrayPattern.exec(line)) !== null) {
+      for (match = emptyArrayPattern.exec(line); match !== null; match = emptyArrayPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

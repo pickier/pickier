@@ -18,7 +18,7 @@ export const eqeqeqRule: RuleModule = {
       const neqPattern = /([^!])(\s*)(!=)(\s*)([^=])/g
 
       let match
-      while ((match = eqPattern.exec(line)) !== null) {
+      for (match = eqPattern.exec(line); match !== null; match = eqPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -29,7 +29,7 @@ export const eqeqeqRule: RuleModule = {
         })
       }
 
-      while ((match = neqPattern.exec(line)) !== null) {
+      for (match = neqPattern.exec(line); match !== null; match = neqPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

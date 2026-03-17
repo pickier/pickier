@@ -18,7 +18,7 @@ export const validTypeofRule: RuleModule = {
       const typeofPattern = /typeof\s+\w+\s*(?:===|!==|==|!=)\s*(['"`])(\w+)\1/g
       let match
 
-      while ((match = typeofPattern.exec(line)) !== null) {
+      for (match = typeofPattern.exec(line); match !== null; match = typeofPattern.exec(line)) {
         const typeString = match[2]
 
         if (!validTypes.includes(typeString)) {
@@ -35,7 +35,7 @@ export const validTypeofRule: RuleModule = {
 
       // Also check reverse: 'string' === typeof x
       const reversePattern = /(['"`])(\w+)\1\s*(?:===|!==|==|!=)\s*typeof\s+\w+/g
-      while ((match = reversePattern.exec(line)) !== null) {
+      for (match = reversePattern.exec(line); match !== null; match = reversePattern.exec(line)) {
         const typeString = match[2]
 
         if (!validTypes.includes(typeString)) {

@@ -16,7 +16,7 @@ export const noUselessRenameRule: RuleModule = {
       const importPattern = /import\s*\{[^}]*\b(\w+)\s+as\s+\1\b[^}]*\}/g
       let match
 
-      while ((match = importPattern.exec(line)) !== null) {
+      for (match = importPattern.exec(line); match !== null; match = importPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -29,7 +29,7 @@ export const noUselessRenameRule: RuleModule = {
 
       // Match export { foo as foo }
       const exportPattern = /export\s*\{[^}]*\b(\w+)\s+as\s+\1\b[^}]*\}/g
-      while ((match = exportPattern.exec(line)) !== null) {
+      for (match = exportPattern.exec(line); match !== null; match = exportPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -42,7 +42,7 @@ export const noUselessRenameRule: RuleModule = {
 
       // Match const { foo: foo } = obj
       const destructPattern = /\{[^}]*\b(\w+)\s*:\s*\1\b[^}]*\}\s*=/g
-      while ((match = destructPattern.exec(line)) !== null) {
+      for (match = destructPattern.exec(line); match !== null; match = destructPattern.exec(line)) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

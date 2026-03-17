@@ -16,7 +16,7 @@ export const noNewWrappersRule: RuleModule = {
       const wrapperPattern = /\bnew\s+(String|Number|Boolean)\s*\(/g
       let match
 
-      while ((match = wrapperPattern.exec(line)) !== null) {
+      for (match = wrapperPattern.exec(line); match !== null; match = wrapperPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

@@ -16,7 +16,7 @@ export const noNewFuncRule: RuleModule = {
       const funcPattern = /\bnew\s+Function\s*\(/g
       let match
 
-      while ((match = funcPattern.exec(line)) !== null) {
+      for (match = funcPattern.exec(line); match !== null; match = funcPattern.exec(line)) {
         // Skip if in comment
         const beforeMatch = line.substring(0, match.index)
         if (beforeMatch.includes('//'))

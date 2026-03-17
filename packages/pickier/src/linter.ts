@@ -32,7 +32,9 @@ export async function lintText(
     throw new Error('AbortError')
     // Avoid duplicate plugin execution inside scanContent
   }
-  ;(cfg as any)._internalSkipPluginRulesInScan = true
+
+  const cfg2 = cfg as any
+  cfg2._internalSkipPluginRulesInScan = true
   const issues = scanContent(filePath, text, cfg)
   if (signal?.aborted)
     throw new Error('AbortError')
@@ -192,7 +194,8 @@ export async function runLintProgrammatic(
     const suppress = parseDisableDirectives(src)
     const commentLines = getCommentLines(src)
 
-    ;(cfg as any)._internalSkipPluginRulesInScan = true
+    const cfgAny = cfg as any
+    cfgAny._internalSkipPluginRulesInScan = true
     // Pass pre-computed data to avoid re-parsing
     let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
 
@@ -735,7 +738,8 @@ function stripRegexLiterals(line: string): string {
     if (line[i] === '/' && i > 0) {
       // Look back to see if this could be a regex (after =, (, [, {, :, etc.)
       const before = line.slice(0, i).trimEnd()
-      if (/[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
+      const isRegexContext = /[=([{,:!&|?]$/.test(before) || /;$/.test(before) || before.endsWith('return')
+      if (isRegexContext) {
         // This looks like a regex literal, skip to the closing /
         i++ // skip opening /
         while (i < line.length) {
@@ -925,13 +929,23 @@ function getCommentLines(content: string): Set<number> {
             lineHasCode = true
             i++ // skip past the `*`
             while (i < content.length) {
-              if (content[i] === '\\') { i += 2; continue }
-              if (content[i] === '/') { i++; break }
-              if (content[i] === '\n') break // unterminated regex, stop
+              if (content[i] === '\\') {
+                i += 2
+                continue
+              }
+              if (content[i] === '/') {
+                i++
+                break
+              }
+              if (content[i] === '\n') {
+                break // unterminated regex, stop
+              }
               i++
             }
             // Skip flags
-            while (i < content.length && /[gimsuy]/.test(content[i])) i++
+            while (i < content.length && /[gimsuy]/.test(content[i])) {
+              i++
+            }
             i-- // will be incremented by for loop
           }
 else {
@@ -960,12 +974,22 @@ else if (/[a-z]/.test(bc)) {
             lineHasCode = true
             i++ // skip past the first char after `/`
             while (i < content.length) {
-              if (content[i] === '\\') { i += 2; continue }
-              if (content[i] === '/') { i++; break }
-              if (content[i] === '\n') break
+              if (content[i] === '\\') {
+                i += 2
+                continue
+              }
+              if (content[i] === '/') {
+                i++
+                break
+              }
+              if (content[i] === '\n') {
+                break
+              }
               i++
             }
-            while (i < content.length && /[gimsuy]/.test(content[i])) i++
+            while (i < content.length && /[gimsuy]/.test(content[i])) {
+              i++
+            }
             i--
           }
 else {
@@ -990,17 +1014,26 @@ else {
         break
 
       case 'string-single':
-        if (ch === '\\') { i++; break }
+        if (ch === '\\') {
+          i++
+          break
+        }
         if (ch === '\'') state = 'code'
         break
 
       case 'string-double':
-        if (ch === '\\') { i++; break }
+        if (ch === '\\') {
+          i++
+          break
+        }
         if (ch === '"') state = 'code'
         break
 
       case 'string-template':
-        if (ch === '\\') { i++; break }
+        if (ch === '\\') {
+          i++
+          break
+        }
         if (ch === '`') state = 'code'
         break
 
@@ -1559,7 +1592,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       const commentLines = isCodeFileForComments ? getCommentLines(src) : new Set<number>()
 
       // Set internal flag to avoid duplicate plugin execution inside scanContent
-      ;(cfg as any)._internalSkipPluginRulesInScan = true
+      const cfgAny = cfg as any
+    cfgAny._internalSkipPluginRulesInScan = true
       let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
 
       // Run plugin rules (async with timeouts) and merge

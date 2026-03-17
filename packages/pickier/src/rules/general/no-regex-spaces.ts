@@ -29,7 +29,7 @@ export const noRegexSpaces: RuleModule = {
       const regexLiteralPattern = /\/(?![*/])((?:\\.|[^/\\])+)\/[gimsuvy]*/g
       let match
 
-      while ((match = regexLiteralPattern.exec(line)) !== null) {
+      for (match = regexLiteralPattern.exec(line); match !== null; match = regexLiteralPattern.exec(line)) {
         const regexContent = match[1]
 
         // Check for multiple consecutive spaces in the regex
@@ -50,7 +50,7 @@ export const noRegexSpaces: RuleModule = {
 
       // Also check RegExp constructor
       const regExpPattern = /new\s+RegExp\s*\(\s*['"`]([^'"`]+)['"`]/g
-      while ((match = regExpPattern.exec(line)) !== null) {
+      for (match = regExpPattern.exec(line); match !== null; match = regExpPattern.exec(line)) {
         const regexContent = match[1]
 
         if (/ {2,}/.test(regexContent)) {

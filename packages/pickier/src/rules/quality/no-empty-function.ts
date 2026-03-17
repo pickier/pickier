@@ -22,7 +22,7 @@ export const noEmptyFunctionRule: RuleModule = {
 
       for (const pattern of patterns) {
         let match
-        while ((match = pattern.exec(line)) !== null) {
+        for (match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
           // Skip if in comment
           if (line.substring(0, match.index).includes('//'))
             continue

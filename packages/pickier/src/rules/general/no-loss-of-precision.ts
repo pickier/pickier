@@ -16,7 +16,7 @@ export const noLossOfPrecisionRule: RuleModule = {
       const numberPattern = /\b(\d{17,}(?:\.\d+)?|\d+\.\d{17,})\b/g
 
       let match
-      while ((match = numberPattern.exec(line)) !== null) {
+      for (match = numberPattern.exec(line); match !== null; match = numberPattern.exec(line)) {
         const numStr = match[1]
         const num = Number(numStr)
 
