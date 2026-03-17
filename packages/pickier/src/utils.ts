@@ -192,8 +192,16 @@ export function createLimiter(concurrency: number): <T>(fn: () => Promise<T>) =>
     return new Promise<T>((resolve, reject) => {
       const run = () => {
         fn().then(
-          (val) => { active--; resolve(val); next() },
-          (err) => { active--; reject(err); next() },
+          (val) => {
+            active--
+            resolve(val)
+            next()
+          },
+          (err) => {
+            active--
+            reject(err)
+            next()
+          },
         )
       }
       if (active < concurrency) {

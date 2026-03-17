@@ -12,7 +12,10 @@ function isInsideString(line: string, pos: number): boolean {
   let inTemplate = false
   for (let i = 0; i < pos; i++) {
     const c = line[i]
-    if (c === '\\') { i++; continue }
+    if (c === '\\') {
+      i++
+      continue
+    }
     if (c === '\'' && !inDouble && !inTemplate) inSingle = !inSingle
     else if (c === '"' && !inSingle && !inTemplate) inDouble = !inDouble
     else if (c === '`' && !inSingle && !inDouble) inTemplate = !inTemplate

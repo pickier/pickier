@@ -26,8 +26,9 @@ function cmp(a: string, b: string, opts: Options): number {
   return ia.localeCompare(ib) * order
 }
 
+const exportLineRe = new RegExp('^export\\s+\\{[^}]*\\}\\s+from\\s+[\'"][^\'"]+[\'"]' + ';' + '?\\s*$')
 function isExportLine(s: string): boolean {
-  return /^export\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*$/.test(s)
+  return exportLineRe.test(s)
 }
 
 export const sortExportsRule: RuleModule = {

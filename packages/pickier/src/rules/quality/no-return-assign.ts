@@ -13,6 +13,7 @@ export const noReturnAssignRule: RuleModule = {
       const line = lines[i]
 
       // Match return with assignment
+      // eslint-disable-next-line max-statements-per-line
       const pattern = /\breturn\s[^;]*\b\w+\s*=\s*(?!=)/g
       let match
 

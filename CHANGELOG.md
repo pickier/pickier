@@ -1,3 +1,5 @@
+## v0.1.20 (#1)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.19...v0.1.20)
 
 ### 🧹 Chores
@@ -11,17 +13,21 @@
 - _Chris <chrisbreuer93@gmail.com>_
 - _glennmichael123 <gtorregosa@gmail.com>_
 
+## v0.1.19... (#2)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.19...HEAD)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.19... (#2)
 
 - wip ([381fc1a](https://github.com/pickier/pickier/commit/381fc1a)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([f99a37a](https://github.com/pickier/pickier/commit/f99a37a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.19... (#2)
 
 - _Chris <chrisbreuer93@gmail.com>_
 - _glennmichael123 <gtorregosa@gmail.com>_
+
+## v0.1.19 (#3)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.18...v0.1.19)
 
@@ -29,7 +35,7 @@
 
 - implement logical package.json linting ([4d12814](https://github.com/pickier/pickier/commit/4d12814)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.19 (#3)
 
 - release v0.1.19 ([e0faeb2](https://github.com/pickier/pickier/commit/e0faeb2)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([88114ac](https://github.com/pickier/pickier/commit/88114ac)) _(by Chris <chrisbreuer93@gmail.com>)_
@@ -50,18 +56,20 @@
 - wip ([5406199](https://github.com/pickier/pickier/commit/5406199)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([e21e730](https://github.com/pickier/pickier/commit/e21e730)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.19 (#3)
 
 - _Chris <chrisbreuer93@gmail.com>_
 - _glennmichael123 <gtorregosa@gmail.com>_
 
+## v0.1.18... (#4)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.18...HEAD)
 
-**🚀 Features**
+### 🚀 Features - v0.1.18... (#4)
 
 - implement logical package.json linting ([4d12814](https://github.com/pickier/pickier/commit/4d12814)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.18... (#4)
 
 - wip ([88114ac](https://github.com/pickier/pickier/commit/88114ac)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([2831560](https://github.com/pickier/pickier/commit/2831560)) _(by Chris <chrisbreuer93@gmail.com>)_
@@ -81,10 +89,12 @@
 - wip ([5406199](https://github.com/pickier/pickier/commit/5406199)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([e21e730](https://github.com/pickier/pickier/commit/e21e730)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.18... (#4)
 
 - _Chris <chrisbreuer93@gmail.com>_
 - _glennmichael123 <gtorregosa@gmail.com>_
+
+## v0.1.18 (#5)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.17...v0.1.18)
 
@@ -92,100 +102,116 @@
 
 - ensure all config paths are loaded ([a01633a](https://github.com/pickier/pickier/commit/a01633a)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.18 (#5)
 
 - release v0.1.18 ([1531e1a](https://github.com/pickier/pickier/commit/1531e1a)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.18 (#5)
 
 - _Chris <chrisbreuer93@gmail.com>_
+
+## v0.1.17... (#6)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.17...HEAD)
 
-**🐛 Bug Fixes**
+### 🐛 Bug Fixes - v0.1.17... (#6)
 
 - ensure all config paths are loaded ([a01633a](https://github.com/pickier/pickier/commit/a01633a)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.17... (#6)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.17 (#7)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.16...v0.1.17)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.17 (#7)
 
 - release v0.1.17 ([10245f6](https://github.com/pickier/pickier/commit/10245f6)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([eccf6de](https://github.com/pickier/pickier/commit/eccf6de)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.17 (#7)
 
 - _Chris <chrisbreuer93@gmail.com>_
+
+## v0.1.16... (#8)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.16...HEAD)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.16... (#8)
 
 - wip ([eccf6de](https://github.com/pickier/pickier/commit/eccf6de)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.16... (#8)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.16 (#9)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.15...v0.1.16)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.16 (#9)
 
 - release v0.1.16 ([271e84a](https://github.com/pickier/pickier/commit/271e84a)) _(by Chris <chrisbreuer93@gmail.com>)_
 - fix undefined tableStartLine variable in blanks-around-tables rule ([9c8f36a](https://github.com/pickier/pickier/commit/9c8f36a)) _(by Chris <chrisbreuer93@gmail.com>)_
 - several markdown improvements ([4da91bc](https://github.com/pickier/pickier/commit/4da91bc)) _(by Chris <chrisbreuer93@gmail.com>)_
 - minor logic adjustments ([db1cf7b](https://github.com/pickier/pickier/commit/db1cf7b)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.16 (#9)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.15... (#10)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.15...HEAD)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.15... (#10)
 
 - fix undefined tableStartLine variable in blanks-around-tables rule ([9c8f36a](https://github.com/pickier/pickier/commit/9c8f36a)) _(by Chris <chrisbreuer93@gmail.com>)_
 - several markdown improvements ([4da91bc](https://github.com/pickier/pickier/commit/4da91bc)) _(by Chris <chrisbreuer93@gmail.com>)_
 - minor logic adjustments ([db1cf7b](https://github.com/pickier/pickier/commit/db1cf7b)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.15... (#10)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.15 (#11)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.14...v0.1.15)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.15 (#11)
 
 - release v0.1.15 ([ec5fbd5](https://github.com/pickier/pickier/commit/ec5fbd5)) _(by Chris <chrisbreuer93@gmail.com>)_
 - ensure to release bins ([1902201](https://github.com/pickier/pickier/commit/1902201)) _(by Chris <chrisbreuer93@gmail.com>)_
 - minor lint improvements ([aa62acc](https://github.com/pickier/pickier/commit/aa62acc)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.15 (#11)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.14... (#12)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.14...HEAD)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.14... (#12)
 
 - ensure to release bins ([1902201](https://github.com/pickier/pickier/commit/1902201)) _(by Chris <chrisbreuer93@gmail.com>)_
 - minor lint improvements ([aa62acc](https://github.com/pickier/pickier/commit/aa62acc)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.14... (#12)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.14 (#13)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.13...v0.1.14)
 
-**🚀 Features**
+### 🚀 Features - v0.1.14 (#13)
 
 - add several new rules & improvements ([c0114a4](https://github.com/pickier/pickier/commit/c0114a4)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.14 (#13)
 
 - release v0.1.14 ([6ad561c](https://github.com/pickier/pickier/commit/6ad561c)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([af87ee9](https://github.com/pickier/pickier/commit/af87ee9)) _(by Chris <chrisbreuer93@gmail.com>)_
@@ -199,17 +225,19 @@
 - wip ([2b10031](https://github.com/pickier/pickier/commit/2b10031)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([a58922a](https://github.com/pickier/pickier/commit/a58922a)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.14 (#13)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.13... (#14)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.13...HEAD)
 
-**🚀 Features**
+### 🚀 Features - v0.1.13... (#14)
 
 - add several new rules & improvements ([c0114a4](https://github.com/pickier/pickier/commit/c0114a4)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.13... (#14)
 
 - wip ([af87ee9](https://github.com/pickier/pickier/commit/af87ee9)) _(by Chris <chrisbreuer93@gmail.com>)_
 - minor adjustments ([aaabc3a](https://github.com/pickier/pickier/commit/aaabc3a)) _(by Chris <chrisbreuer93@gmail.com>)_
@@ -222,13 +250,15 @@
 - wip ([2b10031](https://github.com/pickier/pickier/commit/2b10031)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([a58922a](https://github.com/pickier/pickier/commit/a58922a)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-**Contributors**
+### Contributors - v0.1.13... (#14)
 
 - _Chris <chrisbreuer93@gmail.com>_
 
+## v0.1.11 (#15)
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.10...v0.1.11)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.11 (#15)
 
 - release v0.1.11 ([ead8561](https://github.com/pickier/pickier/commit/ead8561)) _(by glennmichael123 <gtorregosa@gmail.com>)_
 - wip ([864522f](https://github.com/pickier/pickier/commit/864522f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
@@ -239,19 +269,21 @@
 - wip ([9508d37](https://github.com/pickier/pickier/commit/9508d37)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([87a3671](https://github.com/pickier/pickier/commit/87a3671)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([2a86b43](https://github.com/pickier/pickier/commit/2a86b43)) _(by Chris <chrisbreuer93@gmail.com>)_
-- **deps**: update dependency prettier to ^3.7.4 (#1319) ([1f8d434](https://github.com/pickier/pickier/commit/1f8d434)) _(by [renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\]))_ ([#1319](https://github.com/pickier/pickier/issues/1319), [#1319](https://github.com/pickier/pickier/issues/1319))
-- **deps**: update all non-major dependencies (#489) ([3f37a1e](https://github.com/pickier/pickier/commit/3f37a1e)) _(by [renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\]))_ ([#489](https://github.com/pickier/pickier/issues/489), [#489](https://github.com/pickier/pickier/issues/489))
+- **deps**: update dependency prettier to ^3.7.4 (#1319) ([1f8d434](https://github.com/pickier/pickier/commit/1f8d434)) _(by [renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot))_ ([#1319](https://github.com/pickier/pickier/issues/1319), [#1319](https://github.com/pickier/pickier/issues/1319))
+- **deps**: update all non-major dependencies (#489) ([3f37a1e](https://github.com/pickier/pickier/commit/3f37a1e)) _(by [renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot))_ ([#489](https://github.com/pickier/pickier/issues/489), [#489](https://github.com/pickier/pickier/issues/489))
 
-**Contributors**
+### Contributors - v0.1.11 (#15)
 
 - _Chris <chrisbreuer93@gmail.com>_
 - _Glenn Michael Torregosa <gtorregosa@gmail.com>_
-- _[renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\])_
+- _[renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot)_
 - _glennmichael123 <gtorregosa@gmail.com>_
+
+## v0.1.10... (#16)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.10...HEAD)
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.10... (#16)
 
 - wip ([864522f](https://github.com/pickier/pickier/commit/864522f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
 - wip ([7185a5a](https://github.com/pickier/pickier/commit/7185a5a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
@@ -261,23 +293,25 @@
 - wip ([9508d37](https://github.com/pickier/pickier/commit/9508d37)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([87a3671](https://github.com/pickier/pickier/commit/87a3671)) _(by Chris <chrisbreuer93@gmail.com>)_
 - wip ([2a86b43](https://github.com/pickier/pickier/commit/2a86b43)) _(by Chris <chrisbreuer93@gmail.com>)_
-- **deps**: update dependency prettier to ^3.7.4 (#1319) ([1f8d434](https://github.com/pickier/pickier/commit/1f8d434)) _(by [renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\]))_ ([#1319](https://github.com/pickier/pickier/issues/1319), [#1319](https://github.com/pickier/pickier/issues/1319))
-- **deps**: update all non-major dependencies (#489) ([3f37a1e](https://github.com/pickier/pickier/commit/3f37a1e)) _(by [renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\]))_ ([#489](https://github.com/pickier/pickier/issues/489), [#489](https://github.com/pickier/pickier/issues/489))
+- **deps**: update dependency prettier to ^3.7.4 (#1319) ([1f8d434](https://github.com/pickier/pickier/commit/1f8d434)) _(by [renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot))_ ([#1319](https://github.com/pickier/pickier/issues/1319), [#1319](https://github.com/pickier/pickier/issues/1319))
+- **deps**: update all non-major dependencies (#489) ([3f37a1e](https://github.com/pickier/pickier/commit/3f37a1e)) _(by [renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot))_ ([#489](https://github.com/pickier/pickier/issues/489), [#489](https://github.com/pickier/pickier/issues/489))
 
-**Contributors**
+### Contributors - v0.1.10... (#16)
 
 - _Chris <chrisbreuer93@gmail.com>_
 - _Glenn Michael Torregosa <gtorregosa@gmail.com>_
-- _[renovate\[bot\] <29139614+renovate\[bot\]@users.noreply.github.com>](https://github.com/renovate\[bot\])_
+- _[renovate-bot <29139614+renovate-bot@users.noreply.github.com>](https://github.com/renovate-bot)_
 - _glennmichael123 <gtorregosa@gmail.com>_
+
+## v0.1.10 (#17)
 
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.9...v0.1.10)
 
-**🚀 Features**
+### 🚀 Features - v0.1.10 (#17)
 
 - Improves file discovery and ignore patterns ([6c8e874](https://github.com/stacksjs/pickier/commit/6c8e874))
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.10 (#17)
 
 - release v0.1.10 ([bb24f75](https://github.com/stacksjs/pickier/commit/bb24f75))
 - fix type checks ([4ae480a](https://github.com/stacksjs/pickier/commit/4ae480a))
@@ -291,17 +325,19 @@
 
 - chore : update documentation ([5109545](https://github.com/stacksjs/pickier/commit/5109545))
 
-**Contributors**
+### Contributors - v0.1.10 (#17)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
 
+## v0.1.9... (#18)
+
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.9...HEAD)
 
-**🚀 Features**
+### 🚀 Features - v0.1.9... (#18)
 
 - Improves file discovery and ignore patterns ([6c8e874](https://github.com/stacksjs/pickier/commit/6c8e874))
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.9... (#18)
 
 - fix type checks ([4ae480a](https://github.com/stacksjs/pickier/commit/4ae480a))
 - lint code ([0da3a73](https://github.com/stacksjs/pickier/commit/0da3a73))
@@ -310,50 +346,56 @@
 - update implementations ([f3086d9](https://github.com/stacksjs/pickier/commit/f3086d9))
 - remove vscode publish script ([e183afa](https://github.com/stacksjs/pickier/commit/e183afa))
 
-**📄 Miscellaneous**
+### 📄 Miscellaneous - v0.1.9... (#18)
 
 - chore : update documentation ([5109545](https://github.com/stacksjs/pickier/commit/5109545))
 
-**Contributors**
+### Contributors - v0.1.9... (#18)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
+
+## v0.1.9 (#19)
 
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.8...v0.1.9)
 
-**🐛 Bug Fixes**
+### 🐛 Bug Fixes - v0.1.9 (#19)
 
 - update vscode package and publish scripts ([b5476fc](https://github.com/stacksjs/pickier/commit/b5476fc))
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.9 (#19)
 
 - release v0.1.9 ([195fc9e](https://github.com/stacksjs/pickier/commit/195fc9e))
 
-**Contributors**
+### Contributors - v0.1.9 (#19)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
+
+## v0.1.8... (#20)
 
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.8...HEAD)
 
-**🐛 Bug Fixes**
+### 🐛 Bug Fixes - v0.1.8... (#20)
 
 - update vscode package and publish scripts ([b5476fc](https://github.com/stacksjs/pickier/commit/b5476fc))
 
-**Contributors**
+### Contributors - v0.1.8... (#20)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
 
+## v0.1.8 (#21)
+
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.7...v0.1.8)
 
-**🚀 Features**
+### 🚀 Features - v0.1.8 (#21)
 
 - add helper message on all rules ([b042cf7](https://github.com/stacksjs/pickier/commit/b042cf7))
 - make verbose default true and configurable ([ddf32b3](https://github.com/stacksjs/pickier/commit/ddf32b3))
 
-**🐛 Bug Fixes**
+### 🐛 Bug Fixes - v0.1.8 (#21)
 
 - prevent spacing transformations in comment-only lines ([768af07](https://github.com/stacksjs/pickier/commit/768af07))
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.8 (#21)
 
 - release v0.1.8 ([3775dff](https://github.com/stacksjs/pickier/commit/3775dff))
 - wip ([b4b1e9d](https://github.com/stacksjs/pickier/commit/b4b1e9d))
@@ -420,24 +462,26 @@
 - wip ([63a7d40](https://github.com/stacksjs/pickier/commit/63a7d40))
 - wip ([b7df839](https://github.com/stacksjs/pickier/commit/b7df839))
 
-**Contributors**
+### Contributors - v0.1.8 (#21)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
 - Chris <chrisbreuer93@gmail.com>
 - cab-mikee <mike.cabz32@gmail.com>
 
+## v0.1.7... (#22)
+
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.7...HEAD)
 
-**🚀 Features**
+### 🚀 Features - v0.1.7... (#22)
 
 - add helper message on all rules ([b042cf7](https://github.com/stacksjs/pickier/commit/b042cf7))
 - make verbose default true and configurable ([ddf32b3](https://github.com/stacksjs/pickier/commit/ddf32b3))
 
-**🐛 Bug Fixes**
+### 🐛 Bug Fixes - v0.1.7... (#22)
 
 - prevent spacing transformations in comment-only lines ([768af07](https://github.com/stacksjs/pickier/commit/768af07))
 
-**🧹 Chores**
+### 🧹 Chores - v0.1.7... (#22)
 
 - wip ([b4b1e9d](https://github.com/stacksjs/pickier/commit/b4b1e9d))
 - update docs to reflect new rules ([31046eb](https://github.com/stacksjs/pickier/commit/31046eb))
@@ -503,57 +547,51 @@
 - wip ([63a7d40](https://github.com/stacksjs/pickier/commit/63a7d40))
 - wip ([b7df839](https://github.com/stacksjs/pickier/commit/b7df839))
 
-**Contributors**
+### Contributors - v0.1.7... (#22)
 
 - Adelino Ngomacha <adelinob335@gmail.com>
 - Chris <chrisbreuer93@gmail.com>
 - cab-mikee <mike.cabz32@gmail.com>
 
+## v0.1.4... (#23)
+
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.4...HEAD)
 
-**Contributors**
+### Contributors - v0.1.4... (#23)
 
 - Adelino Ngomacha <Adelinob335@gmail.com>
 - Adelino Ngomacha <adelinob335@gmail.com>
 - Chris <chrisbreuer93@gmail.com>
 
-[Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.0...HEAD)
-
-**Contributors**
-
-- Chris <chrisbreuer93@gmail.com>
+## v0.1.0... (#24)
 
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.0...HEAD)
 
-**Contributors**
+### Contributors - v0.1.0... (#24)
 
 - Chris <chrisbreuer93@gmail.com>
 
+## v0.1.0... (#25)
+
+[Compare changes](https://github.com/stacksjs/pickier/compare/v0.1.0...HEAD)
+
+### Contributors - v0.1.0... (#25)
+
+- Chris <chrisbreuer93@gmail.com>
+
+## v0.0.1... (#26)
+
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.0.1...HEAD)
 
-**Contributors**
+### Contributors - v0.0.1... (#26)
 
 - Adelino Ngomacha <Adelinob335@gmail.com>
+
+## v0.0.1... (#27)
 
 [Compare changes](https://github.com/stacksjs/pickier/compare/v0.0.1...HEAD)
 
-**Contributors**
-
-- Adelino Ngomacha <Adelinob335@gmail.com>
-
-**Contributors**
-
-- Adelino Ngomacha <Adelinob335@gmail.com>
-
-**Contributors**
-
-- Adelino Ngomacha <Adelinob335@gmail.com>
-
-**Contributors**
-
-- Adelino Ngomacha <Adelinob335@gmail.com>
-
-**Contributors**
+### Contributors - v0.0.1... (#27)
 
 - Adelino Ngomacha <Adelinob335@gmail.com>
 
@@ -578,7 +616,7 @@
 - Fix isolatedDeclarations setting ([b87b6b1](https://github.com/stacksjs/ts-starter/commit/b87b6b1))
 - Adjust urls ([0a40b72](https://github.com/stacksjs/ts-starter/commit/0a40b72))
 
-**❤️ Contributors**
+### ❤️ Contributors - v0.3.0...main
 
 - Chris <chrisbreuer93@gmail.com>
 
@@ -586,7 +624,7 @@
 
 [compare changes](https://github.com/stacksjs/ts-starter/compare/v0.2.1...main)
 
-**🚀 Enhancements**
+### 🚀 Enhancements - v0.2.1...main
 
 - Add`noFallthroughCasesInSwitch`([b9cfa30](https://github.com/stacksjs/ts-starter/commit/b9cfa30))
 - Add`verbatimModuleSyntax`([c495d17](https://github.com/stacksjs/ts-starter/commit/c495d17))
@@ -596,7 +634,7 @@
 
 - Properly use bun types ([7144221](https://github.com/stacksjs/ts-starter/commit/7144221))
 
-**🏡 Chore**
+### 🏡 Chore - v0.2.1...main
 
 - Adjust badge links ([432aff7](https://github.com/stacksjs/ts-starter/commit/432aff7))
 - Add`runs-on`options ([9a5b97f](https://github.com/stacksjs/ts-starter/commit/9a5b97f))
@@ -618,7 +656,7 @@
 - Lint ([d961b2a](https://github.com/stacksjs/ts-starter/commit/d961b2a))
 - Minor updates ([e66d44a](https://github.com/stacksjs/ts-starter/commit/e66d44a))
 
-**❤️ Contributors**
+### ❤️ Contributors - v0.2.1...main
 
 - Chris <chrisbreuer93@gmail.com>
 
@@ -626,12 +664,12 @@
 
 [compare changes](https://github.com/stacksjs/ts-starter/compare/v0.2.0...main)
 
-**🏡 Chore**
+### 🏡 Chore - v0.2.0...main
 
 - Remove unused action ([066f85a](https://github.com/stacksjs/ts-starter/commit/066f85a))
 - Housekeeping ([fc4e24d](https://github.com/stacksjs/ts-starter/commit/fc4e24d))
 
-**❤️ Contributors**
+### ❤️ Contributors - v0.2.0...main
 
 - Chris <chrisbreuer93@gmail.com>
 
@@ -639,12 +677,12 @@
 
 [compare changes](https://github.com/stacksjs/ts-starter/compare/v0.1.1...main)
 
-**🏡 Chore**
+### 🏡 Chore - v0.1.1...main
 
 - Adjust eslint config name ([53c2aa6](https://github.com/stacksjs/ts-starter/commit/53c2aa6))
 - Set type module ([22dde14](https://github.com/stacksjs/ts-starter/commit/22dde14))
 
-**❤️ Contributors**
+### ❤️ Contributors - v0.1.1...main
 
 - Chris <chrisbreuer93@gmail.com>
 
@@ -652,11 +690,11 @@
 
 [compare changes](https://github.com/stacksjs/ts-starter/compare/v0.1.0...main)
 
-**🏡 Chore**
+### 🏡 Chore - v0.1.0...main
 
 - Use correct cover image ([75bd3ae](https://github.com/stacksjs/ts-starter/commit/75bd3ae))
 
-**❤️ Contributors**
+### ❤️ Contributors - v0.1.0...main
 
 - Chris <chrisbreuer93@gmail.com>
 
@@ -664,12 +702,12 @@
 
 [compare changes](https://github.com/stacksjs/ts-starter/compare/v0.0.5...main)
 
-**🚀 Enhancements**
+### 🚀 Enhancements - v0.0.5...main
 
 - Add pkgx deps ([319c066](https://github.com/stacksjs/ts-starter/commit/319c066))
 - Use flat eslint config ([cdb0093](https://github.com/stacksjs/ts-starter/commit/cdb0093))
 
-**🏡 Chore**
+### 🏡 Chore - v0.0.5...main
 
 - Fix badge ([bc3b000](https://github.com/stacksjs/ts-starter/commit/bc3b000))
 - Minor updates ([78dc522](https://github.com/stacksjs/ts-starter/commit/78dc522))
@@ -680,30 +718,6 @@
 - Adjust wording ([3bc54b3](https://github.com/stacksjs/ts-starter/commit/3bc54b3))
 - Adjust readme cover ([e6acbb2](https://github.com/stacksjs/ts-starter/commit/e6acbb2))
 
-**❤️ Contributors**
-
-- Chris <chrisbreuer93@gmail.com>
-
-**v0.0.5...main**
-
-[compare changes](https://github.com/stacksjs/ts-starter/compare/v0.0.5...main)
-
-**🚀 Enhancements**
-
-- Add pkgx deps ([319c066](https://github.com/stacksjs/ts-starter/commit/319c066))
-- Use flat eslint config ([cdb0093](https://github.com/stacksjs/ts-starter/commit/cdb0093))
-
-**🏡 Chore**
-
-- Fix badge ([bc3b000](https://github.com/stacksjs/ts-starter/commit/bc3b000))
-- Minor updates ([78dc522](https://github.com/stacksjs/ts-starter/commit/78dc522))
-- Housekeeping ([e1cba3b](https://github.com/stacksjs/ts-starter/commit/e1cba3b))
-- Additional housekeeping ([f5dc625](https://github.com/stacksjs/ts-starter/commit/f5dc625))
-- Add`.gitattributes` ([7080f8c](https://github.com/stacksjs/ts-starter/commit/7080f8c))
-- Adjust deps ([cc71b42](https://github.com/stacksjs/ts-starter/commit/cc71b42))
-- Adjust wording ([3bc54b3](https://github.com/stacksjs/ts-starter/commit/3bc54b3))
-- Adjust readme cover ([e6acbb2](https://github.com/stacksjs/ts-starter/commit/e6acbb2))
-
-**❤️ Contributors**
+### ❤️ Contributors - v0.0.5...main
 
 - Chris <chrisbreuer93@gmail.com>

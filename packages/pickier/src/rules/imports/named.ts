@@ -45,9 +45,13 @@ export const namedRule: RuleModule = {
         if (targetContent) {
           // Check if each named import is exported
           for (const importName of namedImports) {
+            // eslint-disable-next-line eslint/no-new
+            const exportDecl = new RegExp(`\\bexport\\s+(?:const|let|var|function|class)\\s+${importName}\\b`)
+            // eslint-disable-next-line eslint/no-new
+            const exportReExport = new RegExp(`\\bexport\\s+\\{[^}]*\\b${importName}\\b[^}]*\\}`)
             const exportPatterns = [
-              new RegExp(`\\bexport\\s+(?:const|let|var|function|class)\\s+${importName}\\b`),
-              new RegExp(`\\bexport\\s+\\{[^}]*\\b${importName}\\b[^}]*\\}`),
+              exportDecl,
+              exportReExport,
             ]
 
             const isExported = exportPatterns.some(pattern => pattern.test(targetContent))

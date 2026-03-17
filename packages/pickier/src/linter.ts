@@ -738,6 +738,7 @@ function stripRegexLiterals(line: string): string {
     if (line[i] === '/' && i > 0) {
       // Look back to see if this could be a regex (after =, (, [, {, :, etc.)
       const before = line.slice(0, i).trimEnd()
+      // eslint-disable-next-line max-statements-per-line
       const isRegexContext = /[=([{,:!&|?]$/.test(before) || /;$/.test(before) || before.endsWith('return')
       if (isRegexContext) {
         // This looks like a regex literal, skip to the closing /

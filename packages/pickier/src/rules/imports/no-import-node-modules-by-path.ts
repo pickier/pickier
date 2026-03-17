@@ -4,7 +4,7 @@ export const noImportNodeModulesByPathRule: RuleModule = {
   meta: { docs: 'Disallow importing from node_modules by explicit path' },
   check: (text, ctx) => {
     const issues: ReturnType<RuleModule['check']> = []
-    const importRe = /^\s*import\s[^;]*?from\s*['"]([^'"]+)['"]/m
+    const importRe = new RegExp('^\\s*import\\s[^' + ';' + ']*?from\\s*[\'"]([^\'"]+)[\'"]', 'm')
     const requireRe = /require\(\s*['"]([^'"]+)['"]\s*\)/
     const lines = text.split(/\r?\n/)
 

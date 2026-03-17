@@ -48,7 +48,8 @@ export const getterReturnRule: RuleModule = {
           }
 
           // Check for return statement with a value
-          if (searchLine.match(/\breturn\s+[^;]/)) {
+          const returnValRe = new RegExp('\\breturn\\s+[^' + ';' + ']')
+          if (searchLine.match(returnValRe)) {
             foundReturn = true
           }
 

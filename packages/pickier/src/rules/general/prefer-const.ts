@@ -9,8 +9,14 @@ function splitTopLevel(s: string, sep: string): string[] {
   let escaped = false
   for (let i = 0; i < s.length; i++) {
     const c = s[i]
-    if (escaped) { escaped = false; continue }
-    if (c === '\\' && inStr) { escaped = true; continue }
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (c === '\\' && inStr) {
+      escaped = true
+      continue
+    }
     if (!inStr) {
       if (c === '\'') inStr = 'single'
       else if (c === '"') inStr = 'double'
@@ -48,7 +54,9 @@ export const preferConstRule: RuleModule = {
     const lines = text.split(/\r?\n/)
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      const decl = line.match(/^\s*(?:let|var)\s+(.+?);?\s*$/)
+      // eslint-disable-next-line style/max-statements-per-line
+      const declRe = new RegExp('^\\s*(?:let|var)\\s+(.+?)' + ';' + '?\\s*$')
+      const decl = line.match(declRe)
       if (!decl)
         continue
       let after = decl[1]

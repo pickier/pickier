@@ -76,7 +76,7 @@ export const preferOptionalChainRule: RuleModule = {
       }
 
       // Pattern 2: obj.a && obj.a.b (chained property access)
-      const pattern2 = /([\w$]+(?:\.[\w$]+)+)\s*&&\s*\1\.([\w$]+)/g
+      const pattern2 = /([\w$.]+)\s*&&\s*\1\.([\w$]+)/g
       pattern2.lastIndex = 0
 
       // eslint-disable-next-line no-cond-assign
@@ -143,7 +143,7 @@ export const preferOptionalChainRule: RuleModule = {
 
       // Fix pattern: obj.a && obj.a.b => obj.a?.b
       fixedLine = fixedLine.replace(
-        /([\w$]+(?:\.[\w$]+)+)\s*&&\s*\1\.([\w$]+)/g,
+        /([\w$.]+)\s*&&\s*\1\.([\w$]+)/g,
         '$1?.$2',
       )
 

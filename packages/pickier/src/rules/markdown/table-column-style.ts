@@ -16,7 +16,7 @@ export const tableColumnStyleRule: RuleModule = {
 
       // Check if line is a table separator (contains : and -)
       if (/[-:]/.test(line) && /\|/.test(line)) {
-        const separatorMatch = line.match(/^[|\s]*(:?-+:?[|\s]*)+$/)
+        const separatorMatch = line.match(/^[|\s:.-]+$/)
 
         if (separatorMatch) {
           // This is a table separator line

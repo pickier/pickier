@@ -13,7 +13,8 @@ export const noSelfAssignRule: RuleModule = {
       const line = lines[i]
 
       // Match simple assignments: identifier = identifier
-      const simpleMatch = line.match(/\b(\w+)\s*=\s*(\w+)\s*(?:;\s*)?(?:\/\/.*)?$/)
+      const simpleAssignRe = new RegExp('\\b(\\w+)\\s*=\\s*(\\w+)\\s*(?:' + ';' + '\\s*)?(?:\\/\\/.*)?$')
+      const simpleMatch = line.match(simpleAssignRe)
       if (simpleMatch && simpleMatch[1] === simpleMatch[2]) {
         issues.push({
           filePath: ctx.filePath,
@@ -27,7 +28,7 @@ export const noSelfAssignRule: RuleModule = {
       }
 
       // Match property assignments: obj.prop = obj.prop
-      const propMatch = line.match(/(\w+(?:\.\w+)+)\s*=\s*(\w+(?:\.\w+)+)/)
+      const propMatch = line.match(/([\w.]+)\s*=\s*([\w.]+)/)
       if (propMatch && propMatch[1] === propMatch[2]) {
         issues.push({
           filePath: ctx.filePath,
@@ -73,7 +74,8 @@ export const noSelfAssignRule: RuleModule = {
       if (linesToRemove.has(i)) {
         // If the line is only whitespace + self-assignment, remove it
         const trimmed = line.trim()
-        if (/^\w+(?:\.\w+|\[[^\]]+\])?\s*=\s*\w+(?:\.\w+|\[[^\]]+\])?;?\s*$/.test(trimmed)) {
+        const selfAssignRe = new RegExp('^\\w+(?:\\.\\w+|\\[[^\\]]+\\])?\\s*=\\s*\\w+(?:\\.\\w+|\\[[^\\]]+\\])?' + ';' + '?\\s*$')
+        if (selfAssignRe.test(trimmed)) {
           return '' // Remove the line entirely
         }
       }

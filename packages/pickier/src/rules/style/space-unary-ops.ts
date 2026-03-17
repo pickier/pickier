@@ -61,7 +61,8 @@ export const spaceUnaryOpsRule: RuleModule = {
         // Make sure the ! is a unary operator (preceded by operator or start)
         const before = line.slice(0, match.index)
         const prevChar = before.trimEnd().slice(-1)
-        if (!prevChar || /[=(<[{,;|&?:+\-*/!~^%]/.test(prevChar) || before.trimEnd().endsWith('return') || before.trimEnd().endsWith('case')) {
+        const unaryPrecedeRe = new RegExp('[=(<[{,' + ';' + '|&?:+\\-*/!~^%]')
+        if (!prevChar || unaryPrecedeRe.test(prevChar) || before.trimEnd().endsWith('return') || before.trimEnd().endsWith('case')) {
           issues.push({
             filePath: context.filePath,
             line: i + 1,

@@ -228,15 +228,31 @@ export const noUnusedVarsRule: RuleModule = {
             let fEsc = false
             for (let ci = 0; ci < inner.length; ci++) {
               const ch = inner[ci]
-              if (fEsc) { fEsc = false; fCurrent += ch; continue }
-              if (ch === '\\' && fStr) { fEsc = true; fCurrent += ch; continue }
+              if (fEsc) {
+                fEsc = false
+                fCurrent += ch
+                continue
+              }
+              if (ch === '\\' && fStr) {
+                fEsc = true
+                fCurrent += ch
+                continue
+              }
               if (!fStr) {
-                if (ch === '\'' || ch === '"' || ch === '`') { fStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template'; fCurrent += ch; continue }
+                if (ch === '\'' || ch === '"' || ch === '`') {
+                  fStr = ch === '\'' ? 'single' : ch === '"' ? 'double' : 'template'
+                  fCurrent += ch
+                  continue
+                }
                 if (ch === '(' || ch === '{' || ch === '[') fDepth++
                 if (ch === ')' || ch === '}' || ch === ']') fDepth--
-                if (ch === ',' && fDepth === 0) { fields.push(fCurrent.trim()); fCurrent = ''; continue }
+                if (ch === ',' && fDepth === 0) {
+                  fields.push(fCurrent.trim())
+                  fCurrent = ''
+                  continue
+                }
               }
-else {
+              else {
                 if ((fStr === 'single' && ch === '\'') || (fStr === 'double' && ch === '"') || (fStr === 'template' && ch === '`')) fStr = null
               }
               fCurrent += ch
@@ -261,7 +277,10 @@ else {
                   const ch = value[ci]
                   if (ch === '(' || ch === '{' || ch === '[') eqDepth++
                   else if (ch === ')' || ch === '}' || ch === ']') eqDepth--
-                  else if (ch === '=' && eqDepth === 0) { value = value.slice(0, ci).trim(); break }
+                  else if (ch === '=' && eqDepth === 0) {
+                    value = value.slice(0, ci).trim()
+                    break
+                  }
                 }
                 const nameMatch = value.match(/^([$A-Z_][\w$]*)/i)
                 if (nameMatch) names.push(nameMatch[1])
@@ -275,7 +294,10 @@ else {
                   const ch = fieldName[ci]
                   if (ch === '(' || ch === '{' || ch === '[') eqDepth++
                   else if (ch === ')' || ch === '}' || ch === ']') eqDepth--
-                  else if (ch === '=' && eqDepth === 0) { fieldName = fieldName.slice(0, ci).trim(); break }
+                  else if (ch === '=' && eqDepth === 0) {
+                    fieldName = fieldName.slice(0, ci).trim()
+                    break
+                  }
                 }
                 const nameMatch = fieldName.match(/^([$A-Z_][\w$]*)/i)
                 if (nameMatch) names.push(nameMatch[1])
@@ -540,7 +562,8 @@ else {
               }
               else if (ch === '/') {
                 const before = i > 0 ? str.slice(0, i).trimEnd() : ''
-                if (!before || /[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
+                const regexPrecedeRe = new RegExp('[=([{,:' + ';' + '!&|?]$')
+                if (!before || regexPrecedeRe.test(before) || before.endsWith('return')) {
                   // This is a regex - skip it
                   i++ // skip opening /
                   while (i < str.length) {
@@ -699,23 +722,46 @@ else {
             continue
           }
 
-          if (depthInSingle) { if (ch === '\'') depthInSingle = false; continue }
-          if (depthInDouble) { if (ch === '"') depthInDouble = false; continue }
+          if (depthInSingle) {
+            // eslint-disable-next-line style/max-statements-per-line
+            if (ch === '\'') depthInSingle = false
+            continue
+          }
+          if (depthInDouble) {
+            // eslint-disable-next-line style/max-statements-per-line
+            if (ch === '"') depthInDouble = false
+            continue
+          }
 
           if (inTmplBody) {
+            // eslint-disable-next-line style/max-statements-per-line
             if (ch === '`') { depthTmplStack.pop() }
             else if (ch === '$' && k + 1 < lineToProcess.length && lineToProcess[k + 1] === '{') {
+              // eslint-disable-next-line style/max-statements-per-line
               depthTmplStack[depthTmplStack.length - 1] = 0
+              // eslint-disable-next-line style/max-statements-per-line
               k++ // skip the {
             }
             continue
           }
 
           if (inTmplExpr) {
-            if (ch === '`') { depthTmplStack.push(-1); continue }
-            if (ch === '\'') { depthInSingle = true; continue }
-            if (ch === '"') { depthInDouble = true; continue }
-            if (ch === '{') { depthTmplStack[depthTmplStack.length - 1]++; continue }
+            if (ch === '`') {
+              depthTmplStack.push(-1)
+              continue
+            }
+            if (ch === '\'') {
+              depthInSingle = true
+              continue
+            }
+            if (ch === '"') {
+              depthInDouble = true
+              continue
+            }
+            if (ch === '{') {
+              depthTmplStack[depthTmplStack.length - 1]++
+              continue
+            }
             if (ch === '}') {
               if (depthTmplStack[depthTmplStack.length - 1] > 0) {
                 depthTmplStack[depthTmplStack.length - 1]--
@@ -792,7 +838,8 @@ else {
             // Regex can appear after: = ( [ { , : ; ! & | ? or at start of line
             const prevChar = line[idx - 1] || ''
             const prev2Chars = idx >= 2 ? line.slice(idx - 2, idx) : ''
-            if (/[=([{,:;!?]/.test(prevChar) || prev2Chars === '&&' || prev2Chars === '||' || /^\s*$/.test(line.slice(0, idx))) {
+            const regexPrecedeCharRe = new RegExp('[=([{,:' + ';' + '!?]')
+            if (regexPrecedeCharRe.test(prevChar) || prev2Chars === '&&' || prev2Chars === '||' || /^\s*$/.test(line.slice(0, idx))) {
               inRegex = true
             }
             else if (next === '/') {
@@ -821,7 +868,8 @@ else {
         while (i < str.length) {
           if (str[i] === '/') {
             const before = i > 0 ? str.slice(0, i).trimEnd() : ''
-            if (!before || /[=([{,:;!&|?]$/.test(before) || before.endsWith('return')) {
+            const regPrecede = new RegExp('[=([{,:' + ';' + '!&|?]$')
+            if (!before || regPrecede.test(before) || before.endsWith('return')) {
               i++ // skip opening /
               while (i < str.length) {
                 if (str[i] === '\\') {

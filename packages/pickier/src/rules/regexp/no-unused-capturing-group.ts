@@ -42,12 +42,25 @@ function parseRegexLiteral(content: string, idx: number): RegexInfo | null {
   let closedAt = -1
   while (i < content.length) {
     const c = content[i]
-    if (escaped) { escaped = false }
-    else if (c === '\\') { escaped = true }
-    else if (c === '[') { if (!inClass) inClass = true }
-    else if (c === ']') { if (inClass) inClass = false }
-    else if (c === '/' && !inClass) { closedAt = i; break }
-    else if (c === '\n') { break }
+    if (escaped) {
+      escaped = false
+    }
+    else if (c === '\\') {
+      escaped = true
+    }
+    else if (c === '[') {
+      if (!inClass) inClass = true
+    }
+    else if (c === ']') {
+      if (inClass) inClass = false
+    }
+    else if (c === '/' && !inClass) {
+      closedAt = i
+      break
+    }
+    else if (c === '\n') {
+      break
+    }
     i++
   }
 
@@ -67,9 +80,18 @@ function parseRegexLiteral(content: string, idx: number): RegexInfo | null {
   let firstCapOffset = -1
   let inCharClass = false
   for (let j = 0; j < pattern.length; j++) {
-    if (pattern[j] === '\\') { j++; continue }
-    if (pattern[j] === '[' && !inCharClass) { inCharClass = true; continue }
-    if (pattern[j] === ']' && inCharClass) { inCharClass = false; continue }
+    if (pattern[j] === '\\') {
+      j++
+      continue
+    }
+    if (pattern[j] === '[' && !inCharClass) {
+      inCharClass = true
+      continue
+    }
+    if (pattern[j] === ']' && inCharClass) {
+      inCharClass = false
+      continue
+    }
     if (inCharClass) continue
     if (pattern[j] === '('
       && pattern.slice(j + 1, j + 3) !== '?:'
@@ -225,7 +247,9 @@ function findIssues(content: string, ctx: RuleContext): LintIssue[] {
       const quote = ch
       idx++
       while (idx < content.length) {
+        // eslint-disable-next-line max-statements-per-line
         if (content[idx] === '\\') { idx += 2; continue }
+        // eslint-disable-next-line max-statements-per-line
         if (content[idx] === quote) { idx++; break }
         idx++
       }

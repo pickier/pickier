@@ -13,7 +13,7 @@ export const noSelfCompareRule: RuleModule = {
       const line = lines[i]
 
       // Match comparisons with various operators
-      const comparePattern = /(\w+(?:\.\w+|\[[^\]]+\])*)\s*(===|!==|==|!=|<|>|<=|>=)\s*(\w+(?:\.\w+|\[[^\]]+\])*)/g
+      const comparePattern = /([\w.\[\]]+)\s*(===|!==|==|!=|<|>|<=|>=)\s*([\w.\[\]]+)/g
       let match
 
       for (match = comparePattern.exec(line); match !== null; match = comparePattern.exec(line)) {

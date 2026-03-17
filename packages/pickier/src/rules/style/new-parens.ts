@@ -2,7 +2,10 @@ import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 // Match `new Identifier` not followed by ( or preceded by keyword patterns
 // We want to catch `new Foo` but not `new Foo(` or `new Foo<T>(`
-const NEW_WITHOUT_PARENS_RE = /\bnew\s+([A-Z][a-zA-Z0-9_$]*(?:\.[a-zA-Z0-9_$]+)*)(?![a-zA-Z0-9_$])(?:\s*<[^>]*>)?\s*(?=[^(;\n]|$)/g
+const NEW_WITHOUT_PARENS_RE = new RegExp(
+  '\\bnew\\s+([A-Z][a-zA-Z0-9_$.]+)(?![a-zA-Z0-9_$])(?:\\s*<[^>]*>)?\\s*(?=[^(' + ';' + '\\n]|$)',
+  'g',
+)
 
 function isInStringOrComment(line: string, index: number): boolean {
   const before = line.slice(0, index)
@@ -64,7 +67,7 @@ export const newParensRule: RuleModule = {
   fix(content: string): string {
     // Add () after `new Constructor` when missing parens
     return content.replace(
-      /\bnew\s+([A-Z][a-zA-Z0-9_$]*(?:\.[a-zA-Z0-9_$]+)*)(?![a-zA-Z0-9_$])(\s*<[^>]*>)?\s*(?=[^(]|$)/g,
+      /\bnew\s+([A-Z][a-zA-Z0-9_$.]+)(?![a-zA-Z0-9_$])(\s*<[^>]*>)?\s*(?=[^(]|$)/g,
       (match, name, generics) => {
         // Check if already has parens
         const rest = match.slice(match.indexOf(name) + name.length + (generics?.length || 0))

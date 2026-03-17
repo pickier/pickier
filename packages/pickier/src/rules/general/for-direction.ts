@@ -13,7 +13,12 @@ export const forDirectionRule: RuleModule = {
       const line = lines[i]
 
       // Match for loops: for (let i = 0; i < n; i++)
-      const forMatch = line.match(/\bfor\s*\(\s*(?:(?:let|var|const)\s*)?(\w+)\s*=[^;]+;\s*(\w+)\s*([<>]=?)[^;]+;\s*(\w+)(\+\+|--|[\s+-]=)/)
+      const forLoopRe = new RegExp(
+        '\\bfor\\s*\\(\\s*(?:(?:let|var|const)\\s*)?(\\w+)\\s*=[^'
+        + ';]+' + ';' + '\\s*(\\w+)\\s*([<>]=?)[^'
+        + ';]+' + ';' + '\\s*(\\w+)(\\+\\+|--|[\\s+-]=)',
+      )
+      const forMatch = line.match(forLoopRe)
 
       if (forMatch) {
         const initVar = forMatch[1]

@@ -169,7 +169,10 @@ export function tokenize(text: string): Token[] {
     }
     // identifier/number
     const s = i
-    while (i < n && /[^\s(){}[\];:,.<>+\-*%&|^!?=~'"`/]/.test(text[i])) i++
+    const wordCharRe = new RegExp('[^\\s(){}[\\]' + ';' + ':,.<>+\\-*%&|^!?=~\'"`/]')
+    while (i < n && wordCharRe.test(text[i])) {
+      i++
+    }
     if (i > s) {
       push('Word', s, i)
     }
@@ -187,8 +190,9 @@ function isRegexPossible(tokens: Token[]): boolean {
     return true
   const t = tokens[tokens.length - 1]
   // after these token types, a regex can appear
+  const punctRe = new RegExp('[(!,{' + ';' + ':?=]')
   return (
-    (t.type === 'Punct' && /[(!,{;:?=]/.test(t.value))
+    (t.type === 'Punct' && punctRe.test(t.value))
     || (t.type === 'Word' && /^(?:return|throw|case|of|in|instanceof|typeof|void|new)$/.test(t.value))
   )
 }
@@ -268,10 +272,13 @@ export function findMatching(text: string, start: number, open: string, close: s
   const isRegexStart = (i: number) => {
     // Heuristic: previous non-space char suggests division vs regex
     let j = i - 1
-    while (j >= 0 && isWhitespace(text[j])) j--
+    while (j >= 0 && isWhitespace(text[j])) {
+      j--
+    }
     const prev = j >= 0 ? text[j] : ''
     // After these, a regex can start
-    if (/[(:[{;?,=!&|^~+\-*%<>]/.test(prev))
+    const regexStartRe = new RegExp('[(:[{' + ';' + '?,=!&|^~+\\-*%<>]')
+    if (regexStartRe.test(prev))
       return true
     // Start of input
     if (prev === '')

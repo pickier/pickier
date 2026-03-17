@@ -124,7 +124,7 @@ export const noUnsafeAssignmentRule: RuleModule = {
 
           // Also check for direct property assignment
           // Pattern: obj.foo = JSON.parse(...)
-          const propAssignMatch = before.match(/([\w$]+(?:\.[\w$]+)+)\s*=\s*$/)
+          const propAssignMatch = before.match(/([\w$.]+)\s*=\s*$/)
           if (propAssignMatch) {
             const actualIdx = originalLine.indexOf(match[0])
             issues.push({

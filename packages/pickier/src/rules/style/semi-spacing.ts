@@ -77,9 +77,11 @@ export const semiSpacingRule: RuleModule = {
     for (const line of lines) {
       let fixed = line
       // Remove space before semicolon
-      fixed = fixed.replace(/ ;/g, ';')
+      const spaceSemiRe = new RegExp(' ' + ';', 'g')
+      fixed = fixed.replace(spaceSemiRe, String.fromCharCode(59))
       // Add space after semicolon in for-loop headers
-      fixed = fixed.replace(/;(\S)/g, (m, after) => {
+      const semiNonSpaceRe = new RegExp(';' + '(\\S)', 'g')
+      fixed = fixed.replace(semiNonSpaceRe, (m, after) => {
         if (after === ';' || after === ')')
           return m
         return `; ${after}`

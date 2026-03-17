@@ -13,7 +13,7 @@ export const useIsNaNRule: RuleModule = {
       const line = lines[i]
 
       // Match comparisons with NaN
-      const nanPattern = /\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*(===|!==|==|!=)\s*NaN\b|\bNaN\s*(===|!==|==|!=)\s*(\w+(?:\.\w+|\[[^\]]+\])*)/g
+      const nanPattern = /\b([\w.\[\]]+)\s*(===|!==|==|!=)\s*NaN\b|\bNaN\s*(===|!==|==|!=)\s*([\w.\[\]]+)/g
       let match
 
       for (match = nanPattern.exec(line); match !== null; match = nanPattern.exec(line)) {
@@ -39,41 +39,41 @@ export const useIsNaNRule: RuleModule = {
       let newLine = line
 
       // Replace x === NaN or NaN === x with isNaN(x)
-      newLine = newLine.replace(/\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*===\s*NaN\b/g, (_, varName) => {
+      newLine = newLine.replace(/\b([\w.\[\]]+)\s*===\s*NaN\b/g, (_, varName) => {
         modified = true
         return `isNaN(${varName})`
       })
-      newLine = newLine.replace(/\bNaN\s*===\s*(\w+(?:\.\w+|\[[^\]]+\])*)\b/g, (_, varName) => {
+      newLine = newLine.replace(/\bNaN\s*===\s*([\w.\[\]]+)\b/g, (_, varName) => {
         modified = true
         return `isNaN(${varName})`
       })
 
       // Replace x !== NaN or NaN !== x with !isNaN(x)
-      newLine = newLine.replace(/\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*!==\s*NaN\b/g, (_, varName) => {
+      newLine = newLine.replace(/\b([\w.\[\]]+)\s*!==\s*NaN\b/g, (_, varName) => {
         modified = true
         return `!isNaN(${varName})`
       })
-      newLine = newLine.replace(/\bNaN\s*!==\s*(\w+(?:\.\w+|\[[^\]]+\])*)\b/g, (_, varName) => {
+      newLine = newLine.replace(/\bNaN\s*!==\s*([\w.\[\]]+)\b/g, (_, varName) => {
         modified = true
         return `!isNaN(${varName})`
       })
 
       // Replace x == NaN or NaN == x with isNaN(x)
-      newLine = newLine.replace(/\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*==\s*NaN\b/g, (_, varName) => {
+      newLine = newLine.replace(/\b([\w.\[\]]+)\s*==\s*NaN\b/g, (_, varName) => {
         modified = true
         return `isNaN(${varName})`
       })
-      newLine = newLine.replace(/\bNaN\s*==\s*(\w+(?:\.\w+|\[[^\]]+\])*)\b/g, (_, varName) => {
+      newLine = newLine.replace(/\bNaN\s*==\s*([\w.\[\]]+)\b/g, (_, varName) => {
         modified = true
         return `isNaN(${varName})`
       })
 
       // Replace x != NaN or NaN != x with !isNaN(x)
-      newLine = newLine.replace(/\b(\w+(?:\.\w+|\[[^\]]+\])*)\s*!=\s*NaN\b/g, (_, varName) => {
+      newLine = newLine.replace(/\b([\w.\[\]]+)\s*!=\s*NaN\b/g, (_, varName) => {
         modified = true
         return `!isNaN(${varName})`
       })
-      newLine = newLine.replace(/\bNaN\s*!=\s*(\w+(?:\.\w+|\[[^\]]+\])*)\b/g, (_, varName) => {
+      newLine = newLine.replace(/\bNaN\s*!=\s*([\w.\[\]]+)\b/g, (_, varName) => {
         modified = true
         return `!isNaN(${varName})`
       })

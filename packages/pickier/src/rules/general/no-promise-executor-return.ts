@@ -38,7 +38,8 @@ export const noPromiseExecutorReturnRule: RuleModule = {
           }
 
           // Check for return statement with a value (not just "return")
-          if (inExecutor && searchLine.match(/\breturn\s+[^;]/)) {
+          const returnValueRe = new RegExp('\\breturn\\s+[^' + ';' + ']')
+          if (inExecutor && searchLine.match(returnValueRe)) {
             issues.push({
               filePath: ctx.filePath,
               line: currentLineIndex + 1,

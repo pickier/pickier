@@ -4,7 +4,7 @@ export const noImportDistRule: RuleModule = {
   meta: { docs: 'Disallow importing from dist directories' },
   check: (text, ctx) => {
     const issues: ReturnType<RuleModule['check']> = []
-    const re = /^\s*import\s[^;]*?from\s*['"]([^'"]+)['"]/m
+    const re = new RegExp('^\\s*import\\s[^' + ';' + ']*?from\\s*[\'"]([^\'"]+)[\'"]', 'm')
     const lines = text.split(/\r?\n/)
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]

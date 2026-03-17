@@ -5,12 +5,12 @@ const JSON_EXTS = new Set(['.json', '.jsonc'])
 const YAML_EXTS = new Set(['.yaml', '.yml'])
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
-const RE_LEADING_WS = /^[ \t]*/
+const _RE_LEADING_WS = /^[ \t]*/
 const RE_CLOSING_BRACE = /^\}/
 const RE_OPENING_BRACE = /\{\s*$/
 const RE_FOR_LOOP = /^\s*for\s*\(/
-const RE_EMPTY_SEMI = /^\s*;\s*$/
-const RE_DUP_SEMI = /;{2,}\s*$/
+const RE_EMPTY_SEMI = new RegExp('^\\s*' + ';' + '\\s*$')
+const RE_DUP_SEMI = new RegExp(';' + '{2,}\\s*$')
 const RE_SPACE_BEFORE_BRACE = /(\S)\{/g
 const RE_SPACE_AFTER_BRACE_KW = /\{(return|if|for|while|switch|const|let|var|function)\b/g
 const RE_COMMA_SPACE = /,(\S)/g
@@ -19,7 +19,7 @@ const RE_PLUS_OP = /(\w)\+(\w)/g
 const RE_MINUS_OP = /(\w)-(\w)/g
 const RE_STAR_OP = /(\w)\*(\w)/g
 const RE_SLASH_OP = /(\w)\/(\w)/g
-const RE_SEMI_SPACE = /;([^\s;])/g
+const RE_SEMI_SPACE = new RegExp(';' + '([^\\s' + ';' + '])', 'g')
 const RE_LT_OP = /([\w\])])<(\S)/g
 const RE_GT_OP = /(\S)>([\w[(])/g
 const RE_MULTI_SPACE = /\s{2,}/g
@@ -30,7 +30,7 @@ const RE_IMPORT_STMT = /^\s*import\b/
 const RE_PACKAGE_JSON = /package\.json$/i
 const RE_TSCONFIG_JSON = /[jt]sconfig(?:\..+)?\.json$/i
 const RE_TRAILING_WS = /[ \t]+$/
-const RE_LEADING_BLANKS = /^(?:[ \t]*\n)+/
+const RE_LEADING_BLANKS = /^\n+/
 
 function getFileExt(filePath: string): string {
   const idx = filePath.lastIndexOf('.')
@@ -142,13 +142,19 @@ function fixQuotesLine(line: string, preferred: 'single' | 'double'): string {
     }
     else if (inString === 3) {
       // template literal — just scan for closing backtick
-      if (ch === '\\') { i += 2; continue }
+      if (ch === '\\') {
+        i += 2
+        continue
+      }
       if (ch === '`') inString = 0
       i++
     }
     else {
       // single or double string
-      if (ch === '\\') { i += 2; continue }
+      if (ch === '\\') {
+        i += 2
+        continue
+      }
       const closeChar = inString === 1 ? '\'' : '"'
       if (ch === closeChar) {
         // Found closing quote — convert if needed
@@ -799,7 +805,8 @@ function parseImportStatement(stmt: string): ParsedImport | undefined {
   // value import: default/namespace/named (with possible "type" in named)
   // Use non-backtracking parsing: locate the leading "import" and trailing "from 'src'" and slice
   const importLead = stmt.match(/^\s*import\s+/)
-  const fromMatch = stmt.match(/\sfrom\s+['"]([^'"]+)['"]\s*;?$/)
+  const fromMatchRe = new RegExp('\\sfrom\\s+[\'"]([^\'"]+)[\'"]\\s*' + ';' + '?$')
+  const fromMatch = stmt.match(fromMatchRe)
   if (!importLead || !fromMatch)
     return undefined
   const source = fromMatch[1]

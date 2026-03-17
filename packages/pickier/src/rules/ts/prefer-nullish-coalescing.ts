@@ -103,7 +103,8 @@ export const preferNullishCoalescingRule: RuleModule = {
           }
           else if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
             // Check for operators that would end the left operand
-            if (/[;,=:?]/.test(ch)) {
+            const endOperatorRe = new RegExp('[' + ';' + ',=:?]')
+            if (endOperatorRe.test(ch)) {
               leftStart++
               break
             }
@@ -175,7 +176,8 @@ export const preferNullishCoalescingRule: RuleModule = {
             bracketDepth--
           }
           else if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
-            if (/[;,?:]/.test(ch))
+            const endChRe = new RegExp('[' + ';' + ',?:]')
+            if (endChRe.test(ch))
               break
             // Stop at other operators
             if (ch === '&' || (ch === '|' && cleanedLine[rightEnd + 1] === '|'))
@@ -232,8 +234,9 @@ export const preferNullishCoalescingRule: RuleModule = {
       let fixedLine = line
 
       // Pattern: identifier || value (where value doesn't look like boolean)
+      const nullishRe = new RegExp('(\\b[\\w$.]+)\\s*\\|\\|\\s*([^|&]+?)(?=\\s*[' + ';' + ',)\\]}]|$)', 'g')
       fixedLine = fixedLine.replace(
-        /(\b[\w$]+(?:\.[\w$]+)*)\s*\|\|\s*([^|&]+?)(?=\s*[;,)\]}]|$)/g,
+        nullishRe,
         (match, left, right) => {
           // Don't replace if right side looks like boolean
           if (/\b(?:true|false)\b/.test(right.trim())) {

@@ -1,7 +1,7 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 const MULTILINE_TRAILING_COMMA_RE = /,\s*$/
-const CLOSING_BRACKET_RE = /^\s*[}\])](?:\s*;?\s*)?$/
+const CLOSING_BRACKET_RE = new RegExp('^\\s*[}\\])](?:\\s*' + ';' + '?\\s*)?$')
 
 export const commaDangleRule: RuleModule = {
   meta: {

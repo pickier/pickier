@@ -81,7 +81,8 @@ export const arrayCallbackReturnRule: RuleModule = {
               }
 
               // Check for return statement
-              if (searchLine.match(/\breturn\s+[^;]/)) {
+              // eslint-disable-next-line style/max-statements-per-line
+              if (searchLine.match(new RegExp('\\breturn\\s+[^' + ';' + ']'))) {
                 foundReturn = true
               }
 
@@ -131,7 +132,8 @@ export const arrayCallbackReturnRule: RuleModule = {
             }
 
             // Check for return statement
-            if (foundOpeningBrace && searchLine.match(/\breturn\s+[^;]/)) {
+            // eslint-disable-next-line style/max-statements-per-line
+            if (foundOpeningBrace && searchLine.match(new RegExp('\\breturn\\s+[^' + ';' + ']'))) {
               foundReturn = true
             }
 
