@@ -29,7 +29,7 @@
   ],
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.999.0"
+    "vscode": "^1.85.0"
   },
   "activationEvents": [
     "onLanguage:typescript",
@@ -110,8 +110,9 @@
         },
         "pickier.formatOnSave": {
           "type": "boolean",
-          "default": false,
-          "description": "Format files on save"
+          "default": true,
+          "description": "Enable Pickier as the formatter for format-on-save (use with editor.formatOnSave)",
+          "markdownDeprecationMessage": "Use `editor.formatOnSave` with `editor.defaultFormatter` set to `pickier.pickier-vscode` instead."
         },
         "pickier.lintOnSave": {
           "type": "boolean",

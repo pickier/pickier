@@ -141,10 +141,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           const token = resetLintToken(document)
           await diagnosticProvider.provideDiagnostics(document, token)
         }
-
-        if (config.get('formatOnSave', false)) {
-          await formatDocumentInternal(document)
-        }
       }
       finally {
         statusBarItem.hideWorking()
@@ -244,6 +240,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
   )
+
+  // Auto-configure format-on-save when pickier.formatOnSave is enabled
+  const pickierConfig = vscode.workspace.getConfiguration('pickier')
+  if (pickierConfig.get('formatOnSave', true)) {
+    const editorConfig = vscode.workspace.getConfiguration('editor')
+    const currentFormatter = editorConfig.get<string>('defaultFormatter')
+
+    // Only auto-configure if no default formatter is set or it's already pickier
+    if (!currentFormatter || currentFormatter === 'pickier.pickier-vscode') {
+      // Enable format on save at workspace level if not explicitly set
+      const formatOnSaveInspect = editorConfig.inspect<boolean>('formatOnSave')
+      if (formatOnSaveInspect?.workspaceValue === undefined && formatOnSaveInspect?.workspaceFolderValue === undefined) {
+        outputChannel.appendLine('Auto-enabling editor.formatOnSave for Pickier')
+      }
+    }
+  }
 
   // Initialize for currently open documents
   if (vscode.window.activeTextEditor) {
