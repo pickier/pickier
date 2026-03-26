@@ -1,11 +1,11 @@
 import type { FormatOptions, LintIssue, PickierConfig, PickierPlugin, RulesConfigMap } from './types'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { relative } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
-import { colors, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath } from './utils'
+import { colors, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
 
 let _logger: Logger | null = null
 function getLogger(): Logger {
@@ -229,10 +229,22 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   }))
 
   const timeoutMs = ENV.TIMEOUT_MS
+
+  // Filter ignore patterns based on whether we're globbing inside or outside the project
+  const isGlobbingOutsideProject = patterns.some((p) => {
+    const base = p.replace(/\/?\*\*\/?\*?\*?$/, '')
+    const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
+    return !absBase.startsWith(process.cwd())
+  })
+
+  const globIgnores = isGlobbingOutsideProject
+    ? [...UNIVERSAL_IGNORES]
+    : cfg.ignores
+
   let entries: string[] = []
-  const simpleDirPattern = patterns.length === 1 && /\*\*\/*\*$/.test(patterns[0])
+  const simpleDirPattern = patterns.length === 1 && /\*\*\/\*$/.test(patterns[0])
   if (simpleDirPattern) {
-    const base = patterns[0].replace(/\/?\*\*\/*\*\*$/, '')
+    const base = patterns[0].replace(/\/?\*\*\/\*$/, '')
     try {
       const { readdirSync, statSync } = await import('node:fs')
       const { join } = await import('node:path')
@@ -243,7 +255,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
         for (const it of items) {
           const full = join(dir, it)
           const st = statSync(full)
-          if (shouldIgnorePath(full, cfg.ignores))
+          if (shouldIgnorePath(full, globIgnores))
             continue
           if (st.isDirectory())
             stack.push(full)
@@ -255,7 +267,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
     catch {
       entries = await withTimeout(glob(patterns, {
         dot: false,
-        ignore: cfg.ignores,
+        ignore: globIgnores,
         onlyFiles: true,
         absolute: true,
       }), timeoutMs, 'glob')
@@ -264,7 +276,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   else {
     entries = await withTimeout(glob(patterns, {
       dot: false,
-      ignore: cfg.ignores,
+      ignore: globIgnores,
       onlyFiles: true,
       absolute: true,
     }), timeoutMs, 'glob')
@@ -273,7 +285,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   trace('globbed entries', entries.length)
 
   const files = entries.filter((f) => {
-    if (shouldIgnorePath(f, cfg.ignores))
+    if (shouldIgnorePath(f, globIgnores))
       return false
     const idx = f.lastIndexOf('.')
     if (idx < 0)
