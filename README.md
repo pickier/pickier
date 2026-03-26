@@ -16,6 +16,7 @@
 - JSON and config sorting for common files (e.g. `package.json`, `tsconfig.json`)
 - Tailwind CSS class ordering — enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX files with auto-fix
 - Markdown linting for documentation quality (headings, lists, links, code blocks, tables, etc.) with auto-fix support
+- Shell script linting & formatting — 21 rules for `.sh`, `.bash`, and `.zsh` files covering error prevention, style, and best practices with auto-fix support and indentation normalization
 - Flexible formatting: `indent`, `indentStyle` (tabs or spaces), `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
 - Smart whitespace cleanup
 - Package.json validation for correct npm publishing (exports ordering, file format, module system, etc.)
@@ -153,7 +154,7 @@ const config: PickierConfig = {
 
   format: {
     // which extensions to format
-    extensions: ['ts', 'js', 'json', 'md', 'yaml', 'yml'],
+    extensions: ['ts', 'js', 'json', 'md', 'yaml', 'yml', 'sh', 'bash', 'zsh'],
     trimTrailingWhitespace: true,
     maxConsecutiveBlankLines: 1,
     // one | two | none
@@ -181,13 +182,19 @@ const config: PickierConfig = {
     // configPath: './tailwind.config.ts', // optional
   },
 
-  // Plugin rules for markdown, style, sorting, etc.
+  // Plugin rules for markdown, shell, style, sorting, etc.
   pluginRules: {
     // Markdown linting (53+ rules available)
     'markdown/heading-increment': 'error',
     'markdown/no-trailing-spaces': 'error',
     'markdown/fenced-code-language': 'error',
     'markdown/no-duplicate-heading': 'warn',
+
+    // Shell script linting (21 rules available)
+    'shell/command-substitution': 'error',
+    'shell/no-eval': 'error',
+    'shell/quote-variables': 'warn',
+    'shell/prefer-double-brackets': 'warn',
   },
 }
 
@@ -209,6 +216,7 @@ Pickier supports an ESLint-style plugin system for lint rules organized into foc
 | `ts/` | TypeScript-specific rules (type safety, formatting) | 13+ |
 | `regexp/` | Regular expression safety | 3+ |
 | `markdown/` | Markdown documentation linting | 53+ |
+| `shell/` | Shell script linting & formatting (`.sh`, `.bash`, `.zsh`) | 21 |
 | `publint/` | Package.json validation for npm publishing ([publint](https://publint.dev) rules) | 20 |
 | `lockfile/` | Lock file validation | 5+ |
 

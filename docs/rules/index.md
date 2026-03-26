@@ -13,6 +13,7 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 - [TypeScript Plugin](#typescript-plugin) - TypeScript-specific rules
 - [RegExp Plugin](#regexp-plugin) - Regular expression safety
 - [Markdown Plugin](#markdown-plugin) - Markdown documentation linting
+- [Shell Plugin](#shell-plugin) - Shell script linting and formatting
 
 ## Quick Reference
 
@@ -55,6 +56,13 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 | `ts/type-generic-spacing` | TypeScript | Yes | off | No spaces inside generic brackets |
 | `ts/type-named-tuple-spacing` | TypeScript | Yes | off | Space after `:` in named tuples |
 | `markdown/*` | Markdown | Yes | varies | Various markdown formatting rules |
+| `shell/command-substitution` | Shell | Yes | error | Use `$()` instead of backticks |
+| `shell/no-eval` | Shell | No | error | Disallow eval in shell scripts |
+| `shell/no-broken-redirect` | Shell | No | error | Detect incorrect redirect ordering |
+| `shell/indent` | Shell | Yes | warn | Consistent shell indentation |
+| `shell/function-style` | Shell | Yes | warn | POSIX-compatible function style |
+| `shell/prefer-double-brackets` | Shell | Yes | warn | `[[ ]]` over `[ ]` for bash/zsh |
+| `shell/*` | Shell | varies | varies | 21 total shell rules ([see full list](/rules/shell)) |
 
 ## Core Rules
 
@@ -390,7 +398,27 @@ The`regexp/`plugin provides regular expression safety and optimization rules.
 
 The`markdown/`plugin provides 53+ rules for markdown linting and formatting. See [Markdown Rules Documentation](./markdown.md) for full details.
 
-### Rule Categories**Heading Rules (11 rules):**-`heading-increment`, `heading-style`, `no-missing-space-atx`, `no-multiple-space-atx`-`no-missing-space-closed-atx`, `no-multiple-space-closed-atx`-`blanks-around-headings`, `heading-start-left`, `no-duplicate-heading`-`single-title`, `no-trailing-punctuation`**List Rules (6 rules):**- `ul-style`, `list-indent`, `ul-indent`, `ol-prefix`-`list-marker-space`, `blanks-around-lists`**Whitespace Rules (9 rules):**- `no-trailing-spaces`, `no-hard-tabs`, `no-multiple-blanks`-`no-multiple-space-blockquote`, `no-blanks-blockquote`-`blanks-around-fences`, `single-trailing-newline`, `blanks-around-tables`**Link Rules (9 rules):**- `no-reversed-links`, `no-bare-urls`, `no-space-in-links`-`no-empty-links`, `link-fragments`, `reference-links-images`-`link-image-reference-definitions`, `link-image-style`, `descriptive-link-text`**Code Rules (5 rules):**- `line-length`, `commands-show-output`, `fenced-code-language`-`code-block-style`, `code-fence-style`**Emphasis/Strong Rules (5 rules):**- `no-emphasis-as-heading`, `no-space-in-emphasis`, `no-space-in-code`-`emphasis-style`, `strong-style`**Other Rules (8 rules):**- `no-inline-html`, `hr-style`, `first-line-heading`-`required-headings`, `proper-names`, `no-alt-text`-`table-pipe-style`, `table-column-count`, `table-column-style`---
+### Rule Categories**Heading Rules (11 rules):**-`heading-increment`, `heading-style`, `no-missing-space-atx`, `no-multiple-space-atx`-`no-missing-space-closed-atx`, `no-multiple-space-closed-atx`-`blanks-around-headings`, `heading-start-left`, `no-duplicate-heading`-`single-title`, `no-trailing-punctuation`**List Rules (6 rules):**- `ul-style`, `list-indent`, `ul-indent`, `ol-prefix`-`list-marker-space`, `blanks-around-lists`**Whitespace Rules (9 rules):**- `no-trailing-spaces`, `no-hard-tabs`, `no-multiple-blanks`-`no-multiple-space-blockquote`, `no-blanks-blockquote`-`blanks-around-fences`, `single-trailing-newline`, `blanks-around-tables`**Link Rules (9 rules):**- `no-reversed-links`, `no-bare-urls`, `no-space-in-links`-`no-empty-links`, `link-fragments`, `reference-links-images`-`link-image-reference-definitions`, `link-image-style`, `descriptive-link-text`**Code Rules (5 rules):**- `line-length`, `commands-show-output`, `fenced-code-language`-`code-block-style`, `code-fence-style`**Emphasis/Strong Rules (5 rules):**- `no-emphasis-as-heading`, `no-space-in-emphasis`, `no-space-in-code`-`emphasis-style`, `strong-style`**Other Rules (8 rules):**- `no-inline-html`, `hr-style`, `first-line-heading`-`required-headings`, `proper-names`, `no-alt-text`-`table-pipe-style`, `table-column-count`, `table-column-style`
+
+## Shell Plugin
+
+The `shell/` plugin provides 21 rules for linting and formatting shell scripts (`.sh`, `.bash`, `.zsh`). Files are also detected by shebang. See [Shell Rules Documentation](./shell.md) for full details.
+
+### Rule Categories
+
+**Error Prevention (8 rules):**
+- `command-substitution`, `quote-variables`, `no-cd-without-check`, `no-eval`
+- `no-useless-cat`, `no-ls-parsing`, `no-variable-in-single-quotes`, `no-exit-in-subshell`
+
+**Style (7 rules):**
+- `shebang`, `indent`, `function-style`, `operator-spacing`
+- `keyword-spacing`, `no-trailing-semicolons`, `no-trailing-whitespace`
+
+**Best Practices (6 rules):**
+- `prefer-double-brackets`, `set-options`, `prefer-printf`
+- `consistent-case-terminators`, `no-broken-redirect`, `heredoc-indent`
+
+---
 
 ## Disabling Rules
 

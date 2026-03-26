@@ -167,6 +167,24 @@ export default {
 }
 ```Pickier automatically expands these to`pickier/no-unused-vars`and`pickier/prefer-const`.
 
+### Configuring Shell Rules
+
+Shell rules are enabled by default with sensible severities. Customize them as needed:
+
+```ts
+export default {
+  pluginRules: {
+    'shell/command-substitution': 'error',
+    'shell/no-eval': 'error',
+    'shell/quote-variables': 'warn',
+    'shell/set-options': 'warn', // off by default, enable for stricter scripts
+    'shell/prefer-double-brackets': 'warn',
+  },
+}
+```
+
+Shell formatting (indentation normalization) is applied automatically when shell file extensions are included in `format.extensions` (they are by default).
+
 ### Configuring Sort Rules
 
 Sort rules are powerful but can cause large diffs when first enabled. Enable them gradually:

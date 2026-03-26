@@ -12,12 +12,16 @@ What the formatter does:
   - predictable code spacing around braces, commas, and `=`/comparison operators
   - optional semicolon normalization via `format.semi`- Import management for TS/JS files (see Features » Import Management)
 - Known JSON/config files get stable key ordering (see Features » JSON & Config Sorting)
+- Shell script formatting (`.sh`, `.bash`, `.zsh`)
+  - indentation normalization for `if`/`then`/`fi`, `case`/`esac`, `while`/`for`/`do`/`done`, function bodies
+  - heredoc content preserved verbatim
+  - detected by extension or shebang (`#!/bin/bash`, `#!/usr/bin/env zsh`, etc.)
 
 It intentionally avoids touching:
 
 - template strings/backticks
 - content within string literals
-- non-TS/JS code style beyond whitespace and final newline
+- shell script quoting semantics (single vs double quotes have different meanings in shell)
 
 ## Configuration
 
@@ -28,7 +32,7 @@ import type { PickierConfig } from 'pickier'
 
 const config: PickierConfig = {
   format: {
-    extensions: ['ts', 'js', 'html', 'css', 'json', 'jsonc', 'md', 'yaml', 'yml', 'stx'],
+    extensions: ['ts', 'js', 'html', 'css', 'json', 'jsonc', 'md', 'yaml', 'yml', 'stx', 'sh', 'bash', 'zsh'],
     trimTrailingWhitespace: true,
     maxConsecutiveBlankLines: 1,
     finalNewline: 'one', // 'one' | 'two' | 'none'
@@ -188,6 +192,38 @@ Pickier also removes any leading blank lines at the very top of the file to keep
 ## JSON and config files
 
 For known JSON files (`package.json`, `tsconfig*.json`), keys are ordered deterministically (see Features » JSON & Config Sorting). Other JSON files are left as-is except for whitespace normalization and final newline policy.
+
+## Shell script formatting
+
+For shell scripts (`.sh`, `.bash`, `.zsh`), Pickier normalizes indentation based on shell control structures. Heredoc content is always preserved verbatim.
+
+Before:
+
+```bash
+#!/bin/bash
+if [[ -f config ]]; then
+echo "found"
+for line in $(cat config); do
+echo "$line"
+done
+fi
+```
+
+After (`indent: 2`):
+
+```bash
+#!/bin/bash
+if [[ -f config ]]; then
+  echo "found"
+  for line in $(cat config); do
+    echo "$line"
+  done
+fi
+```
+
+Supported structures: `if`/`then`/`elif`/`else`/`fi`, `while`/`for`/`until`/`do`/`done`, `case`/`esac`, function bodies `{ }`, and arbitrary nesting.
+
+See [Shell Rules](/rules/shell) for the full set of 21 linting rules available for shell scripts.
 
 ## Large example
 

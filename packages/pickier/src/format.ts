@@ -3,6 +3,8 @@ import type { PickierConfig } from './types'
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
 const YAML_EXTS = new Set(['.yaml', '.yml'])
+const SHELL_EXTS = new Set(['.sh', '.bash', '.zsh', '.ksh', '.dash'])
+const SHELL_SHEBANG_RE = /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
 const _RE_LEADING_WS = /^[ \t]*/
@@ -47,6 +49,117 @@ function isJsonFileExt(filePath: string): boolean {
 
 function isYamlFileExt(filePath: string): boolean {
   return YAML_EXTS.has(getFileExt(filePath))
+}
+
+function isShellFileExt(filePath: string): boolean {
+  return SHELL_EXTS.has(getFileExt(filePath))
+}
+
+function isShellFile(filePath: string, content: string): boolean {
+  return isShellFileExt(filePath) || SHELL_SHEBANG_RE.test(content)
+}
+
+function processShellLinesFused(content: string, cfg: PickierConfig): string {
+  const lines = content.split('\n')
+  const len = lines.length
+  const result = new Array<string>(len)
+  const indentSize = cfg.format.indent
+  const useTab = cfg.format.indentStyle === 'tabs'
+  let indentLevel = 0
+  let inHeredoc = false
+  let heredocDelim = ''
+  let inCase = false
+  let caseDepth = 0
+
+  for (let idx = 0; idx < len; idx++) {
+    const line = lines[idx]
+
+    // Empty lines pass through
+    if (line.length === 0 || /^\s*$/.test(line)) {
+      result[idx] = ''
+      continue
+    }
+
+    // Inside heredoc: pass through unchanged
+    if (inHeredoc) {
+      result[idx] = line
+      if (line.trim() === heredocDelim) {
+        inHeredoc = false
+        heredocDelim = ''
+      }
+      continue
+    }
+
+    // Detect heredoc start
+    const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
+    if (heredocMatch) {
+      inHeredoc = true
+      heredocDelim = heredocMatch[1]
+    }
+
+    // Strip leading whitespace
+    let wsEnd = 0
+    while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
+      wsEnd++
+    const trimmed = line.slice(wsEnd).trimEnd()
+
+    // Comment lines: just re-indent
+    if (trimmed.startsWith('#') && idx > 0) {
+      const indent = useTab ? '\t'.repeat(indentLevel) : ' '.repeat(indentLevel * indentSize)
+      result[idx] = indent + trimmed
+      continue
+    }
+
+    // Detect case/esac blocks
+    if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) {
+      caseDepth++
+      inCase = true
+    }
+    if (/^esac\b/.test(trimmed)) {
+      caseDepth = Math.max(0, caseDepth - 1)
+      if (caseDepth === 0) inCase = false
+    }
+
+    // Determine if this is a case pattern line (only inside case blocks)
+    // A case pattern ends with ) but is NOT a subshell/command-substitution
+    const isCasePattern = inCase
+      && /\)\s*$/.test(trimmed)
+      && !/\$\(/.test(trimmed) // not command substitution
+      && !/^\s*\(/.test(trimmed) // not subshell
+      && !trimmed.startsWith('#')
+
+    // Case terminator: ;; or ;& or ;;&
+    const isCaseTerminator = /^;[;&]\s*$/.test(trimmed)
+
+    // Check if line should decrease indent BEFORE applying
+    const shouldDecrease = /^(?:fi|done|esac|elif|else)\b/.test(trimmed) || /^\}/.test(trimmed)
+
+    if (shouldDecrease)
+      indentLevel = Math.max(0, indentLevel - 1)
+    if (isCaseTerminator)
+      indentLevel = Math.max(0, indentLevel - 1)
+
+    const indent = useTab ? '\t'.repeat(indentLevel) : ' '.repeat(indentLevel * indentSize)
+    result[idx] = indent + trimmed
+
+    // Check if line should increase indent AFTER applying
+    if (/^then\b/.test(trimmed) || /^do\b/.test(trimmed) || /^else\b/.test(trimmed))
+      indentLevel++
+    else if (/^if\b/.test(trimmed) && /\bthen\s*$/.test(trimmed))
+      indentLevel++
+    else if (/^elif\b/.test(trimmed) && /\bthen\s*$/.test(trimmed))
+      indentLevel++
+    else if (/^(?:while|for|until)\b/.test(trimmed) && /\bdo\s*$/.test(trimmed))
+      indentLevel++
+    else if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed))
+      indentLevel++
+    else if (isCasePattern)
+      indentLevel++
+    else if (/\{\s*$/.test(trimmed) && !trimmed.startsWith('#'))
+      indentLevel++
+  }
+
+  return result.join('\n')
 }
 
 function formatYaml(src: string, cfg: PickierConfig): string {
@@ -380,8 +493,12 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
       joined = sorted
   }
 
+  // Shell formatting: indentation normalization
+  if (isShellFile(filePath, joined)) {
+    joined = processShellLinesFused(joined, cfg)
+  }
   // FUSED: quotes + indentation + spacing + semicolons in ONE split/join pass
-  if (isCodeFileExt(filePath)) {
+  else if (isCodeFileExt(filePath)) {
     joined = processCodeLinesFused(joined, cfg)
   }
   else {

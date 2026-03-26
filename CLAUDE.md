@@ -108,8 +108,9 @@ pickier format . --write
 - Whitespace: trim trailing, limit consecutive blank lines, ensure final newline(s)
 - Semicolon removal: safely removes stylistic semicolons while preserving for-loop headers
 - Quote normalization: enforces single/double quotes in code (respects JSON double-quote requirement)
+- Shell formatting: `processShellLinesFused()` normalizes indentation for shell control structures (`if`/`then`/`fi`, `case`/`esac`, `while`/`for`/`do`/`done`, function bodies), preserving heredoc content verbatim
 
-5.**Plugin System (`src/plugins/`)**-**Core Plugins**: `pickier`, `style`, `regexp`, `ts`, `markdown`, `publint`- Each plugin exports a`PickierPlugin`with`name`and`rules`Record
+5.**Plugin System (`src/plugins/`)**-**Core Plugins**: `pickier`, `style`, `regexp`, `ts`, `markdown`, `shell`, `publint`- Each plugin exports a`PickierPlugin`with`name`and`rules`Record
 
 - Rules implement`RuleModule`interface:`check(content, context) => LintIssue[]`and optional`fix(content, context) => string`- Configuration via`pluginRules` in config, supporting both full IDs (`plugin/rule`) and bare rule names
 - Rules can be marked as WIP (`meta.wip = true`) to surface implementation errors early
@@ -130,7 +131,7 @@ Tests are organized by functionality:
 - `test/core/`: Core functionality tests
 - `test/format/`: Formatting behavior tests
 - `test/lint/`: Linting workflow tests
-- `test/rules/`: Rule-specific tests (sort, style, markdown, imports, typescript, regexp)
+- `test/rules/`: Rule-specific tests (sort, style, markdown, shell, imports, typescript, regexp)
 - `test/plugin/`: Plugin system tests
 - `test/fixtures/`: Sample files for testing
 

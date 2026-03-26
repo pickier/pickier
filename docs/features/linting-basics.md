@@ -32,6 +32,7 @@ Enable via `pluginRules`in your config. See the Rules pages for details and exam
 - [/rules/no-unused-vars](/rules/no-unused-vars)
 - [/rules/regexp-no-super-linear-backtracking](/rules/regexp-no-super-linear-backtracking)
 - [/rules/prefer-const](/rules/prefer-const)
+- [/rules/shell](/rules/shell) (21 shell script rules)
 
 -`sort-objects`: object literal key ordering checks
 
