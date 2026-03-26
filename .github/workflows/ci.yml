@@ -81,7 +81,7 @@ jobs:
         run: bun install
 
       - name: Unit Test
-        run: bun test --coverage
+        run: bun run test
 
   publish-commit:
     needs: [lint, typecheck, test]
