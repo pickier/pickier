@@ -10,6 +10,7 @@ import { pickierPlugin } from './pickier'
 import { qualityPlugin } from './quality'
 import { regexpPlugin } from './regexp'
 import { shellPlugin } from './shell'
+import { spellPlugin } from './spell'
 import { stylePlugin } from './style'
 import { tsPlugin } from './ts'
 import { unusedImportsPlugin } from './unused-imports'
@@ -25,6 +26,7 @@ export function getAllPlugins(): PickierPlugin[] {
     tsPlugin, // ts/ prefix for TypeScript rules
     markdownPlugin, // markdown/ prefix for markdown rules
     shellPlugin, // shell/ prefix for shell script rules
+    spellPlugin, // spell/ prefix for spell-check rules (requires ts-spell-check)
     nodePlugin, // node/ prefix for Node.js-specific rules
     lockfilePlugin, // lockfile/ prefix for lockfile security rules
     publintPlugin, // publint/ prefix for package.json validation rules

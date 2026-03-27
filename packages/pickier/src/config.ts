@@ -220,6 +220,10 @@ export const defaultConfig: PickierConfig = {
     'shell/no-ls-parsing': 'warn',
     'shell/no-variable-in-single-quotes': 'warn',
     'shell/no-exit-in-subshell': 'warn',
+    // Spell-check rules (requires optional ts-spell-check dependency)
+    'spell/check': 'off',
+    'spell/check-comments': 'off',
+    'spell/check-markdown': 'off',
   },
   verbose: true,
 }

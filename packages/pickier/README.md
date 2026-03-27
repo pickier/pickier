@@ -51,6 +51,7 @@ const results = await runLintProgrammatic({
 - **Tailwind CSS Class Ordering** - Enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX
 - **Markdown Linting** - Documentation quality checks with auto-fix support
 - **Shell Script Linting & Formatting** - 21 rules for `.sh`, `.bash`, and `.zsh` files with auto-fix support and indentation normalization
+- **Spell Checking** - Optional spell-check rules powered by [ts-spell-check](https://github.com/stacksjs/ts-spell-check) (234K dictionary, 150+ common misspelling corrections)
 - **Flexible Formatting** - Configurable indent, quotes, semicolons, whitespace, and more
 - **Package.json Validation** - Validates exports ordering, file format, and module system
 - **ESLint-style Plugin System** - Load plugins, enable/disable rules

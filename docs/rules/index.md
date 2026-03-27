@@ -14,6 +14,7 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 - [RegExp Plugin](#regexp-plugin) - Regular expression safety
 - [Markdown Plugin](#markdown-plugin) - Markdown documentation linting
 - [Shell Plugin](#shell-plugin) - Shell script linting and formatting
+- [Spell Plugin](#spell-plugin) - Optional spell checking
 
 ## Quick Reference
 
@@ -63,6 +64,9 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 | `shell/function-style` | Shell | Yes | warn | POSIX-compatible function style |
 | `shell/prefer-double-brackets` | Shell | Yes | warn | `[[ ]]` over `[ ]` for bash/zsh |
 | `shell/*` | Shell | varies | varies | 21 total shell rules ([see full list](/rules/shell)) |
+| `spell/check` | Spell | No | off | Check spelling in all text (requires `ts-spell-check`) |
+| `spell/check-comments` | Spell | No | off | Check spelling in comments only |
+| `spell/check-markdown` | Spell | No | off | Check spelling in markdown files |
 
 ## Core Rules
 
@@ -417,6 +421,16 @@ The `shell/` plugin provides 21 rules for linting and formatting shell scripts (
 **Best Practices (6 rules):**
 - `prefer-double-brackets`, `set-options`, `prefer-printf`
 - `consistent-case-terminators`, `no-broken-redirect`, `heredoc-indent`
+
+## Spell Plugin
+
+The `spell/` plugin provides optional spell-checking rules powered by [ts-spell-check](https://github.com/stacksjs/ts-spell-check). Install `ts-spell-check` to enable. See [Spell Rules Documentation](./spell.md) for full details.
+
+### Available Rules
+
+- `spell/check` — Check spelling in all text content
+- `spell/check-comments` — Check spelling in comments only
+- `spell/check-markdown` — Check spelling in markdown files only
 
 ---
 

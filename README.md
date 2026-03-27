@@ -17,6 +17,7 @@
 - Tailwind CSS class ordering — enforces canonical class order across HTML/JSX/TSX/Vue/Svelte/STX files with auto-fix
 - Markdown linting for documentation quality (headings, lists, links, code blocks, tables, etc.) with auto-fix support
 - Shell script linting & formatting — 21 rules for `.sh`, `.bash`, and `.zsh` files covering error prevention, style, and best practices with auto-fix support and indentation normalization
+- Optional spell checking — 234K-word dictionary with 150+ common misspelling corrections, powered by [ts-spell-check](https://github.com/stacksjs/ts-spell-check)
 - Flexible formatting: `indent`, `indentStyle` (tabs or spaces), `quotes`, `semi`, `trimTrailingWhitespace`, `maxConsecutiveBlankLines`, `finalNewline`
 - Smart whitespace cleanup
 - Package.json validation for correct npm publishing (exports ordering, file format, module system, etc.)
@@ -217,6 +218,7 @@ Pickier supports an ESLint-style plugin system for lint rules organized into foc
 | `regexp/` | Regular expression safety | 3+ |
 | `markdown/` | Markdown documentation linting | 53+ |
 | `shell/` | Shell script linting & formatting (`.sh`, `.bash`, `.zsh`) | 21 |
+| `spell/` | Spell checking (optional, requires `ts-spell-check`) | 3 |
 | `publint/` | Package.json validation for npm publishing ([publint](https://publint.dev) rules) | 20 |
 | `lockfile/` | Lock file validation | 5+ |
 
