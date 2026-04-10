@@ -2,6 +2,10 @@ import type { LintIssue, RuleModule } from '../../types'
 
 /**
  * MD036 - Emphasis used instead of a heading
+ *
+ * Flags standalone bold/italic lines that look like headings.
+ * Matches markdownlint MD036 behavior: skips lines ending in punctuation
+ * (., !, ?, :, ,, ;) since those are sentences/labels, not headings.
  */
 export const noEmphasisAsHeadingRule: RuleModule = {
   meta: {
@@ -11,6 +15,9 @@ export const noEmphasisAsHeadingRule: RuleModule = {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
     let inFence = false
+
+    // Punctuation that indicates sentence/label, not heading
+    const punctuationEnd = /[.!?:;,]\s*$/
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -26,11 +33,18 @@ export const noEmphasisAsHeadingRule: RuleModule = {
         continue
 
       // Check for lines that are entirely bold or italic and standalone
-      const isBoldLine = /^\*\*[^*]+\*\*\s*$/.test(line) || /^__[^_]+__\s*$/.test(line)
-      const isItalicLine = /^\*[^*]+\*\s*$/.test(line) || /^_[^_]+_\s*$/.test(line)
+      const boldMatch = line.match(/^\*\*([^*]+)\*\*\s*$/) || line.match(/^__([^_]+)__\s*$/)
+      const italicMatch = line.match(/^\*([^*]+)\*\s*$/) || line.match(/^_([^_]+)_\s*$/)
+      const match = boldMatch || italicMatch
       const isStandalone = prevLine.trim().length === 0 && nextLine.trim().length === 0
 
-      if ((isBoldLine || isItalicLine) && isStandalone) {
+      if (match && isStandalone) {
+        const innerText = match[1]
+
+        // Skip if text ends with punctuation (it's a sentence or label, not a heading)
+        if (punctuationEnd.test(innerText))
+          continue
+
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

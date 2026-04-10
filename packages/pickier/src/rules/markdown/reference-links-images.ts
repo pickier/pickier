@@ -2,6 +2,15 @@ import type { LintIssue, RuleModule } from '../../types'
 
 /**
  * MD052 - Reference links and images should use a label that is defined
+ *
+ * Only fires on explicit reference-style link/image syntax where the
+ * intent is unambiguous: `[text][label]` or `![alt][label]`.
+ *
+ * Does NOT fire on bare `[text]` shortcut references, because those collide
+ * with too many legitimate non-link uses: array literals, TypeScript tuples,
+ * shell test expressions, JSON examples, citation markers, etc.
+ *
+ * Matches markdownlint MD052 behavior for explicit references only.
  */
 export const referenceLinksImagesRule: RuleModule = {
   meta: {
@@ -15,10 +24,9 @@ export const referenceLinksImagesRule: RuleModule = {
     const definitions = new Set<string>()
 
     for (const line of lines) {
-      const defMatch = line.match(/^\[([^\]]+)\]:\s*\S+/)
-      if (defMatch) {
+      const defMatch = line.match(/^\s*\[([^\]]+)\]:\s*\S+/)
+      if (defMatch)
         definitions.add(defMatch[1].toLowerCase())
-      }
     }
 
     let inFence = false
@@ -47,34 +55,24 @@ export const referenceLinksImagesRule: RuleModule = {
         continue
 
       // Skip definition lines
-      if (/^\[(?:[^\]]+)\]:\s*\S+/.test(line))
+      if (/^\s*\[(?:[^\]]+)\]:\s*\S+/.test(line))
         continue
 
       // Strip inline code spans before checking
       let stripped = line.replace(/`[^`]+`/g, m => ' '.repeat(m.length))
 
       // Strip inline links [text](url) and images ![alt](url) to avoid matching
-      // nested brackets inside them (e.g., [renovate[bot]](url) contains [bot])
+      // nested brackets inside them
       stripped = stripped.replace(/!?\[[^\]]*\]\([^)]*\)/g, m => ' '.repeat(m.length))
 
-      // Find reference links [text][label] or [label]
-      const linkMatches = stripped.matchAll(/\[([^\]]+)\](?:\[([^\]]+)\])?(?!\()/g)
+      // Only match EXPLICIT reference-style links: [text][label] or ![alt][label]
+      // This avoids firing on plain `[text]` which collides with too many
+      // non-link uses (arrays, tuples, citations, etc.)
+      const linkMatches = stripped.matchAll(/!?\[([^\]]+)\]\[([^\]]*)\]/g)
 
       for (const match of linkMatches) {
-        const label = (match[2] || match[1]).toLowerCase()
-
-        // Skip checkbox patterns [x], [ ], [X]
-        if (/^[xX ]$/.test(label))
-          continue
-
-        // Skip array/tuple literals: ['value', ...] or ["value", ...] or [identifier, ...]
-        // These appear in docs as inline code examples outside of fences
-        if (/^['"]/.test(label.trim()) || /,/.test(label))
-          continue
-
-        // Skip shell/script bracket expressions like [ -n "$var" ]
-        if (/^-[a-z]\s/.test(label.trim()))
-          continue
+        // Use label (match[2]) if non-empty, otherwise collapsed reference uses text (match[1])
+        const label = (match[2].trim() || match[1]).toLowerCase()
 
         if (!definitions.has(label)) {
           issues.push({
