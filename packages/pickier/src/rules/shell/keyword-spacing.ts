@@ -1,8 +1,13 @@
 import type { RuleModule } from '../../types'
+import { heredocDelimiter, maskShellStrings } from './_shared'
 
 /**
  * Enforce proper spacing around shell keywords.
  * Flags: `if(`, `then;cmd`, missing space after ; in control flow, etc.
+ *
+ * String/quote/expansion interiors are ignored via `maskShellStrings`, so
+ * ANSI-C escape codes such as `$'\033[0;31m'` are not misread as having a
+ * missing space after `;`.
  */
 export const keywordSpacingRule: RuleModule = {
   meta: {
@@ -23,19 +28,21 @@ export const keywordSpacingRule: RuleModule = {
           inHeredoc = false
         continue
       }
-      const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-      if (heredocMatch) {
+      const delim = heredocDelimiter(line)
+      if (delim) {
         inHeredoc = true
-        heredocDelim = heredocMatch[1]
+        heredocDelim = delim
       }
 
       const trimmed = line.replace(/^\s+/, '')
       if (trimmed.startsWith('#'))
         continue
 
+      const masked = maskShellStrings(line)
+
       // then/do/else/fi followed by content without space (e.g., `then echo`)
       // This checks for semicolon-separated: `; then` should have space after ;
-      const semiNoSpace = line.match(/;(?![;\s$])\S/)
+      const semiNoSpace = masked.match(/;(?![;\s$])\S/)
       if (semiNoSpace) {
         issues.push({
           filePath: ctx.filePath,
@@ -49,11 +56,11 @@ export const keywordSpacingRule: RuleModule = {
 
       // `do` or `then` crammed against prior content without proper spacing
       // e.g., `done;do` or `command;then`
-      const keywordCrammed = line.match(/\w(then|do|else|elif|fi|done|esac)\b/)
-      if (keywordCrammed && !/[a-z]/.test(line[keywordCrammed.index!])) {
+      const keywordCrammed = masked.match(/\w(then|do|else|elif|fi|done|esac)\b/)
+      if (keywordCrammed && !/[a-z]/.test(masked[keywordCrammed.index!])) {
         // Make sure it's actually a keyword boundary
         const kw = keywordCrammed[1]
-        const before = line[keywordCrammed.index!]
+        const before = masked[keywordCrammed.index!]
         if (before !== ' ' && before !== '\t' && before !== ';') {
           issues.push({
             filePath: ctx.filePath,

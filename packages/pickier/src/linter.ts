@@ -1079,11 +1079,15 @@ export function scanContentOptimized(
   // markdown files (HTML attributes use double quotes), and YAML files
   const fileExt = filePath.split('.').pop()?.toLowerCase() ?? ''
   const isMd = fileExt === 'md'
+  const isShell = fileExt === 'sh' || fileExt === 'bash' || fileExt === 'zsh'
+    || fileExt === 'ksh' || fileExt === 'dash'
+    || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)
   const skipQuotesCheck = fileExt === 'json' || fileExt === 'jsonc' || fileExt === 'lock'
     || isMd || fileExt === 'yaml' || fileExt === 'yml'
+    || isShell
     || filePath.endsWith('bun.lock')
   // Skip code-level rules for non-code files (markdown, yaml, etc.)
-  const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc'
+  const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc' || isShell
   let quotesReported = false
   const sevMap = (s: 'warn' | 'error' | 'off' | undefined): 'warning' | 'error' | undefined =>
     s === 'warn' ? 'warning' : s === 'error' ? 'error' : undefined

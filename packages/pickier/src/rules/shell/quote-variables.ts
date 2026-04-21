@@ -12,8 +12,7 @@ const SAFE_CONTEXTS = [
   /\(\(.*\)\)/, // inside (( )) (arithmetic)
 ]
 
-// Match unquoted variable references: $var, ${var}, but not inside single quotes or already double-quoted
-const VAR_PATTERN = /(?<!")\$(?:\{[A-Za-z_]\w*(?:[:#%\/][^}]*)?\}|[A-Za-z_]\w*)/g
+const VAR_AT_START = /^\$(?:\{[A-Za-z_]\w*(?:[:#%\/][^}]*)?\}|[A-Za-z_]\w*)/
 
 export const quoteVariablesRule: RuleModule = {
   meta: {
@@ -25,7 +24,6 @@ export const quoteVariablesRule: RuleModule = {
     const lines = content.split(/\r?\n/)
     let inHeredoc = false
     let heredocDelim = ''
-    let heredocQuoted = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -40,14 +38,12 @@ export const quoteVariablesRule: RuleModule = {
       if (heredocMatch) {
         inHeredoc = true
         heredocDelim = heredocMatch[2]
-        heredocQuoted = true
         continue
       }
       const heredocMatch2 = line.match(/<<-?\s*(\w+)/)
       if (heredocMatch2 && !heredocMatch) {
         inHeredoc = true
         heredocDelim = heredocMatch2[1]
-        heredocQuoted = false
       }
 
       // Skip comment lines
@@ -59,25 +55,112 @@ export const quoteVariablesRule: RuleModule = {
       if (SAFE_CONTEXTS.some(re => re.test(line)))
         continue
 
-      // Find unquoted variable references
-      // We need to track quote context character by character
-      let inSingleQuote = false
-      let inDoubleQuote = false
+      // Walk the line with a context stack so that nested
+      // "$(cmd "$var")" expansions correctly treat `$var` as quoted.
+      // Frames on the stack: 'dquote' | 'squote' | 'subshell'. A variable
+      // reference is "quoted" if the innermost enclosing frame is a string
+      // frame ('dquote' or 'squote'), independent of any surrounding
+      // subshells.
+      const stack: Array<'dquote' | 'squote' | 'subshell' | 'arith'> = []
       let j = 0
-
       while (j < line.length) {
-        const ch = line[j]
-        if (ch === '#' && !inSingleQuote && !inDoubleQuote) break
-        if (ch === '\\' && !inSingleQuote) { j += 2; continue }
-        if (ch === '\'' && !inDoubleQuote) { inSingleQuote = !inSingleQuote; j++; continue }
-        if (ch === '"' && !inSingleQuote) { inDoubleQuote = !inDoubleQuote; j++; continue }
+        const top = stack[stack.length - 1]
 
-        if (!inSingleQuote && !inDoubleQuote && ch === '$') {
-          // Check if this is a variable reference
-          const rest = line.slice(j)
-          const match = rest.match(/^\$(?:\{[A-Za-z_]\w*(?:[:#%\/][^}]*)?\}|[A-Za-z_]\w*)/)
-          if (match) {
-            const varRef = match[0]
+        if (top === 'squote') {
+          if (line[j] === '\'')
+            stack.pop()
+          j++
+          continue
+        }
+
+        // Backslash escapes the next char outside single quotes.
+        if (line[j] === '\\' && j + 1 < line.length) {
+          j += 2
+          continue
+        }
+
+        if (top === 'dquote') {
+          const ch = line[j]
+          if (ch === '"') {
+            stack.pop()
+            j++
+            continue
+          }
+          if (ch === '$' && line[j + 1] === '(' && line[j + 2] === '(') {
+            stack.push('arith')
+            j += 3
+            continue
+          }
+          if (ch === '$' && line[j + 1] === '(') {
+            stack.push('subshell')
+            j += 2
+            continue
+          }
+          // $var / ${var} inside dquote → quoted, skip token.
+          if (ch === '$') {
+            const m = line.slice(j).match(VAR_AT_START)
+            if (m) {
+              j += m[0].length
+              continue
+            }
+          }
+          j++
+          continue
+        }
+
+        if (top === 'arith') {
+          const ch = line[j]
+          if (ch === ')' && line[j + 1] === ')') {
+            stack.pop()
+            j += 2
+            continue
+          }
+          // Variables inside arithmetic are treated as quoted (no word split).
+          if (ch === '$') {
+            const m = line.slice(j).match(VAR_AT_START)
+            if (m) {
+              j += m[0].length
+              continue
+            }
+          }
+          j++
+          continue
+        }
+
+        // top is 'subshell' or undefined (outer shell)
+        const ch = line[j]
+        if (ch === '#' && (j === 0 || /\s/.test(line[j - 1])))
+          break // comment
+        if (ch === '\'') {
+          stack.push('squote')
+          j++
+          continue
+        }
+        if (ch === '"') {
+          stack.push('dquote')
+          j++
+          continue
+        }
+        if (ch === '$' && line[j + 1] === '(' && line[j + 2] === '(') {
+          stack.push('arith')
+          j += 3
+          continue
+        }
+        if (ch === '$' && line[j + 1] === '(') {
+          stack.push('subshell')
+          j += 2
+          continue
+        }
+        if (ch === ')' && top === 'subshell') {
+          stack.pop()
+          j++
+          continue
+        }
+
+        if (ch === '$') {
+          const m = line.slice(j).match(VAR_AT_START)
+          if (m) {
+            const varRef = m[0]
             // Skip special variables like $?, $!, $#, $@, $*
             if (!/^\$[?!#@*0-9-]/.test(varRef)) {
               issues.push({
