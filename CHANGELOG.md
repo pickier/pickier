@@ -73,7 +73,7 @@
 ### 📄 Miscellaneous
 
 - Revert "chore: add claude code guidelines" ([ae365ca](https://github.com/pickier/pickier/commit/ae365ca)) _(by glennmichael123 <gtorregosa@gmail.com>)_
--  chore: update lockfile ([f426dde](https://github.com/pickier/pickier/commit/f426dde)) _(by Chris <chrisbreuer93@gmail.com>)_
+- chore: update lockfile ([f426dde](https://github.com/pickier/pickier/commit/f426dde)) _(by Chris <chrisbreuer93@gmail.com>)_
 
 ### Contributors
 
