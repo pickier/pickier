@@ -16,10 +16,29 @@ export const headingStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: 'atx' | 'setext' | null = null
+    let fenceChar: '`' | '~' | null = null
+    let fenceLen = 0
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      const fenceMatch = line.trim().match(/^(`{3,}|~{3,})/)
+      if (fenceMatch) {
+        const run = fenceMatch[1]
+        const ch = run[0] as '`' | '~'
+        if (fenceChar === null) {
+          fenceChar = ch
+          fenceLen = run.length
+        }
+        else if (ch === fenceChar && run.length >= fenceLen) {
+          fenceChar = null
+          fenceLen = 0
+        }
+        continue
+      }
+      if (fenceChar !== null)
+        continue
 
       // Check for ATX style headings (#, ##, etc.)
       const atxMatch = line.match(/^#{1,6}\s/)

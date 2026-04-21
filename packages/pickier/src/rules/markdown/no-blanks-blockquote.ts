@@ -12,10 +12,19 @@ export const noBlanksBlockquoteRule: RuleModule = {
     const lines = text.split(/\r?\n/)
 
     let inBlockquote = false
+    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        inBlockquote = false
+        continue
+      }
+      if (inFence)
+        continue
 
       const isBlockquote = /^\s*>/.test(line)
       const isBlank = line.trim().length === 0

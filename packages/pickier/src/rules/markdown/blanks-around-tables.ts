@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { findTableRows } from './_shared'
 
 /**
  * MD058 - Tables should be surrounded by blank lines
@@ -14,6 +15,8 @@ export const blanksAroundTablesRule: RuleModule = {
     let inTable = false
     let inFence = false
 
+    const tableRows = findTableRows(lines)
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
@@ -28,8 +31,8 @@ export const blanksAroundTablesRule: RuleModule = {
       if (inFence)
         continue
 
-      // Check if line is part of a table (contains |)
-      const isTableLine = /\|/.test(line) && line.trim().length > 0
+      // Check if line is part of a genuine GFM table
+      const isTableLine = tableRows.has(i) && /\|/.test(line) && line.trim().length > 0
 
       if (isTableLine && !inTable) {
         // Start of table

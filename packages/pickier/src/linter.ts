@@ -1187,9 +1187,12 @@ export function scanContentOptimized(
     }
     // indentation check: pass leading whitespace and line content for context
     // Skip lines inside fenced code blocks in markdown (indentation is content, not style)
+    // Skip entirely for markdown — lists, blockquotes, and continuation lines
+    // legitimately use 3-space (ordered-list continuation) and other
+    // non-multiple-of-indentSize widths per CommonMark.
     const leadingMatch = line.match(/^[ \t]*/)
     const leading = leadingMatch ? leadingMatch[0] : ''
-    if (leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
+    if (!isMd && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }

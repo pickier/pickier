@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { findTableRows } from './_shared'
 
 /**
  * MD055 - Table pipe style
@@ -15,6 +16,8 @@ export const tablePipeStyleRule: RuleModule = {
     const style = options.style || 'leading_and_trailing'
     let inFence = false
 
+    const tableRows = findTableRows(lines)
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
@@ -26,8 +29,8 @@ export const tablePipeStyleRule: RuleModule = {
       if (inFence)
         continue
 
-      // Check if line is a table row
-      if (/\|/.test(line) && line.trim().length > 0) {
+      // Check if line is a table row (paragraph pipes are skipped)
+      if (tableRows.has(i) && /\|/.test(line) && line.trim().length > 0) {
         const hasLeading = line.trim().startsWith('|')
         const hasTrailing = line.trim().endsWith('|')
 

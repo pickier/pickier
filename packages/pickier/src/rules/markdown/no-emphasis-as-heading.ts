@@ -45,6 +45,12 @@ export const noEmphasisAsHeadingRule: RuleModule = {
         if (punctuationEnd.test(innerText))
           continue
 
+        // Skip long runs of prose — headings are short. 7+ words is almost
+        // certainly an editorial sentence in italics, not a faux heading.
+        const wordCount = innerText.trim().split(/\s+/).length
+        if (wordCount >= 7)
+          continue
+
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,

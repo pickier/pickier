@@ -33,6 +33,17 @@ export const noDuplicateHeadingRule: RuleModule = {
       if (inFence)
         continue
 
+      // logsmith-style changelogs delimit version sections with a
+      // "[Compare changes](...)" link rather than a `##` heading. Treat
+      // those lines as implicit section breaks at level 2 so the
+      // sibling-only tracking doesn't flag every repeated
+      // "### 🧹 Chores" / "### Contributors" as a duplicate.
+      if (/^\s*\[Compare changes\]\(/.test(line)) {
+        for (let l = 3; l <= 6; l++)
+          headingsByLevel[l].clear()
+        continue
+      }
+
       let content: string | null = null
       let level = 0
 

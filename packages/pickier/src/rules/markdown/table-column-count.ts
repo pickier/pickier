@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { findTableRows } from './_shared'
 
 /**
  * MD056 - Table column count
@@ -13,8 +14,9 @@ export const tableColumnCountRule: RuleModule = {
 
     let inTable = false
     let expectedColumns = -1
-    let tableStartLine = -1
     let inFence = false
+
+    const tableRows = findTableRows(lines)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -28,21 +30,17 @@ export const tableColumnCountRule: RuleModule = {
         }
         continue
       }
-      if (inFence) continue
+      if (inFence)
+        continue
 
-      // Check if line is part of a table
-      const isTableLine = /\|/.test(line) && line.trim().length > 0
+      const isTableLine = tableRows.has(i) && /\|/.test(line) && line.trim().length > 0
 
       if (isTableLine) {
-        // Count columns (split by | and filter empty)
-        const columns = line.split('|').filter(col => col.trim().length > 0 || line.trim().startsWith('|') || line.trim().endsWith('|'))
-        const columnCount = columns.length
+        const columnCount = countTableColumns(line)
 
         if (!inTable) {
-          // Start of new table
           inTable = true
           expectedColumns = columnCount
-          tableStartLine = i
         }
         else if (columnCount !== expectedColumns) {
           issues.push({
@@ -56,7 +54,6 @@ export const tableColumnCountRule: RuleModule = {
         }
       }
       else if (line.trim().length === 0 || !isTableLine) {
-        // End of table
         if (inTable) {
           inTable = false
           expectedColumns = -1
@@ -66,4 +63,50 @@ export const tableColumnCountRule: RuleModule = {
 
     return issues
   },
+}
+
+/**
+ * Count the logical columns in a GFM table row, ignoring pipes that are:
+ *   - escaped with a backslash (`\|`)
+ *   - inside an inline code span (`` ` ``-delimited or `` `` ``-delimited)
+ */
+function countTableColumns(line: string): number {
+  let s = line.trim()
+  if (s.startsWith('|'))
+    s = s.slice(1)
+  if (s.endsWith('|') && !s.endsWith('\\|'))
+    s = s.slice(0, -1)
+  if (s === '')
+    return 0
+
+  let count = 1
+  let inCode = false
+  let codeLen = 0
+  let i = 0
+  while (i < s.length) {
+    const ch = s[i]
+    if (ch === '\\' && s[i + 1] === '|') {
+      i += 2
+      continue
+    }
+    if (ch === '`') {
+      let run = 0
+      while (s[i + run] === '`')
+        run++
+      if (!inCode) {
+        inCode = true
+        codeLen = run
+      }
+      else if (run === codeLen) {
+        inCode = false
+        codeLen = 0
+      }
+      i += run
+      continue
+    }
+    if (!inCode && ch === '|')
+      count++
+    i++
+  }
+  return count
 }
