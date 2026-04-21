@@ -232,7 +232,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
 
   // Filter ignore patterns based on whether we're globbing inside or outside the project
   const isGlobbingOutsideProject = patterns.some((p) => {
-    const base = p.replace(/\/?\*\*\/?\*?\*?$/, '')
+    const base = p.replace(/\/?\*\*(?:\/\*+)?$/, '')
     const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
     return !absBase.startsWith(process.cwd())
   })

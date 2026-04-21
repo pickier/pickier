@@ -74,7 +74,7 @@ Shell formatting normalizes indentation for control structures (`if/then/fi`, `c
 |------|---------|-------------|
 | `shell/command-substitution` | Yes | Use `$()` instead of backticks |
 | `shell/quote-variables` | - | Quote `$var` to prevent word splitting |
-| `shell/no-cd-without-check` | - | Require `\|\| exit` after `cd` |
+| `shell/no-cd-without-check` | - | Require fallback exit after `cd` |
 | `shell/no-eval` | - | Disallow `eval` |
 | `shell/no-useless-cat` | - | Detect useless use of cat |
 | `shell/no-ls-parsing` | - | Don't parse `ls` output |

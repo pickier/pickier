@@ -44,7 +44,7 @@ export const noEvalRule: RuleModule = {
           ruleId: 'shell/no-eval',
           message: 'Avoid using eval — it re-parses arguments and can lead to code injection',
           severity: 'error',
-          help: 'Refactor to avoid eval. Consider using arrays for dynamic commands or indirect variable references with ${!var}',
+          help: 'Refactor to avoid eval. Consider using arrays for dynamic commands or indirect variable references with \${!var}',
         })
       }
     }

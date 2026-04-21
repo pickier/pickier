@@ -16,8 +16,12 @@ export const noAltTextRule: RuleModule = {
       const line = lines[i]
 
       // Skip fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) { inFence = !inFence; continue }
-      if (inFence) continue
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        continue
+      }
+      if (inFence)
+        continue
 
       // Strip inline code spans
       const stripped = line.replace(/``[^`]+``/g, m => ' '.repeat(m.length)).replace(/`[^`]+`/g, m => ' '.repeat(m.length))

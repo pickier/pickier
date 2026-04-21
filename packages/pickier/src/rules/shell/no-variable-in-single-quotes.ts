@@ -43,10 +43,17 @@ export const noVariableInSingleQuotesRule: RuleModule = {
       for (let j = 0; j < line.length; j++) {
         const ch = line[j]
 
-        if (ch === '#' && !inSQ && !inDQ) break // rest is comment
-        if (ch === '\\' && !inSQ) { j++; continue } // escape (not in single quotes)
+        if (ch === '#' && !inSQ && !inDQ)
+          break // rest is comment
+        if (ch === '\\' && !inSQ) {
+          j++
+          continue
+        }
 
-        if (ch === '"' && !inSQ) { inDQ = !inDQ; continue }
+        if (ch === '"' && !inSQ) {
+          inDQ = !inDQ
+          continue
+        }
 
         if (ch === '\'' && !inDQ) {
           if (!inSQ) {

@@ -767,6 +767,23 @@ function stripRegexLiterals(line: string): string {
   return result
 }
 
+// Return true when a `/` at `line[idx]` starts a regex literal (as opposed to
+// division). Uses the last significant (non-whitespace) character on the line
+// up to that point, plus a small keyword lookbehind.
+function isRegexStart(lastSignificant: string, line: string, idx: number): boolean {
+  if (lastSignificant === '')
+    return true
+  const regexAfter = '([{,:;!?&|=<>~^+*%-'
+  if (regexAfter.includes(lastSignificant))
+    return true
+  if (/[A-Za-z_$]/.test(lastSignificant)) {
+    const prefix = line.slice(0, idx).trimEnd()
+    if (/(?:^|[^A-Za-z0-9_$])(?:return|typeof|instanceof|new|delete|void|in|of|yield|await|throw|case)$/.test(prefix))
+      return true
+  }
+  return false
+}
+
 // Strip comments from a line, preserving string content
 function stripComments(line: string): string {
   let result = ''
@@ -1230,9 +1247,34 @@ export function scanContentOptimized(
     if (wantNoTemplateCurly && !linesInTemplate.has(lineNo)) {
       const ln = line
       let inStr: 'single' | 'double' | 'template' | null = null
+      let inRegex = false
+      let inRegexClass = false
+      let lastSig = ''
       let prev = ''
       for (let k = 0; k < ln.length; k++) {
         const ch = ln[k]
+        if (inRegex) {
+          if (prev === '\\') {
+            prev = ch
+            continue
+          }
+          if (inRegexClass) {
+            if (ch === ']')
+              inRegexClass = false
+          }
+          else if (ch === '[') {
+            inRegexClass = true
+          }
+          else if (ch === '/') {
+            inRegex = false
+            // consume flags
+            while (k + 1 < ln.length && /[a-z]/i.test(ln[k + 1]))
+              k++
+            lastSig = '/'
+          }
+          prev = ch
+          continue
+        }
         if (!inStr) {
           if (ch === '"') {
             inStr = 'double'
@@ -1249,6 +1291,14 @@ export function scanContentOptimized(
             prev = ch
             continue
           }
+          if (ch === '/' && ln[k + 1] !== '/' && ln[k + 1] !== '*' && isRegexStart(lastSig, ln, k)) {
+            inRegex = true
+            inRegexClass = false
+            prev = ch
+            continue
+          }
+          if (ch !== ' ' && ch !== '\t')
+            lastSig = ch
         }
         else {
           if ((inStr === 'double' && ch === '"') || (inStr === 'single' && ch === '\'') || (inStr === 'template' && ch === '`')) {

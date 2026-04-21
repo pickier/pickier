@@ -77,8 +77,15 @@ export const indentRule: RuleModule = {
       if (i === 0 && trimmed.startsWith('#!')) continue
 
       // Track case blocks
-      if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) { caseDepth++; inCase = true }
-      if (/^esac\b/.test(trimmed)) { caseDepth = Math.max(0, caseDepth - 1); if (caseDepth === 0) inCase = false }
+      if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) {
+        caseDepth++
+        inCase = true
+      }
+      if (/^esac\b/.test(trimmed)) {
+        caseDepth = Math.max(0, caseDepth - 1)
+        if (caseDepth === 0)
+          inCase = false
+      }
 
       // Decrease before current line if needed
       if (shouldDecreaseBefore(trimmed))
@@ -87,9 +94,15 @@ export const indentRule: RuleModule = {
       // Measure actual indentation
       let actualSpaces = 0
       for (let j = 0; j < line.length; j++) {
-        if (line[j] === ' ') actualSpaces++
-        else if (line[j] === '\t') actualSpaces += indentSize
-        else break
+        if (line[j] === ' ') {
+          actualSpaces++
+        }
+        else if (line[j] === '\t') {
+          actualSpaces += indentSize
+        }
+        else {
+          break
+        }
       }
 
       const expectedSpaces = expectedLevel * indentSize
@@ -126,7 +139,10 @@ export const indentRule: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (/^\s*$/.test(line)) { result.push(''); continue }
+      if (/^\s*$/.test(line)) {
+        result.push('')
+        continue
+      }
 
       if (inHeredoc) {
         result.push(line)
@@ -143,11 +159,21 @@ export const indentRule: RuleModule = {
       const trimmed = line.replace(/^\s+/, '').trimEnd()
 
       // Shebang
-      if (i === 0 && trimmed.startsWith('#!')) { result.push(trimmed); continue }
+      if (i === 0 && trimmed.startsWith('#!')) {
+        result.push(trimmed)
+        continue
+      }
 
       // Track case blocks
-      if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) { caseDepth++; inCase = true }
-      if (/^esac\b/.test(trimmed)) { caseDepth = Math.max(0, caseDepth - 1); if (caseDepth === 0) inCase = false }
+      if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) {
+        caseDepth++
+        inCase = true
+      }
+      if (/^esac\b/.test(trimmed)) {
+        caseDepth = Math.max(0, caseDepth - 1)
+        if (caseDepth === 0)
+          inCase = false
+      }
 
       if (shouldDecreaseBefore(trimmed))
         level = Math.max(0, level - 1)

@@ -40,10 +40,20 @@ export const noExitInSubshellRule: RuleModule = {
       let inDQ = false
       for (let j = 0; j < line.length; j++) {
         const ch = line[j]
-        if (ch === '#' && !inSQ && !inDQ) break
-        if (ch === '\\' && !inSQ) { j++; continue }
-        if (ch === '\'' && !inDQ) { inSQ = !inSQ; continue }
-        if (ch === '"' && !inSQ) { inDQ = !inDQ; continue }
+        if (ch === '#' && !inSQ && !inDQ)
+          break
+        if (ch === '\\' && !inSQ) {
+          j++
+          continue
+        }
+        if (ch === '\'' && !inDQ) {
+          inSQ = !inSQ
+          continue
+        }
+        if (ch === '"' && !inSQ) {
+          inDQ = !inDQ
+          continue
+        }
 
         if (!inSQ && !inDQ) {
           // Explicit subshell with ( but not $( or ((

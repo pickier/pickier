@@ -41,10 +41,18 @@ export const commandSubstitutionRule: RuleModule = {
       for (let j = 0; j < line.length; j++) {
         const ch = line[j]
 
-        if (ch === '#' && !inSingleQuote) break // rest is comment
-        if (ch === '\\') { j++; continue } // skip escaped char
-        if (ch === '\'') { inSingleQuote = !inSingleQuote; continue }
-        if (inSingleQuote) continue
+        if (ch === '#' && !inSingleQuote)
+          break // rest is comment
+        if (ch === '\\') {
+          j++
+          continue
+        }
+        if (ch === '\'') {
+          inSingleQuote = !inSingleQuote
+          continue
+        }
+        if (inSingleQuote)
+          continue
 
         if (ch === '`') {
           issues.push({
@@ -90,10 +98,26 @@ export const commandSubstitutionRule: RuleModule = {
       let i = 0
       while (i < line.length) {
         const ch = line[i]
-        if (ch === '#' && !inSQ) { out += line.slice(i); break }
-        if (ch === '\\') { out += line.slice(i, i + 2); i += 2; continue }
-        if (ch === '\'') { inSQ = !inSQ; out += ch; i++; continue }
-        if (inSQ) { out += ch; i++; continue }
+        if (ch === '#' && !inSQ) {
+          out += line.slice(i)
+          break
+        }
+        if (ch === '\\') {
+          out += line.slice(i, i + 2)
+          i += 2
+          continue
+        }
+        if (ch === '\'') {
+          inSQ = !inSQ
+          out += ch
+          i++
+          continue
+        }
+        if (inSQ) {
+          out += ch
+          i++
+          continue
+        }
 
         if (ch === '`') {
           // Extract backtick content
