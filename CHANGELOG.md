@@ -1,3 +1,85 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.20...v0.1.21)
+
+### 🚀 Features
+
+- add spell check ([834cbd9](https://github.com/pickier/pickier/commit/834cbd9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add shell linting & formatting ([54ee0be](https://github.com/pickier/pickier/commit/54ee0be)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add classname ordering ([4ba5368](https://github.com/pickier/pickier/commit/4ba5368)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **sort-tailwind-classes**: narrow dynamic-binding detection ([da30162](https://github.com/pickier/pickier/commit/da30162)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **shell**: stop corrupting valid bash and eliminate false positives (#1351) ([0c583fa](https://github.com/pickier/pickier/commit/0c583fa)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1351](https://github.com/pickier/pickier/issues/1351), [#1351](https://github.com/pickier/pickier/issues/1351))
+- **markdown**: align rules with standard markdownlint behavior ([f345aee](https://github.com/pickier/pickier/commit/f345aee)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- formatter ignoring files in /tmp/ on Linux CI ([23f0250](https://github.com/pickier/pickier/commit/23f0250)) _(by Chris <chrisbreuer93@gmail.com>)_
+- restore test fixtures broken by brace-style script ([dd86308](https://github.com/pickier/pickier/commit/dd86308)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📦 Build System
+
+- drop --bytecode from compile scripts ([07a310f](https://github.com/pickier/pickier/commit/07a310f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- remove auto publish-commit step from main push ([f997be9](https://github.com/pickier/pickier/commit/f997be9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- trigger rebuild to verify PANTRY_TOKEN publish-commit ([789657d](https://github.com/pickier/pickier/commit/789657d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.21 ([55a08bf](https://github.com/pickier/pickier/commit/55a08bf)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([6a171b8](https://github.com/pickier/pickier/commit/6a171b8)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- gitignore pantry directory ([13f653b](https://github.com/pickier/pickier/commit/13f653b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- minor adjustments ([595b8f7](https://github.com/pickier/pickier/commit/595b8f7)) _(by Chris <chrisbreuer93@gmail.com>)_
+- repo cleanup and modernization ([67e6515](https://github.com/pickier/pickier/commit/67e6515)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- use Pantry action for publish-commit and add job dependencies ([1c533e9](https://github.com/pickier/pickier/commit/1c533e9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- update bun-plugin-dtsx to 0.9.13 ([58ae200](https://github.com/pickier/pickier/commit/58ae200)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix remaining lint warnings and test failures ([8dab312](https://github.com/pickier/pickier/commit/8dab312)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix remaining lint warnings ([6b5f4db](https://github.com/pickier/pickier/commit/6b5f4db)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix lint warnings ([c8080b4](https://github.com/pickier/pickier/commit/c8080b4)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix lint warnings ([78073cc](https://github.com/pickier/pickier/commit/78073cc)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix lint warnings ([fc7ed4b](https://github.com/pickier/pickier/commit/fc7ed4b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- remove .pickierignore ([8a2a11c](https://github.com/pickier/pickier/commit/8a2a11c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update CLAUDE.md with project context and crosswind details ([cc221bc](https://github.com/pickier/pickier/commit/cc221bc)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add proper claude code guidelines ([9513f3f](https://github.com/pickier/pickier/commit/9513f3f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- use pantry monorepo action instead of pantry-setup ([85fad20](https://github.com/pickier/pickier/commit/85fad20)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- ignore claude config in linter ([dfd0865](https://github.com/pickier/pickier/commit/dfd0865)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add co-author guideline to claude config ([dd422c9](https://github.com/pickier/pickier/commit/dd422c9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add claude code guidelines ([ed18de6](https://github.com/pickier/pickier/commit/ed18de6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([875ee87](https://github.com/pickier/pickier/commit/875ee87)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([a4214c4](https://github.com/pickier/pickier/commit/a4214c4)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add code-style alias and improve missing config error handling ([2b12e6d](https://github.com/pickier/pickier/commit/2b12e6d)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([2d70c26](https://github.com/pickier/pickier/commit/2d70c26)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([2897ff3](https://github.com/pickier/pickier/commit/2897ff3)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([e4b4ab5](https://github.com/pickier/pickier/commit/e4b4ab5)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([10e6508](https://github.com/pickier/pickier/commit/10e6508)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([761dd85](https://github.com/pickier/pickier/commit/761dd85)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([04176d4](https://github.com/pickier/pickier/commit/04176d4)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- minor adjustments ([0c66b1d](https://github.com/pickier/pickier/commit/0c66b1d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- increase test coverage ([6c6631d](https://github.com/pickier/pickier/commit/6c6631d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- yaml adjustments ([b6fbdf4](https://github.com/pickier/pickier/commit/b6fbdf4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor updates ([f53cc9d](https://github.com/pickier/pickier/commit/f53cc9d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- update cover image ([423cffa](https://github.com/pickier/pickier/commit/423cffa)) _(by Chris <chrisbreuer93@gmail.com>)_
+- updated benchmarks ([5992093](https://github.com/pickier/pickier/commit/5992093)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([f7e4dff](https://github.com/pickier/pickier/commit/f7e4dff)) _(by Chris <chrisbreuer93@gmail.com>)_
+- increase test coverage ([a068db0](https://github.com/pickier/pickier/commit/a068db0)) _(by Chris <chrisbreuer93@gmail.com>)_
+- use Bun Glob when available ([7673fe7](https://github.com/pickier/pickier/commit/7673fe7)) _(by Chris <chrisbreuer93@gmail.com>)_
+- remove `p-limit` dep ([419f46d](https://github.com/pickier/pickier/commit/419f46d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- ensure default options are properly typed ([db9a0a3](https://github.com/pickier/pickier/commit/db9a0a3)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([ac9b474](https://github.com/pickier/pickier/commit/ac9b474)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### lint
+
+- eliminate all warnings ([bb71ce1](https://github.com/pickier/pickier/commit/bb71ce1)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📄 Miscellaneous
+
+- Revert "chore: add claude code guidelines" ([ae365ca](https://github.com/pickier/pickier/commit/ae365ca)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+-  chore: update lockfile ([f426dde](https://github.com/pickier/pickier/commit/f426dde)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 ## v0.1.20 (#1)
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.19...v0.1.20)
