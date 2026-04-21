@@ -162,9 +162,29 @@ interface ClassMatch {
   end: number
 }
 
-// Detect JS expression syntax — these are dynamic bindings (:class in Vue/STX),
-// not static class lists. Sorting them destroys the expression.
-const JS_EXPR_RE = /[?:=(){}<>!|&]|\b(?:true|false|null|undefined|function|return|typeof|instanceof)\b/
+function looksLikeJsExpression(value: string): boolean {
+  // Strip bracket groups first — tailwind arbitrary values and properties
+  // like `[mask-type:alpha]`, `w-[calc(100%-1rem)]`, `bg-[url(image.png)]`
+  // legitimately contain `:`, `(`, `)`, and `=` inside `[...]`.
+  const noBrackets = value.replace(/\[[^\]]*\]/g, '')
+  // Strip string literals so class names inside quotes don't contribute.
+  const noStrings = noBrackets.replace(/'[^']*'|"[^"]*"/g, '')
+  // Unambiguous JS markers:
+  //   - `{` / `}`         object literal or template expression
+  //   - `(` / `)`         function call or grouping
+  //   - ` ? ` / ` && ` …  ternary / logical operators with whitespace
+  //                       (tailwind variants like `hover:` have no spaces)
+  //   - `=`               assignment / comparison
+  //   - reserved words    `true`, `false`, `null`, `undefined`, `function`,
+  //                       `return`, `typeof`, `instanceof`
+  if (/[{}()=]/.test(noStrings))
+    return true
+  if (/ \? | && | \|\| /.test(noStrings))
+    return true
+  if (/\b(?:true|false|null|undefined|function|return|typeof|instanceof)\b/.test(noStrings))
+    return true
+  return false
+}
 
 function extractClassValues(content: string): ClassMatch[] {
   const matches: ClassMatch[] = []
@@ -176,8 +196,9 @@ function extractClassValues(content: string): ClassMatch[] {
       const value = m[1] ?? m[2] ?? ''
       if (!value.trim())
         continue
-      // Skip dynamic binding expressions (:class with ternaries, comparisons, etc.)
-      if (JS_EXPR_RE.test(value))
+      // Skip dynamic binding expressions (`:class` with ternaries,
+      // object literals, etc.) so we don't rewrite JS as class names.
+      if (looksLikeJsExpression(value))
         continue
       const valueStart = content.indexOf(value, m.index)
       if (valueStart === -1)
