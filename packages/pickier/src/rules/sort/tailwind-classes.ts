@@ -162,6 +162,10 @@ interface ClassMatch {
   end: number
 }
 
+// Detect JS expression syntax — these are dynamic bindings (:class in Vue/STX),
+// not static class lists. Sorting them destroys the expression.
+const JS_EXPR_RE = /[?:=(){}<>!|&]|\b(?:true|false|null|undefined|function|return|typeof|instanceof)\b/
+
 function extractClassValues(content: string): ClassMatch[] {
   const matches: ClassMatch[] = []
 
@@ -171,6 +175,9 @@ function extractClassValues(content: string): ClassMatch[] {
     while ((m = re.exec(content)) !== null) {
       const value = m[1] ?? m[2] ?? ''
       if (!value.trim())
+        continue
+      // Skip dynamic binding expressions (:class with ternaries, comparisons, etc.)
+      if (JS_EXPR_RE.test(value))
         continue
       const valueStart = content.indexOf(value, m.index)
       if (valueStart === -1)
