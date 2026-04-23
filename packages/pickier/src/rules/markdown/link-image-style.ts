@@ -44,8 +44,12 @@ export const linkImageStyleRule: RuleModule = {
         continue
       }
 
+      // Strip inline code spans so regex-heavy code samples (e.g. char
+      // classes like `[_a-z][A-Z]`) aren't mistaken for reference links.
+      const scrubbed = stripInlineCode(line)
+
       // Check for inline links [text](url)
-      const inlineMatches = line.matchAll(/\[[^\]]+\]\([^)]+\)/g)
+      const inlineMatches = scrubbed.matchAll(/\[[^\]]+\]\([^)]+\)/g)
 
       for (const match of inlineMatches) {
         if (style === 'reference') {
@@ -76,7 +80,7 @@ export const linkImageStyleRule: RuleModule = {
       }
 
       // Check for reference links [text][label]
-      const refMatches = line.matchAll(/\[[^\]]+\]\[(?:[^\]]+)\]/g)
+      const refMatches = scrubbed.matchAll(/\[[^\]]+\]\[(?:[^\]]+)\]/g)
 
       for (const match of refMatches) {
         if (style === 'inline') {
@@ -109,4 +113,15 @@ export const linkImageStyleRule: RuleModule = {
 
     return issues
   },
+}
+
+/**
+ * Replace the contents of every inline code span (``` `...` ```) with
+ * spaces so subsequent regexes don't match anything inside a code
+ * segment. Spaces keep column positions stable so line/col reports in
+ * outer matches stay accurate.
+ */
+function stripInlineCode(line: string): string {
+  // Match `...`, ``...`` and longer runs. Non-greedy body.
+  return line.replace(/(`+)([^`]+?)\1/g, (whole) => ' '.repeat(whole.length))
 }
