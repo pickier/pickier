@@ -51,4 +51,40 @@ export const noBlanksBlockquoteRule: RuleModule = {
 
     return issues
   },
+  fix: (text) => {
+    const lines = text.split(/\r?\n/)
+    let inBlockquote = false
+    let inFence = false
+    let changed = false
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        inBlockquote = false
+        continue
+      }
+      if (inFence)
+        continue
+      const isBlockquote = /^\s*>/.test(line)
+      const isBlank = line.trim().length === 0
+      const nextIsBlockquote = /^\s*>/.test(nextLine)
+      if (isBlockquote) {
+        inBlockquote = true
+      }
+      else if (isBlank && inBlockquote && nextIsBlockquote) {
+        // Replace the blank line with `>` so the blockquote stays a single
+        // logical block. We pick up the indent from the surrounding `>`
+        // line to keep the marker aligned.
+        const lead = nextLine.match(/^(\s*)>/)
+        const prefix = lead ? `${lead[1]}>` : '>'
+        lines[i] = prefix
+        changed = true
+      }
+      else if (!isBlockquote && !isBlank) {
+        inBlockquote = false
+      }
+    }
+    return changed ? lines.join('\n') : text
+  },
 }

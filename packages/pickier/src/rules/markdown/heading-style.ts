@@ -104,4 +104,12 @@ export const headingStyleRule: RuleModule = {
 
     return issues
   },
+  // No `fix` for now. Rewriting between ATX (`# H`) and setext (`H\n===`)
+  // styles is destructive in practice — `text\n---` patterns commonly
+  // appear inside YAML frontmatter examples or four-space-indented code
+  // blocks where they're not really setext headings, but the rule's
+  // syntactic check can't tell them apart from real headings. A safe fix
+  // would need full block-context awareness (frontmatter, code blocks,
+  // nested fences with varying backtick counts) which is more than this
+  // rule's check currently has.
 }

@@ -70,4 +70,12 @@ export const blanksAroundTablesRule: RuleModule = {
 
     return issues
   },
+  // No `fix` for now. The fence-tracking helpers used by this rule's
+  // `check` (and by `findTableRows`) toggle on every 3+ backtick fence
+  // regardless of length, which gets confused by nested fences (e.g.
+  // a 4-tick block containing 3-tick blocks — common in markdown that
+  // documents markdown). An auto-fix that adds blank lines around a
+  // "table" can therefore insert a blank inside an outer code fence
+  // and corrupt examples. Until fence tracking is length-aware, leave
+  // this report-only.
 }
