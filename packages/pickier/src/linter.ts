@@ -729,6 +729,76 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
   return out
 }
 
+/**
+ * Line-local indent normalization that pairs with `hasIndentIssue`.
+ *
+ * For each line whose leading whitespace would be flagged, rewrite just that
+ * leading whitespace — never touch the rest of the line, never re-derive the
+ * "correct" indent level from surrounding code. This stays well clear of the
+ * bracket-counting reflow in `processCodeLinesFused`, which mangles JSDoc
+ * comments, multi-line function signatures, and generics.
+ *
+ * Rounding strategy:
+ *  - tabs style: tabs allowed; any non-tab → expand to tabs by treating
+ *    indentSize spaces as one tab; remainder spaces are dropped.
+ *  - spaces style: any tab → expand to indentSize spaces, then round the
+ *    total down to the nearest multiple of indentSize.
+ *
+ * Rounding *down* preserves intent: a flagged line is at a depth slightly
+ * past a valid stop, so the nearest valid stop ≤ current depth is the
+ * least-surprising answer.
+ */
+function fixIndentLineLocal(content: string, cfg: PickierConfig): string {
+  const indentSize = cfg.format.indent
+  const indentStyle = cfg.format.indentStyle
+  // Match the same fenced-code-block exclusion `scanContentOptimized` uses
+  // for markdown; non-md files don't have fences so this set stays empty.
+  const lines = content.split(/\r?\n/)
+  let changed = false
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    let wsEnd = 0
+    while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
+      wsEnd++
+    if (wsEnd === 0)
+      continue
+    const leading = line.slice(0, wsEnd)
+    if (!hasIndentIssue(leading, indentSize, indentStyle, line))
+      continue
+
+    let newLeading: string
+    if (indentStyle === 'tabs') {
+      // Convert any spaces to tabs, dropping fractional remainders.
+      let spaceCount = 0
+      let tabCount = 0
+      for (let j = 0; j < leading.length; j++) {
+        const ch = leading.charCodeAt(j)
+        if (ch === 9) tabCount++
+        else spaceCount++
+      }
+      const extraTabs = Math.floor(spaceCount / indentSize)
+      newLeading = '\t'.repeat(tabCount + extraTabs)
+    }
+    else {
+      // Convert tabs to spaces, then round down to nearest indentSize.
+      let total = 0
+      for (let j = 0; j < leading.length; j++) {
+        const ch = leading.charCodeAt(j)
+        if (ch === 9) total += indentSize
+        else total++
+      }
+      const rounded = Math.floor(total / indentSize) * indentSize
+      newLeading = ' '.repeat(rounded)
+    }
+
+    if (newLeading !== leading) {
+      lines[i] = newLeading + line.slice(wsEnd)
+      changed = true
+    }
+  }
+  return changed ? lines.join('\n') : content
+}
+
 // Helper function to remove regex literals from a line
 function stripRegexLiterals(line: string): string {
   let result = ''
@@ -1704,8 +1774,19 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
           }
           fixed = next.join('\n')
         }
-        // Apply plugin rule fixers only (no global formatting in lint --fix)
+        // Apply plugin rule fixers
         fixed = applyPluginFixes(file, fixed, cfg)
+        // Normalize leading whitespace on lines `hasIndentIssue` would flag.
+        // This is a line-local rewrite that mirrors the lint check exactly —
+        // we don't try to re-derive indent levels from bracket counting (the
+        // formatCode path does that and miscompiles JSDoc comments and
+        // multi-line signatures), we just round each flagged line's leading
+        // whitespace to a value the linter would accept.
+        const fileExtForIndent = file.split('.').pop()?.toLowerCase() ?? ''
+        const isMdForIndent = fileExtForIndent === 'md'
+        const isShellForIndent = fileExtForIndent === 'sh' || fileExtForIndent === 'bash' || fileExtForIndent === 'zsh' || fileExtForIndent === 'ksh' || fileExtForIndent === 'dash'
+        if (!isMdForIndent && !isShellForIndent && fileExtForIndent !== 'yaml' && fileExtForIndent !== 'yml')
+          fixed = fixIndentLineLocal(fixed, cfg)
 
         // If content changed, re-scan the fixed version
         if (fixed !== src) {
