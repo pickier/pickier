@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD039 - Spaces inside link text
@@ -10,8 +11,11 @@ export const noSpaceInLinksRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
       const line = lines[i]
 
       // Check for spaces inside link text [  text  ](url)

@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD044 - Proper names should have the correct capitalization
@@ -19,20 +20,15 @@ export const properNamesRule: RuleModule = {
       return issues // No proper names configured
     }
 
-    let inCodeBlock = false
+    // Use the proper CommonMark-aware tracker so nested 4-tick fences and
+    // ``` openers with info strings (e.g. ` ```js `) don't corrupt the
+    // in-code-block tracking.
+    const inCode = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i) && !checkCodeBlocks)
+        continue
       const line = lines[i]
-
-      // Track code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line)) {
-        inCodeBlock = !inCodeBlock
-        continue
-      }
-
-      if (inCodeBlock && !checkCodeBlocks) {
-        continue
-      }
 
       // Check each proper name
       for (const properName of properNames) {

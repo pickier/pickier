@@ -30,6 +30,41 @@ describe('MD011 - no-reversed-links', () => {
       console.log = originalLog
     }
   })
+
+  // Regression for https://github.com/pickier/pickier/issues/1355
+  it('should NOT flag (text)[url] patterns inside fenced code blocks', async () => {
+    // TypeScript syntax like `import('zod')['z']` matches the reversed-link
+    // regex `(text)[url]`. Fenced code-block content isn't markdown and
+    // must be skipped — same applies to ``` ~~~ ``` fences and indented
+    // code blocks.
+    const content = [
+      '## Example',
+      '',
+      '```typescript',
+      'declare global {',
+      '  const z: typeof import(\'zod\')[\'z\']',
+      '  const clsx: typeof import(\'clsx\')[\'clsx\']',
+      '}',
+      '```',
+      '',
+    ].join('\n')
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({ 'markdown/no-reversed-links': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+    try {
+      await runLint([tempPath], options)
+      console.log = originalLog
+      const result = JSON.parse(output)
+      expect(result.issues.filter((i: { ruleId: string }) => i.ruleId === 'markdown/no-reversed-links')).toEqual([])
+    }
+    finally {
+      console.log = originalLog
+    }
+  })
 })
 
 describe('MD034 - no-bare-urls', () => {

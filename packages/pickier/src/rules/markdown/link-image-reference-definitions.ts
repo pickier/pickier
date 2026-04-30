@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD053 - Link and image reference definitions should be needed
@@ -10,11 +11,14 @@ export const linkImageReferenceDefinitionsRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
 
     // Collect all reference definitions [label]: url
     const definitions = new Map<string, number>()
 
     for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
       const line = lines[i]
       const defMatch = line.match(/^\[([^\]]+)\]:\s*\S+/)
       if (defMatch) {
@@ -25,7 +29,10 @@ export const linkImageReferenceDefinitionsRule: RuleModule = {
     // Collect all reference usages
     const usages = new Set<string>()
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
+      const line = lines[i]
       // Skip definition lines
       if (line.match(/^\[(?:[^\]]+)\]:\s*\S+/)) {
         continue

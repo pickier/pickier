@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD050 - Strong style
@@ -10,6 +11,7 @@ export const strongStyleRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
 
     const options = (ctx.options as { style?: 'asterisk' | 'underscore' | 'consistent' }) || {}
     const style = options.style || 'consistent'
@@ -17,6 +19,8 @@ export const strongStyleRule: RuleModule = {
     let detectedStyle: 'asterisk' | 'underscore' | null = null
 
     for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
       const line = lines[i]
 
       // Find double asterisk strong
@@ -87,8 +91,13 @@ export const strongStyleRule: RuleModule = {
   fix: (text, ctx) => {
     const options = (ctx.options as { style?: 'asterisk' | 'underscore' | 'consistent' }) || {}
     const style = options.style || 'consistent'
+    const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
 
-    // Determine target style
+    // Determine target style — only consider markers OUTSIDE code blocks
+    // when picking the style to converge on, so a `**foo**` literal inside
+    // a `` ```typescript `` example doesn't accidentally lock the document
+    // to asterisks (or vice versa).
     let targetStyle: 'asterisk' | 'underscore' = 'asterisk'
     if (style === 'asterisk') {
       targetStyle = 'asterisk'
@@ -97,28 +106,52 @@ export const strongStyleRule: RuleModule = {
       targetStyle = 'underscore'
     }
     else if (style === 'consistent') {
-      // Find first strong marker
-      const asteriskMatch = text.match(/\*\*([^*]+)\*\*/)
-      const underscoreMatch = text.match(/__([^_]+)__/)
-
-      if (asteriskMatch && (!underscoreMatch || asteriskMatch.index! < underscoreMatch.index!)) {
+      // Find the earliest occurrence of each marker in non-code lines.
+      // Track (line, column) so that when both appear on the same line we
+      // still pick whichever comes first by character position — matching
+      // the legacy behaviour `'**first** and __second__'` → asterisk.
+      let firstAsterisk: { line: number, col: number } | null = null
+      let firstUnderscore: { line: number, col: number } | null = null
+      for (let i = 0; i < lines.length; i++) {
+        if (inCode.has(i))
+          continue
+        if (firstAsterisk === null) {
+          const m = lines[i].match(/\*\*([^*]+)\*\*/)
+          if (m)
+            firstAsterisk = { line: i, col: m.index! }
+        }
+        if (firstUnderscore === null) {
+          const m = lines[i].match(/__([^_]+)__/)
+          if (m)
+            firstUnderscore = { line: i, col: m.index! }
+        }
+        if (firstAsterisk && firstUnderscore)
+          break
+      }
+      const cmp = (a: { line: number, col: number }, b: { line: number, col: number }) =>
+        a.line !== b.line ? a.line - b.line : a.col - b.col
+      if (firstAsterisk && (!firstUnderscore || cmp(firstAsterisk, firstUnderscore) < 0))
         targetStyle = 'asterisk'
-      }
-      else if (underscoreMatch) {
+      else if (firstUnderscore)
         targetStyle = 'underscore'
+    }
+
+    // Apply the rewrite line-by-line so we can leave code-block lines
+    // untouched. Replacing across the full text would corrupt any literal
+    // `**`/`__` markers inside fenced examples.
+    let changed = false
+    for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
+      const before = lines[i]
+      const after = targetStyle === 'asterisk'
+        ? before.replace(/__([^_]+)__/g, '**$1**')
+        : before.replace(/\*\*([^*]+)\*\*/g, '__$1__')
+      if (after !== before) {
+        lines[i] = after
+        changed = true
       }
     }
-
-    let fixed = text
-    if (targetStyle === 'asterisk') {
-      // Convert underscores to asterisks
-      fixed = fixed.replace(/__([^_]+)__/g, '**$1**')
-    }
-    else {
-      // Convert asterisks to underscores
-      fixed = fixed.replace(/\*\*([^*]+)\*\*/g, '__$1__')
-    }
-
-    return fixed
+    return changed ? lines.join('\n') : text
   },
 }
