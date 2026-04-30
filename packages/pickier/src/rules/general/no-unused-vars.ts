@@ -23,22 +23,45 @@ export const noUnusedVarsRule: RuleModule = {
     // Used to skip analysis of generated code inside template content in both loops.
     const lineStartsInTemplate: boolean[] = new Array(lines.length).fill(false)
     const computeTemplateLines = () => {
-      const tmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr
+      const tmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr (frame's own brace depth)
       let tInSingle = false
       let tInDouble = false
+      let tInRegex = false
+      let tInBlockComment = false
       let tEscaped = false
+      // Track the previous non-whitespace, non-comment character on the
+      // current logical statement so we can decide whether `/` starts a
+      // regex literal (after operators/keywords/`,`/`(`/etc.) or is a
+      // division operator (after an identifier/literal/`)`/`]`).
+      let prevSig = ''
+      const isRegexStart = (): boolean => {
+        if (prevSig === '') return true
+        // Operators and punctuation that imply an expression follows.
+        if ('=([{,;!&|?:+-*/%^~<>'.includes(prevSig)) return true
+        return false
+      }
       for (let li = 0; li < lines.length; li++) {
         lineStartsInTemplate[li] = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
         const s = lines[li]
         for (let k = 0; k < s.length; k++) {
           const ch = s[k]
+          // Multi-line /* ... */ takes precedence over everything else
+          // (including string and template state) — these comments can
+          // span lines and contain any characters.
+          if (tInBlockComment) {
+            if (ch === '*' && k + 1 < s.length && s[k + 1] === '/') {
+              tInBlockComment = false
+              k++
+            }
+            continue
+          }
           if (tEscaped) {
             tEscaped = false
             continue
           }
           const inBody = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
           const inExpr = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] >= 0
-          if (ch === '\\' && (tInSingle || tInDouble || inBody)) {
+          if (ch === '\\' && (tInSingle || tInDouble || tInRegex || inBody)) {
             tEscaped = true
             continue
           }
@@ -50,47 +73,95 @@ export const noUnusedVarsRule: RuleModule = {
             if (ch === '"') tInDouble = false
             continue
           }
+          if (tInRegex) {
+            if (ch === '[') {
+              let depth = 1
+              let kk = k + 1
+              while (kk < s.length) {
+                const cc = s[kk]
+                if (cc === '\\') { kk += 2; continue }
+                if (cc === ']') { depth--; if (depth === 0) break }
+                kk++
+              }
+              k = kk
+              continue
+            }
+            if (ch === '/') {
+              tInRegex = false
+              while (k + 1 < s.length && /[gimsuvy]/.test(s[k + 1])) k++
+            }
+            continue
+          }
           if (inBody) {
             if (ch === '`') {
               tmplStack.pop()
             }
             else if (ch === '$' && k + 1 < s.length && s[k + 1] === '{') {
-              tmplStack[tmplStack.length - 1] = 0
+              // Push a NEW expr frame so the body frame underneath is
+              // preserved. Mutating the body frame loses context and the
+              // closing `}` would pop us out of the template entirely.
+              tmplStack.push(0)
               k++
             }
+            continue
+          }
+          // Top-level OR ${} expr context — handle comments, strings, regex.
+          if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
+          if (ch === '/' && k + 1 < s.length && s[k + 1] === '*') {
+            tInBlockComment = true
+            k++
             continue
           }
           if (inExpr) {
             if (ch === '`') {
               tmplStack.push(-1)
+              prevSig = ''
             }
             else if (ch === '\'') {
               tInSingle = true
+              prevSig = '\''
             }
             else if (ch === '"') {
               tInDouble = true
+              prevSig = '"'
             }
             else if (ch === '{') {
               tmplStack[tmplStack.length - 1]++
+              prevSig = '{'
             }
             else if (ch === '}') {
-              if (tmplStack[tmplStack.length - 1] > 0) tmplStack[tmplStack.length - 1]--
-              else tmplStack[tmplStack.length - 1] = -1
+              const cur = tmplStack[tmplStack.length - 1]
+              if (cur > 0) tmplStack[tmplStack.length - 1] = cur - 1
+              else tmplStack.pop()
+              prevSig = '}'
             }
-            else if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
+            else if (ch === '/' && isRegexStart()) {
+              tInRegex = true
+            }
+            else if (!/\s/.test(ch)) {
+              prevSig = ch
+            }
             continue
           }
-          // Outside template
+          // Outside template (top-level code)
           if (ch === '`') {
             tmplStack.push(-1)
+            prevSig = ''
           }
           else if (ch === '\'') {
             tInSingle = true
+            prevSig = '\''
           }
           else if (ch === '"') {
             tInDouble = true
+            prevSig = '"'
           }
-          else if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
+          else if (ch === '/' && isRegexStart()) {
+            tInRegex = true
+          }
+          else if (!/\s/.test(ch)) {
+            prevSig = ch
+          }
         }
       }
     }
@@ -802,6 +873,13 @@ else {
       if (/^\s*\/\//.test(line))
         continue
 
+      // Skip lines that start inside a template literal body — that's
+      // generated code (e.g. injected <script> blobs), not real TS, and
+      // a `function(a)` pattern there is not a real declaration whose
+      // parameter we can analyze for usage.
+      if (lineStartsInTemplate[i])
+        continue
+
       // Strip inline comments for processing (but keep original line for column reporting)
       // Need to be careful not to strip // inside strings or regex literals
       let codeOnly = line
@@ -1433,5 +1511,143 @@ else {
     }
 
     return issues
+  },
+
+  /**
+   * Auto-fix function-parameter issues by prefixing the parameter name
+   * with `_` so it matches the configured `argsIgnorePattern` (default
+   * `^_`). We deliberately don't auto-fix variable issues — those
+   * typically want deletion, which is too risky without scope info.
+   *
+   * The reported column is unreliable (it comes from `line.indexOf(name)`
+   * which can hit a coincidental occurrence in a string literal earlier
+   * on the line). We re-find the parameter by pinning the match to a
+   * function-parameter context: preceded by `(` or `,` (with optional
+   * whitespace), followed by `,`, `)`, `:`, or `=`. This avoids
+   * string-literal hits and `let x = ...` style declarations.
+   *
+   * The rule's `check` already skips lines inside template-literal
+   * bodies, so by the time we look at issues here we've already filtered
+   * out generated-code false positives.
+   */
+  fix: (text, ctx) => {
+    const issues = noUnusedVarsRule.check(text, ctx)
+    if (issues.length === 0)
+      return text
+
+    const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+    if (paramIssues.length === 0)
+      return text
+
+    // Pre-compute which lines are suppressed by `// eslint-disable-next-line`
+    // / `// pickier-disable-next-line` directives on the line above. The
+    // linter normally applies this filter at the issue-collection layer, but
+    // when we re-run `check` here we bypass it — so we must do the same
+    // filtering ourselves before rewriting code.
+    const allSrcLines = text.split(/\r?\n/)
+    const disabledLines = new Set<number>()
+    const disableNextRe = /(?:eslint|pickier)-disable-next-line\b([^*\n]*)/
+    for (let i = 0; i < allSrcLines.length; i++) {
+      const m = allSrcLines[i].match(disableNextRe)
+      if (!m)
+        continue
+      const ruleList = m[1].trim()
+      // Empty list means "disable all rules" for the next line.
+      if (ruleList === ''
+        || /\bno-unused-vars\b/.test(ruleList)
+        || /\bpickier\/no-unused-vars\b/.test(ruleList)) {
+        disabledLines.add(i + 2) // 1-indexed line directly below
+      }
+    }
+
+    const byLine = new Map<number, Set<string>>()
+    for (const issue of paramIssues) {
+      if (disabledLines.has(issue.line))
+        continue
+      const nameMatch = issue.message.match(/^'([^']+)'/)
+      if (!nameMatch)
+        continue
+      const name = nameMatch[1]
+      if (name.startsWith('_'))
+        continue
+      let names = byLine.get(issue.line)
+      if (!names) {
+        names = new Set()
+        byLine.set(issue.line, names)
+      }
+      names.add(name)
+    }
+    if (byLine.size === 0)
+      return text
+
+    // Compute backtick spans on each line so we can skip matches that
+    // fall inside a single-line template literal (where the rule's
+    // multi-line tracker can't help — a template that opens and closes
+    // on the same line has `lineStartsInTemplate` = false but its
+    // contents are still embedded code we shouldn't rewrite).
+    const lines = text.split(/\r?\n/)
+    function backtickRanges(line: string): Array<[number, number]> {
+      const out: Array<[number, number]> = []
+      let inS = false
+      let inD = false
+      let esc = false
+      let openTick = -1
+      for (let k = 0; k < line.length; k++) {
+        const ch = line[k]
+        if (esc) { esc = false; continue }
+        if (ch === '\\' && (inS || inD || openTick >= 0)) { esc = true; continue }
+        if (openTick >= 0) {
+          if (ch === '`') {
+            out.push([openTick, k])
+            openTick = -1
+          }
+          continue
+        }
+        if (inS) { if (ch === '\'') inS = false; continue }
+        if (inD) { if (ch === '"') inD = false; continue }
+        if (ch === '`') openTick = k
+        else if (ch === '\'') inS = true
+        else if (ch === '"') inD = true
+      }
+      // If a backtick opened but didn't close on this line, treat the
+      // remainder of the line as inside a template — it's the first line
+      // of a multi-line template literal.
+      if (openTick >= 0)
+        out.push([openTick, line.length])
+      return out
+    }
+    let changed = false
+    for (const [lineNum, names] of byLine) {
+      const lineIdx = lineNum - 1
+      const line = lines[lineIdx]
+      if (line === undefined)
+        continue
+      const tickSpans = backtickRanges(line)
+      const inAnyTick = (pos: number): boolean => tickSpans.some(([a, b]) => pos > a && pos < b)
+      const edits: Array<{ start: number, end: number, name: string }> = []
+      for (const name of names) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const re = new RegExp(`(?<=[(,]\\s*)\\b${escaped}\\b(?=\\s*[,):=])`, 'g')
+        let m: RegExpExecArray | null
+        // eslint-disable-next-line no-cond-assign
+        while ((m = re.exec(line)) !== null) {
+          if (inAnyTick(m.index))
+            continue
+          edits.push({ start: m.index, end: m.index + name.length, name })
+        }
+      }
+      if (edits.length === 0)
+        continue
+      edits.sort((a, b) => b.start - a.start)
+      let next = line
+      for (const e of edits) {
+        next = `${next.slice(0, e.start)}_${e.name}${next.slice(e.end)}`
+      }
+      if (next !== line) {
+        lines[lineIdx] = next
+        changed = true
+      }
+    }
+    return changed ? lines.join('\n') : text
   },
 }

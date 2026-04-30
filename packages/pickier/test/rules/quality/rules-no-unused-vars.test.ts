@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { noUnusedVarsRule } from '../../../src/rules/general/no-unused-vars'
 import { runLint } from '../../../src/linter'
 
 function tmp(): string {
@@ -441,5 +442,58 @@ describe('general/no-unused-vars', () => {
 
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
     expect(code).toBe(0)
+  })
+
+  describe('fix: prefix unused function params with _', () => {
+    it('prefixes a single unused parameter', () => {
+      const src = 'function f(a: number) { return 1 }\n'
+      const out = noUnusedVarsRule.fix!(src, { filePath: 'a.ts', config: {} as any })
+      expect(out).toBe('function f(_a: number) { return 1 }\n')
+    })
+
+    it('prefixes multiple unused params on the same line', () => {
+      const src = 'function f(a: number, b: string) { return 1 }\n'
+      const out = noUnusedVarsRule.fix!(src, { filePath: 'a.ts', config: {} as any })
+      expect(out).toBe('function f(_a: number, _b: string) { return 1 }\n')
+    })
+
+    it('does not touch params that are used', () => {
+      const src = 'function f(a: number) { return a }\n'
+      const out = noUnusedVarsRule.fix!(src, { filePath: 'a.ts', config: {} as any })
+      expect(out).toBe(src)
+    })
+
+    it('does not touch already-prefixed params', () => {
+      const src = 'function f(_a: number) { return 1 }\n'
+      const out = noUnusedVarsRule.fix!(src, { filePath: 'a.ts', config: {} as any })
+      expect(out).toBe(src)
+    })
+
+    it('does not modify function() inside a template literal body (regression: bunpress serve.ts)', () => {
+      // Real-world repro: regex literal earlier in the file contained
+      // `"`, which used to break template-literal tracking and cause
+      // false positives for function() patterns inside an injected
+      // <script> string. The check must skip these lines so the fix
+      // doesn't rewrite param names whose body usages live in the same
+      // template string.
+      const src = [
+        'function parseId(s: string) {',
+        '  const idMatch = s.match(/id="([^"]*)"/)',
+        '  return idMatch ? idMatch[1] : \'\'',
+        '}',
+        '',
+        'function script(): string {',
+        '  return `<script>',
+        '    document.querySelectorAll(\'a[href]\').forEach(function(a) {',
+        '      var href = a.getAttribute(\'href\');',
+        '      console.log(href);',
+        '    });',
+        '  </script>`',
+        '}',
+        '',
+      ].join('\n')
+      const out = noUnusedVarsRule.fix!(src, { filePath: 'a.ts', config: {} as any })
+      expect(out).toBe(src)
+    })
   })
 })
