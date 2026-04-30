@@ -1,3 +1,35 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.22...v0.1.23)
+
+### 🐛 Bug Fixes
+
+- **markdown**: skip code blocks in content-pattern rules (#1355) ([5e75021](https://github.com/pickier/pickier/commit/5e75021)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1355](https://github.com/pickier/pickier/issues/1355), [#1355](https://github.com/pickier/pickier/issues/1355))
+
+### 🧪 Tests
+
+- **markdown**: regression tests for single-trailing-newline --fix (#1356) ([cbde30c](https://github.com/pickier/pickier/commit/cbde30c)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1356](https://github.com/pickier/pickier/issues/1356), [#1356](https://github.com/pickier/pickier/issues/1356))
+
+### 🧹 Chores
+
+- release v0.1.23 ([8f61afc](https://github.com/pickier/pickier/commit/8f61afc)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.22...HEAD)
+
+### 🐛 Bug Fixes
+
+- **markdown**: skip code blocks in content-pattern rules (#1355) ([5e75021](https://github.com/pickier/pickier/commit/5e75021)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1355](https://github.com/pickier/pickier/issues/1355), [#1355](https://github.com/pickier/pickier/issues/1355))
+
+### 🧪 Tests
+
+- **markdown**: regression tests for single-trailing-newline --fix (#1356) ([cbde30c](https://github.com/pickier/pickier/commit/cbde30c)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1356](https://github.com/pickier/pickier/issues/1356), [#1356](https://github.com/pickier/pickier/issues/1356))
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.21...v0.1.22)
 
 ### 🚀 Features
