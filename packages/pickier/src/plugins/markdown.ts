@@ -73,6 +73,8 @@ import { ulStyleRule } from '../rules/markdown/ul-style'
  * Strip YAML frontmatter from markdown content, replacing it with blank lines
  * to preserve line numbers. Returns the stripped text, original frontmatter,
  * and the end line number of the frontmatter (1-indexed).
+ *
+ * Used by the `check` path so reported line numbers match the source file.
  */
 function stripFrontmatter(content: string): { text: string, frontmatter: string[] | null, frontmatterEndLine: number } {
   const lines = content.split(/\r?\n/)
@@ -93,11 +95,29 @@ function stripFrontmatter(content: string): { text: string, frontmatter: string[
   return { text: content, frontmatter: null, frontmatterEndLine: 0 }
 }
 
-function restoreFrontmatter(content: string, frontmatter: string[] | null): string {
-  if (!frontmatter)
-    return content
+/**
+ * Split content into frontmatter header and body without padding. The header
+ * is the raw frontmatter block (including the surrounding `---` lines); the
+ * body is everything after the closing `---`.
+ *
+ * The fix path uses this instead of blanking the frontmatter, because rules
+ * that remove blank lines (e.g. no-multiple-blanks) would otherwise collapse
+ * the placeholder blanks and shift body content into the slice that gets
+ * dropped during restore — silently deleting real lines.
+ */
+function splitFrontmatter(content: string): { header: string | null, body: string } {
   const lines = content.split(/\r?\n/)
-  return [...frontmatter, ...lines.slice(frontmatter.length)].join('\n')
+  if (lines[0]?.trim() !== '---')
+    return { header: null, body: content }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      return {
+        header: lines.slice(0, i + 1).join('\n'),
+        body: lines.slice(i + 1).join('\n'),
+      }
+    }
+  }
+  return { header: null, body: content }
 }
 
 // Helper function to wrap markdown rules so they only run on .md files
@@ -120,9 +140,13 @@ function markdownOnly(rule: RuleModule): RuleModule {
       ? (content: string, context: RuleContext): string => {
           if (!context.filePath.endsWith('.md'))
             return content
-          const { text, frontmatter } = stripFrontmatter(content)
-          const fixed = rule.fix!(text, context)
-          return restoreFrontmatter(fixed, frontmatter)
+          const { header, body } = splitFrontmatter(content)
+          if (header === null)
+            return rule.fix!(content, context)
+          const fixedBody = rule.fix!(body, context)
+          if (fixedBody === body)
+            return content
+          return `${header}\n${fixedBody}`
         }
       : undefined,
   }
