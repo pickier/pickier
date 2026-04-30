@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 import { findTableRows } from './_shared'
 
 /**
@@ -70,12 +71,44 @@ export const blanksAroundTablesRule: RuleModule = {
 
     return issues
   },
-  // No `fix` for now. The fence-tracking helpers used by this rule's
-  // `check` (and by `findTableRows`) toggle on every 3+ backtick fence
-  // regardless of length, which gets confused by nested fences (e.g.
-  // a 4-tick block containing 3-tick blocks — common in markdown that
-  // documents markdown). An auto-fix that adds blank lines around a
-  // "table" can therefore insert a blank inside an outer code fence
-  // and corrupt examples. Until fence tracking is length-aware, leave
-  // this report-only.
+  fix: (text) => {
+    const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
+    const tableRows = findTableRows(lines)
+    const result: string[] = []
+    let inTable = false
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      // Code block lines (fenced or indented) are content — never inject
+      // blank separators inside them.
+      if (inCode.has(i)) {
+        // Leaving the table state alone here is fine because tableRows
+        // already excludes code-block lines.
+        result.push(line)
+        continue
+      }
+      const isTableLine = tableRows.has(i) && /\|/.test(line) && line.trim().length > 0
+      if (isTableLine && !inTable) {
+        // Start of a table — ensure the previous emitted line is blank
+        // (only when we're not at the start of the document and the
+        // previous line isn't itself inside a code block, since that
+        // line is content the user didn't ask us to separate from).
+        const prevIdx = result.length - 1
+        if (prevIdx >= 0 && result[prevIdx].trim().length > 0) {
+          result.push('')
+        }
+        inTable = true
+        result.push(line)
+        continue
+      }
+      if (!isTableLine && inTable) {
+        inTable = false
+        if (line.trim().length > 0)
+          result.push('')
+      }
+      result.push(line)
+    }
+    const out = result.join('\n')
+    return out !== text ? out : text
+  },
 }

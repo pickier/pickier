@@ -1,26 +1,28 @@
+import { getCodeBlockLines } from './_fence-tracking'
+
 /**
  * Identify genuine GFM table rows in a markdown document. A row counts as
  * a table row when it is part of a block that includes a separator row of
  * the form `|---|---|` (pipes + dashes, optional colons for alignment).
- * Stray `|` characters inside paragraphs are ignored.
+ * Stray `|` characters inside paragraphs are ignored. Lines inside fenced
+ * or indented code blocks are ignored — `| Foo | Bar |` lines inside a
+ * `` ```markdown `` example are content, not real tables.
  */
 export function findTableRows(lines: string[]): Set<number> {
   const rows = new Set<number>()
-  let fence = false
+  const inCode = getCodeBlockLines(lines)
   for (let i = 0; i < lines.length; i++) {
+    if (inCode.has(i))
+      continue
     const l = lines[i]
-    if (/^(?:`{3,}|~{3,})/.test(l.trim())) {
-      fence = !fence
-      continue
-    }
-    if (fence)
-      continue
     if (!isSeparatorRow(l))
       continue
-    if (i > 0 && /\|/.test(lines[i - 1]) && lines[i - 1].trim().length > 0)
+    if (i > 0 && !inCode.has(i - 1) && /\|/.test(lines[i - 1]) && lines[i - 1].trim().length > 0)
       rows.add(i - 1)
     rows.add(i)
     for (let j = i + 1; j < lines.length; j++) {
+      if (inCode.has(j))
+        break
       const r = lines[j]
       if (r.trim().length === 0 || !/\|/.test(r))
         break
