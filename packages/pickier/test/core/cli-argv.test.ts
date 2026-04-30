@@ -89,8 +89,11 @@ describe('CLI argv fast-path parsing', () => {
     expect(cliSrc).toContain("command('version'")
   })
 
-  it('defaults mode to auto', () => {
-    expect(cliSrc).toContain("let mode = 'auto'")
+  it('defaults bare `pickier .` to lint mode (no implicit auto-fix)', () => {
+    // Bare `pickier .` must NOT silently rewrite files. The fast path
+    // defaults to 'lint' (matching the full CLI's default command) and
+    // only flips to 'auto' when the explicit `pickier run .` form is used.
+    expect(cliSrc).toContain("let mode = isRunSubcommand ? 'auto' : 'lint'")
   })
 
   it('defaults check and write to false', () => {
@@ -125,5 +128,28 @@ describe('CLI integration via runUnified', () => {
 
     // Just verify the function accepts all these options without throwing on type
     expect(typeof runUnified).toBe('function')
+  })
+
+  it('lint mode does not write files (no implicit auto-fix)', async () => {
+    // Regression: bare `pickier .` used to flow through 'auto' mode in
+    // runUnified, whose fall-through branch sets `fix: true` and writes
+    // files even though the user never asked for fixes. The fast path
+    // now defaults to 'lint' so this can't happen.
+    const { mkdtempSync, writeFileSync, readFileSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { runUnified } = await import('../../src/run')
+
+    const dir = mkdtempSync(join(tmpdir(), 'pickier-lint-no-write-'))
+    const file = join(dir, 'a.ts')
+    // Use a file with content that WOULD be auto-fixed if --fix were
+    // accidentally enabled (debugger statement is removable, 3-space
+    // indent is normalisable).
+    const src = 'function f() {\n   debugger\n}\n'
+    writeFileSync(file, src, 'utf8')
+
+    await runUnified([dir], { mode: 'lint', reporter: 'json' })
+
+    expect(readFileSync(file, 'utf8')).toBe(src)
   })
 })

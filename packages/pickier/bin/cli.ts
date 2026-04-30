@@ -18,11 +18,18 @@ async function main() {
 
   // Normalise: strip leading 'run' sub-command so both
   //   `pickier run . --mode format` and `pickier . --mode format` work.
-  const startIdx = argv[0] === 'run' ? 1 : 0
+  const isRunSubcommand = argv[0] === 'run'
+  const startIdx = isRunSubcommand ? 1 : 0
 
-  let mode = 'auto'
+  // Fast-path mode default:
+  //   - bare `pickier .` should lint (no auto-fix), matching the default
+  //     command's behaviour in the full CLI below
+  //   - `pickier run .` historically defaulted to 'auto' (which writes
+  //     files when nothing else is specified), so preserve that
+  let mode = isRunSubcommand ? 'auto' : 'lint'
   let check = false
   let write = false
+  let format = false
   let verbose = false
   let config: string | undefined
   const globs: string[] = []
@@ -32,6 +39,10 @@ async function main() {
     const a = argv[i]
     if (a === '--mode') {
       mode = argv[++i] || 'auto'
+    }
+    else if (a === '--format') {
+      format = true
+      mode = 'format'
     }
     else if (a === '--check') {
       check = true
@@ -62,11 +73,19 @@ async function main() {
     }
   }
 
-  if (useFastPath && (mode === 'format' || mode === 'auto') && globs.length > 0) {
+  // The fast path only handles modes that DON'T write files unless asked
+  // (lint reports issues; format/auto write only when --write or `bun
+  // pickier .` is used in their respective semantics). Lint mode flows
+  // here too so the bare `pickier .` invocation doesn't silently
+  // round-trip through auto mode's "default to fix" branch in runUnified.
+  if (useFastPath && (mode === 'format' || mode === 'auto' || mode === 'lint') && globs.length > 0) {
     const { runUnified } = await import('../src/run.ts')
-    const code = await runUnified(globs, { mode: mode as 'format' | 'auto', check, write, verbose, config })
+    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config })
     process.exit(code)
   }
+  // Suppress unused-variable warning — `format` is captured but only
+  // affects which branch was taken above, not the fast-path call shape.
+  void format
 
   // ---------------------------------------------------------------------------
   // Full CLI framework — handles lint mode, deprecated sub-commands, help, etc.
