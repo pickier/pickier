@@ -1,3 +1,72 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.21...v0.1.22)
+
+### 🚀 Features
+
+- **markdown**: proper fence tracking + auto-fix MD003/MD036/MD058 ([ecd50d6](https://github.com/pickier/pickier/commit/ecd50d6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **markdown**: auto-fix MD028 (no-blanks-blockquote) ([a000926](https://github.com/pickier/pickier/commit/a000926)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **rules**: auto-fix prefer-const & no-unused-vars params; skip template literals ([b5d0fbb](https://github.com/pickier/pickier/commit/b5d0fbb)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **lint**: auto-fix indent on --fix via line-local rewrite ([53407be](https://github.com/pickier/pickier/commit/53407be)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **cli**: bare `pickier .` must not silently auto-fix ([a979185](https://github.com/pickier/pickier/commit/a979185)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **cli**: use cli.parse() instead of nonexistent cli.run() ([1aeb6ce](https://github.com/pickier/pickier/commit/1aeb6ce)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **markdown**: preserve body content when fixing files with frontmatter ([36aad83](https://github.com/pickier/pickier/commit/36aad83)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📚 Documentation
+
+- fix double-space list marker in auto-generated CHANGELOG ([1578401](https://github.com/pickier/pickier/commit/1578401)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📦 Build System
+
+- auto-fix CHANGELOG after logsmith generates it during release ([3db7dbd](https://github.com/pickier/pickier/commit/3db7dbd)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.22 ([a375f55](https://github.com/pickier/pickier/commit/a375f55)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fresh install to pick up dtsx 0.9.14 and bunfig 0.15.9 ([e6406a0](https://github.com/pickier/pickier/commit/e6406a0)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([8117fd4](https://github.com/pickier/pickier/commit/8117fd4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a1af526](https://github.com/pickier/pickier/commit/a1af526)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.21...HEAD)
+
+### 🚀 Features
+
+- **markdown**: proper fence tracking + auto-fix MD003/MD036/MD058 ([ecd50d6](https://github.com/pickier/pickier/commit/ecd50d6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **markdown**: auto-fix MD028 (no-blanks-blockquote) ([a000926](https://github.com/pickier/pickier/commit/a000926)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **rules**: auto-fix prefer-const & no-unused-vars params; skip template literals ([b5d0fbb](https://github.com/pickier/pickier/commit/b5d0fbb)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **lint**: auto-fix indent on --fix via line-local rewrite ([53407be](https://github.com/pickier/pickier/commit/53407be)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **cli**: bare `pickier .` must not silently auto-fix ([a979185](https://github.com/pickier/pickier/commit/a979185)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **cli**: use cli.parse() instead of nonexistent cli.run() ([1aeb6ce](https://github.com/pickier/pickier/commit/1aeb6ce)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **markdown**: preserve body content when fixing files with frontmatter ([36aad83](https://github.com/pickier/pickier/commit/36aad83)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📚 Documentation
+
+- fix double-space list marker in auto-generated CHANGELOG ([1578401](https://github.com/pickier/pickier/commit/1578401)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📦 Build System
+
+- auto-fix CHANGELOG after logsmith generates it during release ([3db7dbd](https://github.com/pickier/pickier/commit/3db7dbd)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- fresh install to pick up dtsx 0.9.14 and bunfig 0.15.9 ([e6406a0](https://github.com/pickier/pickier/commit/e6406a0)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([8117fd4](https://github.com/pickier/pickier/commit/8117fd4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([a1af526](https://github.com/pickier/pickier/commit/a1af526)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.20...v0.1.21)
 
 ### 🚀 Features
