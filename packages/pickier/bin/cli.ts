@@ -183,14 +183,14 @@ async function main() {
 
   cli.version(version)
   cli.help()
-  // `cli.run()` is clapp's one-liner for binaries — catches usage
-  // errors (unknown flags, missing required args), prints a friendly
-  // message, and exits 2. Non-usage errors bubble to `main().catch`.
-  await cli.run()
+  // `cli.parse()` parses argv and (by default) invokes the matched
+  // command's action. Action handlers call `process.exit(code)`
+  // themselves, so non-usage errors bubble to `main().catch`.
+  cli.parse()
 }
 
 main().catch((err) => {
-  // Anything that escapes `cli.run()` is an unexpected failure — a
+  // Anything that escapes `cli.parse()` is an unexpected failure — a
   // config-file parse error, a filesystem problem mid-run, a rule bug.
   // Report it concisely; exit 1 distinguishes these from the exit-2
   // usage-error path clapp handles.
