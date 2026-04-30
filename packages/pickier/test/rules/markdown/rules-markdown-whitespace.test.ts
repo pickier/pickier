@@ -193,4 +193,50 @@ describe('MD047 - single-trailing-newline', () => {
       console.log = originalLog
     }
   })
+
+  // Regression for https://github.com/pickier/pickier/issues/1356
+  describe('fix trims excess trailing newlines', () => {
+    async function runFix(src: string): Promise<string> {
+      const tempPath = createTempFile(src)
+      const configPath = createConfigWithMarkdownRules({ 'markdown/single-trailing-newline': 'error' })
+      await runLint([tempPath], { reporter: 'json', config: configPath, fix: true })
+      const { readFileSync } = await import('node:fs')
+      return readFileSync(tempPath, 'utf8')
+    }
+
+    it('rewrites two trailing newlines to one', async () => {
+      expect(await runFix('hello\n\n')).toBe('hello\n')
+    })
+
+    it('rewrites many trailing newlines to one', async () => {
+      expect(await runFix('hello\n\n\n\n')).toBe('hello\n')
+    })
+
+    it('adds a trailing newline when missing', async () => {
+      expect(await runFix('hello')).toBe('hello\n')
+    })
+
+    it('leaves a single trailing newline alone', async () => {
+      expect(await runFix('hello\n')).toBe('hello\n')
+    })
+
+    it('handles CRLF line endings on the trailing chunk', async () => {
+      // Both \r\n\r\n and \n\n should collapse to a single trailing \n.
+      expect(await runFix('hello\r\n\r\n')).toBe('hello\n')
+    })
+
+    it('preserves content while only trimming the trailing chunk', async () => {
+      expect(await runFix('# Title\n\nBody paragraph.\n\n')).toBe('# Title\n\nBody paragraph.\n')
+    })
+
+    it('trims trailing newlines on a file that also has frontmatter', async () => {
+      // Earlier the markdownOnly fix wrapper line-sliced frontmatter back
+      // on, which caused the trailing-newline rewrite to be silently
+      // discarded for files that combined frontmatter with multiple
+      // trailing newlines (issue #1354). Make sure that path still
+      // converges here.
+      const src = '---\ntitle: t\n---\n\nbody\n\n\n'
+      expect(await runFix(src)).toBe('---\ntitle: t\n---\n\nbody\n')
+    })
+  })
 })
