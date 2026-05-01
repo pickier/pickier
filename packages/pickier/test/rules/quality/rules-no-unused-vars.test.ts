@@ -469,6 +469,38 @@ describe('general/no-unused-vars', () => {
       expect(out).toBe(src)
     })
 
+    it('does not flag param names in TypeScript function-type signatures (regression: stx desktop)', () => {
+      // None of the parameter names below are real bindings — they're
+      // documentation in function-TYPE expressions. `pickier/no-unused-vars`
+      // used to false-flag every one of them, fix would happily prefix with
+      // `_`, and the resulting type was identical (since the names don't
+      // matter) but visually corrupted. See the stx packages/desktop CI run
+      // that triggered https://github.com/pickier/pickier/issues for these
+      // exact patterns.
+      const src = [
+        'type RedactFn = (entry: StoredCrashEntry) => StoredCrashEntry',
+        'interface Bridge {',
+        '  install: (ns: string, method: string, response: unknown | ((...args: unknown[]) => unknown)) => void',
+        '}',
+        'const responses = new Map<string, unknown | ((...args: unknown[]) => unknown)>()',
+        'const _r = ((1 as unknown) as (...a: unknown[]) => unknown)(1, 2)',
+        'const opts: { redact?: boolean | ((entry: StoredCrashEntry) => StoredCrashEntry) } = {}',
+        '',
+      ].join('\n')
+      const issues = noUnusedVarsRule.check(src, { filePath: 'a.ts', config: {} as any })
+      const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+      expect(paramIssues).toEqual([])
+    })
+
+    it('STILL flags real unused params in actual function declarations', () => {
+      // Sanity-check that the type-signature exemption doesn't accidentally
+      // silence the rule for real declarations.
+      const src = 'export function f(a: number, b: string) { return 1 }\n'
+      const issues = noUnusedVarsRule.check(src, { filePath: 'a.ts', config: {} as any })
+      const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+      expect(paramIssues.length).toBe(2)
+    })
+
     it('does not modify function() inside a template literal body (regression: bunpress serve.ts)', () => {
       // Real-world repro: regex literal earlier in the file contained
       // `"`, which used to break template-literal tracking and cause

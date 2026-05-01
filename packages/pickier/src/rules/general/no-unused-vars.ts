@@ -1218,8 +1218,11 @@ else {
             // Check if there's a colon or angle bracket before the opening paren (type signature vs function)
             // Look backwards from opening paren to find if this is a type annotation
             // Continue past commas to find `<` for generics like Map<string, (...args) => any>
+            // Continue past balanced nested parens (for `: boolean | ((args) => T)`)
+            // and past type-union/intersection markers `|` `&`.
             let isTypeSignature = false
             let angleDepthBack = 0
+            let parenDepthBack = 0
             for (let k = openParenIdx - 1; k >= 0; k--) {
               const ch = line[k]
               if (ch === '>') {
@@ -1231,10 +1234,13 @@ else {
                   angleDepthBack--
                   continue
                 }
-                isTypeSignature = true
-                break
+                if (parenDepthBack === 0) {
+                  isTypeSignature = true
+                  break
+                }
+                continue
               }
-              if (ch === ':' && angleDepthBack === 0) {
+              if (ch === ':' && angleDepthBack === 0 && parenDepthBack === 0) {
                 isTypeSignature = true
                 break
               }
@@ -1243,13 +1249,58 @@ else {
               // Continue past commas to check if we're inside a generic type parameter
               if (ch === ',')
                 continue
-              // Stop at these characters that indicate we've gone too far
-              if (ch === '=' || ch === '(' || ch === '{' || ch === '[') {
+              // Walk through nested parens. When we descend BELOW the
+              // starting depth (parenDepthBack goes negative), we're
+              // looking at characters BEFORE an enclosing `(`. We keep
+              // walking — the type-context check just needs to find a
+              // marker like `:`, `|`, `&`, `<` somewhere.
+              if (ch === ')') {
+                parenDepthBack++
+                continue
+              }
+              if (ch === '(') {
+                parenDepthBack--
+                continue
+              }
+              // Type-union / intersection markers — strong signal we're in
+              // a type context like `string | (...) => T`.
+              if (ch === '|' || ch === '&') {
+                isTypeSignature = true
                 break
+              }
+              // Stop at these characters that indicate we've gone too far
+              // into a value context (only at our starting depth, not inside
+              // a balanced inner paren).
+              if (ch === '=' || ch === '{' || ch === '[') {
+                if (parenDepthBack >= 0)
+                  break
+                continue
               }
               // Skip whitespace, identifiers, and dots (for dotted type names)
               if (ch !== ' ' && ch !== '\t' && !/[\w.]/.test(ch)) {
-                break
+                if (parenDepthBack >= 0)
+                  break
+              }
+            }
+
+            // Two more type-signature contexts the backward scan above
+            // doesn't catch on its own:
+            //
+            // 1. `type Foo = (x: T) => U` / `export type Foo = ...`
+            //    The walk back stops at `=` before reaching `type`. Detect
+            //    the type-alias prefix on the line directly.
+            //
+            // 2. `(x as (...a: T) => U)(...)` — type assertion wrapping a
+            //    callable. The walk back stops at the outer `(`. Look for
+            //    a `\bas\b` keyword in the slice between the outer `(`
+            //    and the inner one we're inspecting.
+            if (!isTypeSignature) {
+              const beforeParen = line.slice(0, openParenIdx)
+              if (/^\s*(?:export\s+)?(?:declare\s+)?type\s+\w[\w$]*\s*(?:<[^>]*>)?\s*=\s*$/.test(beforeParen)) {
+                isTypeSignature = true
+              }
+              else if (/\bas\s+$/.test(beforeParen)) {
+                isTypeSignature = true
               }
             }
 
