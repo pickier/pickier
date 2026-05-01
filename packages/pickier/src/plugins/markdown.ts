@@ -120,6 +120,26 @@ function splitFrontmatter(content: string): { header: string | null, body: strin
   return { header: null, body: content }
 }
 
+/**
+ * Wrap a rule so it only runs on `.md` files but receives the full
+ * file content — no frontmatter stripping. Used for rules whose
+ * semantics depend on the WHOLE text (e.g. trailing-newline rules
+ * need to see the file's actual final bytes; if we hand them just
+ * the body, a frontmatter-only file with `'---\n\n'` at EOF gives
+ * body=`'\n'`, the rule says "ok, single newline", and the wrapper
+ * happily reattaches `header + '\n' + '\n'` = the same broken
+ * trailing.)
+ */
+function markdownOnlyWholeFile(rule: RuleModule): RuleModule {
+  return {
+    meta: rule.meta,
+    check: (content, context) => context.filePath.endsWith('.md') ? rule.check(content, context) : [],
+    fix: rule.fix
+      ? (content, context) => context.filePath.endsWith('.md') ? rule.fix!(content, context) : content
+      : undefined,
+  }
+}
+
 // Helper function to wrap markdown rules so they only run on .md files
 // Also strips YAML frontmatter so rules don't flag frontmatter content
 function markdownOnly(rule: RuleModule): RuleModule {
@@ -183,7 +203,10 @@ export const markdownPlugin: PickierPlugin = {
     'no-multiple-space-blockquote': markdownOnly(noMultipleSpaceBlockquoteRule),
     'no-blanks-blockquote': markdownOnly(noBlanksBlockquoteRule),
     'blanks-around-fences': markdownOnly(blanksAroundFencesRule),
-    'single-trailing-newline': markdownOnly(singleTrailingNewlineRule),
+    // Operates on the file's actual trailing bytes — must see the whole
+    // file (with frontmatter intact) so it can collapse `\n\n` runs at
+    // EOF correctly even when the body is empty/minimal.
+    'single-trailing-newline': markdownOnlyWholeFile(singleTrailingNewlineRule),
     'blanks-around-tables': markdownOnly(blanksAroundTablesRule),
 
     // Link rules (MD011, MD034, MD039, MD042, MD051-MD054, MD059)
