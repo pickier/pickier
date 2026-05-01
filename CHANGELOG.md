@@ -1,3 +1,27 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.23...v0.1.24)
+
+### 🐛 Bug Fixes
+
+- **rules**: heading-increment auto-fix + publint pre-build skip ([220e2ed](https://github.com/pickier/pickier/commit/220e2ed)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.24 ([f0e8a92](https://github.com/pickier/pickier/commit/f0e8a92)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.23...HEAD)
+
+### 🐛 Bug Fixes
+
+- **rules**: heading-increment auto-fix + publint pre-build skip ([220e2ed](https://github.com/pickier/pickier/commit/220e2ed)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.22...v0.1.23)
 
 ### 🐛 Bug Fixes
