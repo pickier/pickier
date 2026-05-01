@@ -1,3 +1,28 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.25...v0.1.26)
+
+### 🧹 Chores
+
+- release v0.1.26 ([0572368](https://github.com/pickier/pickier/commit/0572368)) _(by Chris <chrisbreuer93@gmail.com>)_
+- minor improvements ([c601985](https://github.com/pickier/pickier/commit/c601985)) _(by Chris <chrisbreuer93@gmail.com>)_
+- refresh bun.lock and apply pickier --fix ([bd16f43](https://github.com/pickier/pickier/commit/bd16f43)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.25...HEAD)
+
+### 🧹 Chores
+
+- minor improvements ([c601985](https://github.com/pickier/pickier/commit/c601985)) _(by Chris <chrisbreuer93@gmail.com>)_
+- refresh bun.lock and apply pickier --fix ([bd16f43](https://github.com/pickier/pickier/commit/bd16f43)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.24...v0.1.25)
 
 ### 🚀 Features
