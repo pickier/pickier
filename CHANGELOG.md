@@ -1,3 +1,40 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.24...v0.1.25)
+
+### 🚀 Features
+
+- **markdown**: auto-fix MD025/MD053/MD054 + majority style detection ([9c5bc33](https://github.com/pickier/pickier/commit/9c5bc33)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: skip TypeScript function-type signatures ([4889798](https://github.com/pickier/pickier/commit/4889798)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.25 ([391c254](https://github.com/pickier/pickier/commit/391c254)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- refresh bun.lock ([764979b](https://github.com/pickier/pickier/commit/764979b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.24...HEAD)
+
+### 🚀 Features
+
+- **markdown**: auto-fix MD025/MD053/MD054 + majority style detection ([9c5bc33](https://github.com/pickier/pickier/commit/9c5bc33)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: skip TypeScript function-type signatures ([4889798](https://github.com/pickier/pickier/commit/4889798)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- refresh bun.lock ([764979b](https://github.com/pickier/pickier/commit/764979b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.23...v0.1.24)
 
 ### 🐛 Bug Fixes
