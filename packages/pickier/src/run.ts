@@ -51,10 +51,14 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
     return runLint(globs, lintOpts)
   }
 
-  // auto mode: infer from flags
-  if (options.fix != null || options.reporter != null || options.maxWarnings != null || options.dryRun != null)
+  // auto mode: infer from flags. We only write fixes when the user explicitly
+  // asked for them (--write, --fix), or via --check (which runs dry-run fix).
+  // Bare `pickier .` is read-only lint, matching ESLint conventions and avoiding
+  // accidental destructive edits on docs/templates from a casual invocation.
+  const wantsFix = options.fix === true || options.write === true || options.check === true
+  if (!wantsFix)
     return runLint(globs, options as LintOptions)
-  // default to format path via lint fixer to keep unification
+
   const lintOpts: LintOptions = {
     ...(options as any),
     fix: true,

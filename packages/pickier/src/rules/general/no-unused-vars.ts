@@ -9,6 +9,13 @@ export const noUnusedVarsRule: RuleModule = {
       return []
     }
 
+    // Ambient declaration files declare globals that aren't necessarily
+    // referenced in the same file — that's the whole point of `.d.ts`.
+    // Skip the unused-vars heuristic for them.
+    if (ctx.filePath.endsWith('.d.ts')) {
+      return []
+    }
+
     const issues: ReturnType<RuleModule['check']> = []
     const opts: any = ctx.options || {}
     const varsIgnorePattern = typeof opts.varsIgnorePattern === 'string' ? opts.varsIgnorePattern : '^_'
@@ -1090,6 +1097,11 @@ else {
         // Skip 'function' used as a property name in destructuring: { function: value }
         const afterFunc = codeClean.slice(m.index! + 8).trimStart()
         if (afterFunc.startsWith(':')) {
+          continue
+        }
+        // Skip property access — `obj.function` / `obj?.function` is not a declaration.
+        const beforeFunc = codeClean.slice(0, m.index!).trimEnd()
+        if (beforeFunc.endsWith('.') || beforeFunc.endsWith('?.')) {
           continue
         }
         // Find the opening ( for parameters

@@ -1169,8 +1169,18 @@ export function scanContentOptimized(
   const isShell = fileExt === 'sh' || fileExt === 'bash' || fileExt === 'zsh'
     || fileExt === 'ksh' || fileExt === 'dash'
     || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)
-  const skipQuotesCheck = fileExt === 'json' || fileExt === 'jsonc' || fileExt === 'lock'
+  // Honor explicit config opt-out: rules.quotes / pluginRules.quotes / pluginRules['style/quotes']
+  const quotesRuleSetting
+    = (cfg.rules as any)?.quotes
+      ?? (cfg.pluginRules as any)?.quotes
+      ?? (cfg.pluginRules as any)?.['style/quotes']
+  const quotesDisabled = quotesRuleSetting === 'off'
+  const skipQuotesCheck = quotesDisabled
+    || fileExt === 'json' || fileExt === 'jsonc' || fileExt === 'lock'
     || isMd || fileExt === 'yaml' || fileExt === 'yml'
+    // .stx templates legitimately mix HTML attribute quotes (double) with JS
+    // expression quotes (single), so the rule produces noise here.
+    || fileExt === 'stx' || fileExt === 'html' || fileExt === 'htm' || fileExt === 'vue'
     || isShell
     || filePath.endsWith('bun.lock')
   // Skip code-level rules for non-code files (markdown, yaml, etc.)
@@ -1260,9 +1270,18 @@ export function scanContentOptimized(
     // Skip entirely for markdown — lists, blockquotes, and continuation lines
     // legitimately use 3-space (ordered-list continuation) and other
     // non-multiple-of-indentSize widths per CommonMark.
+    // Also skip template languages (.stx/.html/.vue) where mixed indentation
+    // between markup and embedded scripts is normal, and skip when the user
+    // has explicitly opted out via rules.indent / pluginRules.indent.
+    const indentRuleSetting
+      = (cfg.rules as any)?.indent
+        ?? (cfg.pluginRules as any)?.indent
+        ?? (cfg.pluginRules as any)?.['style/indent']
+    const indentDisabled = indentRuleSetting === 'off'
+    const isTemplate = fileExt === 'stx' || fileExt === 'html' || fileExt === 'htm' || fileExt === 'vue'
     const leadingMatch = line.match(/^[ \t]*/)
     const leading = leadingMatch ? leadingMatch[0] : ''
-    if (!isMd && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
+    if (!indentDisabled && !isMd && !isTemplate && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }

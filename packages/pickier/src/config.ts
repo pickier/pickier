@@ -1,6 +1,11 @@
 import type { PickierConfig } from './types'
 import { loadConfig } from 'bunfig'
 
+// Aliases pickier probes for — bunfig walks them in order until one matches.
+// `code-style` is the documented brand alias; `lint` plays nicely with
+// project conventions like Stacks's `config/lint.ts`.
+const CONFIG_ALIASES = ['code-style', 'lint'] as const
+
 export const defaultConfig: PickierConfig = {
   ignores: [
     '**/node_modules/**',
@@ -235,7 +240,7 @@ export async function getConfig(): Promise<PickierConfig> {
   if (!_config) {
     _config = await loadConfig({
       name: 'pickier',
-      alias: 'code-style',
+      alias: [...CONFIG_ALIASES],
       defaultConfig,
     })
   }
