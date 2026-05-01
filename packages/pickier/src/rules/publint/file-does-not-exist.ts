@@ -1,6 +1,29 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 import { existsSync } from 'node:fs'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { crawlExportsOrImports, createIssue, formatPkgPath, getPkgDir, getPublishedField, parsePackageJson, resolvePkgPath } from './utils'
+
+/**
+ * Walk up from `filePath` looking for the base output directory the path
+ * resolves into (the first segment, e.g. `dist/foo.js` → `dist/`).
+ * Returns true when that directory itself doesn't exist — a strong signal
+ * that the package simply hasn't been built yet (CI lint runs before
+ * `bun run build`), as opposed to a genuinely broken path.
+ */
+function baseDirectoryMissing(pkgDir: string, value: string): boolean {
+  // Strip leading ./ but keep ../ so we resolve correctly above the pkg.
+  let v = value
+  while (v.startsWith('./'))
+    v = v.slice(2)
+  // Take the first directory segment of the path, e.g. `dist/src/index.js` → `dist`.
+  const firstSegment = v.split('/')[0]
+  if (!firstSegment || firstSegment === '..' || firstSegment.startsWith('.'))
+    return false
+  const baseDir = isAbsolute(value)
+    ? dirname(value).split('/')[0] || '/'
+    : resolve(pkgDir, firstSegment)
+  return !existsSync(baseDir)
+}
 
 export const fileDoesNotExist: RuleModule = {
   meta: {
@@ -19,6 +42,13 @@ export const fileDoesNotExist: RuleModule = {
     for (const field of stringFields) {
       const [value, path] = getPublishedField(pkg, field)
       if (value == null || typeof value !== 'string') continue
+
+      // Skip when the base output directory doesn't exist — the package
+      // just hasn't been built yet (e.g. CI runs lint before build). This
+      // rule is meant to catch typos in published-field paths, not flag
+      // missing build artifacts in dev/CI workflows.
+      if (baseDirectoryMissing(pkgDir, value))
+        continue
 
       const resolved = resolvePkgPath(pkgDir, value)
       if (!fileExistsWithFallbacks(resolved)) {
@@ -57,6 +87,8 @@ export const fileDoesNotExist: RuleModule = {
         if (!value.startsWith('./') && !value.startsWith('../')) return
         if (value.includes('*')) return // Skip glob patterns
 
+        if (baseDirectoryMissing(pkgDir, value)) return
+
         const resolved = resolvePkgPath(pkgDir, value)
         if (!existsSync(resolved)) {
           issues.push(createIssue(
@@ -84,6 +116,7 @@ function checkFileRef(
   content: string,
   pkgDir: string,
 ): void {
+  if (baseDirectoryMissing(pkgDir, value)) return
   const resolved = resolvePkgPath(pkgDir, value)
   if (!fileExistsWithFallbacks(resolved)) {
     issues.push(createIssue(

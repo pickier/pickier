@@ -59,6 +59,43 @@ describe('MD001 - heading-increment', () => {
       console.log = originalLog
     }
   })
+
+  describe('fix: clamp skipped heading levels (logsmith CHANGELOG pattern)', () => {
+    async function runFix(src: string): Promise<string> {
+      const tempPath = createTempFile(src)
+      const configPath = createConfigWithMarkdownRules({ 'markdown/heading-increment': 'error' })
+      await runLint([tempPath], { reporter: 'json', config: configPath, fix: true })
+      const { readFileSync } = await import('node:fs')
+      return readFileSync(tempPath, 'utf8')
+    }
+
+    it('demotes h3 after h1 to h2', async () => {
+      const src = '# Title\n\n### Section\n\nBody.\n'
+      expect(await runFix(src)).toBe('# Title\n\n## Section\n\nBody.\n')
+    })
+
+    it('demotes a chain (logsmith changelog pattern)', async () => {
+      // Logsmith emits: # Changelog → ### v1.0.0 → #### Features
+      const src = '# Changelog\n\n### v1.0.0\n\n#### Features\n\n- thing\n'
+      expect(await runFix(src)).toBe('# Changelog\n\n## v1.0.0\n\n### Features\n\n- thing\n')
+    })
+
+    it('preserves going BACK up the tree (h3 → h2 is fine)', async () => {
+      const src = '# H1\n\n## H2\n\n### H3\n\n## Back to H2\n'
+      expect(await runFix(src)).toBe(src)
+    })
+
+    it('does not touch headings inside code blocks', async () => {
+      const src = '# Title\n\n```markdown\n# h1\n### h3 (in code)\n```\n\n## Section\n'
+      expect(await runFix(src)).toBe(src)
+    })
+
+    it('handles multiple consecutive jumps independently', async () => {
+      const src = '# H1\n\n#### H4\n'
+      // first jump h1→h4 clamps to h2; no further jumps to fix
+      expect(await runFix(src)).toBe('# H1\n\n## H4\n')
+    })
+  })
 })
 
 describe('MD003 - heading-style', () => {

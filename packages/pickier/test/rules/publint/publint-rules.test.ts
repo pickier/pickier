@@ -466,7 +466,30 @@ describe('publint/imports-default-should-be-last', () => {
 })
 
 describe('publint/file-does-not-exist', () => {
-  it('flags main pointing to non-existent file', async () => {
+  it('flags main pointing to a typo path within an existing build dir', async () => {
+    // The rule is meant to catch typos in published-field paths (e.g.
+    // `./dist/idnex.js`), not flag missing build artifacts when the
+    // user hasn't run `bun run build` yet. So we set up a `dist/`
+    // directory with the wrong file inside it.
+    const dir = tmp()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(join(dir, 'dist', 'index.js'), 'module.exports = {}', 'utf8')
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'test-pkg',
+      version: '1.0.0',
+      type: 'module',
+      main: './dist/idnex.js', // typo
+    }, null, 2) + '\n', 'utf8')
+    const cfgPath = writeConfig(dir, enableRule('publint/file-does-not-exist'))
+    const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
+    expect(code).toBe(1)
+  })
+
+  it('skips check when the whole build directory is missing (pre-build / CI)', async () => {
+    // Common workflow: CI runs `bun run lint` BEFORE `bun run build`,
+    // so `dist/` doesn't exist yet. We shouldn't flag every published
+    // field as broken — that's noise, not a real typo. Skip when the
+    // base output directory is absent entirely.
     const dir = tmp()
     writeFileSync(join(dir, 'package.json'), JSON.stringify({
       name: 'test-pkg',
@@ -476,7 +499,7 @@ describe('publint/file-does-not-exist', () => {
     }, null, 2) + '\n', 'utf8')
     const cfgPath = writeConfig(dir, enableRule('publint/file-does-not-exist'))
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
-    expect(code).toBe(1)
+    expect(code).toBe(0)
   })
 
   it('passes when referenced file exists', async () => {
