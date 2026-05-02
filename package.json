@@ -58,6 +58,9 @@
     "bun-plugin-dtsx": "^0.9.14",
     "typescript": "^6.0.3"
   },
+  "overrides": {
+    "@stacksjs/clapp": "0.2.0"
+  },
   "git-hooks": {
     "pre-commit": {
       "staged-lint": {
