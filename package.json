@@ -32,6 +32,8 @@
     "changelog": "bunx logsmith --verbose",
     "changelog:generate": "bunx logsmith --output CHANGELOG.md",
     "release": "bun --bun run changelog:generate && ./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun bumpx prompt --recursive",
+    "release:patch": "bun --bun run changelog:generate && ./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun bumpx patch --recursive --yes",
+    "publish:patch": "bun --bun run changelog:generate && ./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun bumpx patch --recursive --yes",
     "test": "bun run --cwd packages/pickier test",
     "test:core": "bun run --cwd packages/pickier test:core",
     "test:format": "bun run --cwd packages/pickier test:format",
