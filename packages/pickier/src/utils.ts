@@ -219,7 +219,17 @@ export function createLimiter(concurrency: number): <T>(fn: () => Promise<T>) =>
  * Environment variable configuration with defaults.
  * Centralized to avoid scattered parsing and provide documentation.
  */
-export const ENV = {
+export interface EnvConfig {
+  readonly TRACE: boolean
+  readonly TIMEOUT_MS: number
+  readonly RULE_TIMEOUT_MS: number
+  readonly CONCURRENCY: number
+  readonly DIAGNOSTICS: boolean
+  readonly FAIL_ON_WARNINGS: boolean
+  readonly NO_AUTO_CONFIG: boolean
+}
+
+export const ENV: EnvConfig = {
   /** Enable verbose trace logging. Set PICKIER_TRACE=1 to enable. */
   get TRACE(): boolean {
     return process.env.PICKIER_TRACE === '1'
@@ -248,13 +258,13 @@ export const ENV = {
   get NO_AUTO_CONFIG(): boolean {
     return process.env.PICKIER_NO_AUTO_CONFIG === '1'
   },
-} as const
+}
 
 /**
  * Universal ignore patterns that should apply everywhere.
  * These are always excluded regardless of project-specific config.
  */
-export const UNIVERSAL_IGNORES = [
+export const UNIVERSAL_IGNORES: readonly string[] = [
   '**/node_modules/**',
   '**/dist/**',
   '**/build/**',
