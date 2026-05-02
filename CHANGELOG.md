@@ -1,3 +1,32 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.26...v0.1.27)
+
+### 🐛 Bug Fixes
+
+- use scoped spell check package ([dcaa530](https://github.com/pickier/pickier/commit/dcaa530)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.27 ([9893ee1](https://github.com/pickier/pickier/commit/9893ee1)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add cloud patch publish script ([26ca8b1](https://github.com/pickier/pickier/commit/26ca8b1)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.26...HEAD)
+
+### 🐛 Bug Fixes
+
+- use scoped spell check package ([dcaa530](https://github.com/pickier/pickier/commit/dcaa530)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- add cloud patch publish script ([26ca8b1](https://github.com/pickier/pickier/commit/26ca8b1)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.25...v0.1.26)
 
 ### 🧹 Chores
