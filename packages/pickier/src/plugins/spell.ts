@@ -2,7 +2,7 @@ import type { LintIssue, PickierPlugin, RuleContext, RuleModule } from '../types
 
 /**
  * Native spell-check plugin for pickier.
- * Uses ts-spell-check as an optional dependency — gracefully degrades if not installed.
+ * Uses @stacksjs/ts-spell-check as an optional dependency — gracefully degrades if not installed.
  *
  * Rules:
  *   spell/check          — Check spelling in all text
@@ -22,7 +22,7 @@ function ensureLoaded(): boolean {
   if (_loaded) return _available
 
   try {
-    _tssc = require('ts-spell-check')
+    _tssc = require('@stacksjs/ts-spell-check')
     // SpellChecker.create() is async — we trigger it and use a sync fallback until ready
     _tssc.SpellChecker.create({ minWordLength: 3, maxSuggestions: 3 }).then((c: any) => {
       _checker = c
