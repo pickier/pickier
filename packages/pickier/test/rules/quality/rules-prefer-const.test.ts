@@ -267,5 +267,57 @@ describe('pickier/prefer-const', () => {
       await runLint([dir], { config: cfg, fix: true })
       expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
     })
+
+    // Regression for https://github.com/pickier/pickier/issues/1357
+    it('does not rewrite when reassigned via array destructuring', async () => {
+      const src = 'let cursor = 0\nlet value = null\n;[cursor, value] = readNumber()\nconsole.log(cursor, value)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
+
+    it('does not rewrite when reassigned via object destructuring (shorthand)', async () => {
+      const src = 'let x = 1\nlet y = 2\n;({ x, y } = obj())\nconsole.log(x, y)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
+
+    it('does not rewrite when reassigned via object destructuring (key:binding)', async () => {
+      const src = 'let z = 0\n;({ key: z } = source())\nconsole.log(z)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
+
+    it('still rewrites when name appears as object KEY only (not a binding)', async () => {
+      // `{ x: alias } = obj` reassigns `alias`, not `x`. Our `let x` is
+      // independent and should still be eligible for the const rewrite.
+      const src = 'let x = 1\nlet alias = 0\n;({ x: alias } = obj())\nconsole.log(x, alias)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe('const x = 1\nlet alias = 0\n;({ x: alias } = obj())\nconsole.log(x, alias)\n')
+    })
+
+    it('respects // eslint-disable-next-line prefer-const', async () => {
+      const src = '// eslint-disable-next-line prefer-const\nlet suppressed = 1\nconsole.log(suppressed)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
+
+    it('respects // pickier-disable-next-line prefer-const', async () => {
+      const src = '// pickier-disable-next-line prefer-const\nlet suppressed = 1\nconsole.log(suppressed)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
+
+    it('respects bare disable-next-line (no rule list = disable all)', async () => {
+      const src = '// eslint-disable-next-line\nlet suppressed = 1\nconsole.log(suppressed)\n'
+      const { dir, file, cfg } = setupFix(src)
+      await runLint([dir], { config: cfg, fix: true })
+      expect(readFileSync(join(dir, file), 'utf8')).toBe(src)
+    })
   })
 })

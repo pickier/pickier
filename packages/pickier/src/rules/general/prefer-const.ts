@@ -48,6 +48,92 @@ function findTopLevelEquals(s: string): number {
   return -1
 }
 
+/**
+ * Walk `text` looking for destructuring-pattern assignments — `[…] = …`
+ * or `{…} = …` — and return true when `name` appears as a binding
+ * inside any of them. This catches the `let x; [x, y] = fn()` pattern
+ * (issue #1357) that the simple `\bname\b\s*=` heuristic misses
+ * because in destructuring `name` is followed by `,`, `]`, or `}`.
+ *
+ * Conservative: walks bracket pairs by counting depth, ignores string
+ * literals so an `[x, y] = …` written inside a template literal body
+ * doesn't generate false matches against an unrelated outer binding.
+ */
+function destructuringReassignsName(text: string, name: string): boolean {
+  const re = new RegExp(`\\b${name}\\b`)
+  let i = 0
+  let inStr: 'single' | 'double' | 'template' | null = null
+  let escaped = false
+  while (i < text.length) {
+    const c = text[i]
+    if (escaped) { escaped = false; i++; continue }
+    if (c === '\\' && inStr) { escaped = true; i++; continue }
+    if (inStr) {
+      if ((inStr === 'single' && c === '\'')
+        || (inStr === 'double' && c === '"')
+        || (inStr === 'template' && c === '`'))
+        inStr = null
+      i++
+      continue
+    }
+    if (c === '\'') { inStr = 'single'; i++; continue }
+    if (c === '"') { inStr = 'double'; i++; continue }
+    if (c === '`') { inStr = 'template'; i++; continue }
+    if (c === '[' || c === '{') {
+      const open = c
+      const close = c === '[' ? ']' : '}'
+      let depth = 1
+      let j = i + 1
+      while (j < text.length && depth > 0) {
+        const cj = text[j]
+        if (cj === '\\') { j += 2; continue }
+        if (cj === open) depth++
+        else if (cj === close) depth--
+        if (depth === 0) break
+        j++
+      }
+      if (depth === 0 && j < text.length) {
+        // Look past whitespace for `=` (and not `==` / `=>`).
+        let k = j + 1
+        while (k < text.length && (text[k] === ' ' || text[k] === '\t' || text[k] === '\r' || text[k] === '\n'))
+          k++
+        if (text[k] === '=' && text[k + 1] !== '=' && text[k + 1] !== '>') {
+          // The bracket span [i+1 .. j-1] is a destructuring pattern.
+          const inside = text.slice(i + 1, j)
+          if (re.test(inside)) {
+            // Make sure it's a binding position, not an object-literal
+            // shorthand value or a `key: value` where `value` is the
+            // binding. For `{ key: name }` only `name` is the binding;
+            // for `{ name }` (shorthand) the same `name` is both. The
+            // heuristic: if `name` appears immediately after `:` (with
+            // optional whitespace), it's the binding. If `name` appears
+            // before `:`, it's the property key (NOT the binding).
+            // We only need to refute the second case.
+            const keyOnly = new RegExp(`\\b${name}\\b\\s*:`)
+            const valueAfterColon = new RegExp(`:\\s*\\b${name}\\b`)
+            if (open === '{') {
+              // For object destructuring: name is binding UNLESS it appears
+              // ONLY as `name:` (key) and never as shorthand or `: name`.
+              const isKeyOnly = keyOnly.test(inside) && !valueAfterColon.test(inside)
+                && !new RegExp(`(?:^|[\\s,{])\\s*${name}\\s*(?:,|\\s*=|\\s*})`).test(inside)
+              if (!isKeyOnly)
+                return true
+            }
+            else {
+              // Array destructuring: any occurrence is a binding position.
+              return true
+            }
+          }
+        }
+      }
+      i = j + 1
+      continue
+    }
+    i++
+  }
+  return false
+}
+
 // Returns the names of variables declared on the line, paired with whether
 // each is "fixable" (initialized AND never reassigned in the rest of the
 // text). Returns null if the line isn't a let/var declaration we understand.
@@ -93,7 +179,12 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
     const directAssign = new RegExp(assignPattern).test(rest)
     // eslint-disable-next-line no-useless-escape
     const incDecChanged = new RegExp(`(?:^|[^$\w])(?:\\+\\+|--)\\s*${name}\\b|\\b${name}\\s*(?:\\+\\+|--)`).test(rest)
-    result.push({ name, fixable: !directAssign && !incDecChanged })
+    // Destructuring reassignment: `[x, y] = …` or `{ x, y } = …` later
+    // in the file (issue #1357). The simple `\bname\s*=` regex above
+    // misses these because in destructuring `name` is followed by `,`,
+    // `]`, or `}`, not `=`.
+    const destructReassigned = destructuringReassignsName(rest, name)
+    result.push({ name, fixable: !directAssign && !incDecChanged && !destructReassigned })
   }
   return result
 }
@@ -124,8 +215,31 @@ export const preferConstRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
+
+    // Pre-compute which lines are suppressed by an
+    // `// eslint-disable-next-line prefer-const` /
+    // `// pickier-disable-next-line prefer-const` directive on the line
+    // above. The linter applies this filter at the issue-collection
+    // layer when reporting, but the fix path bypasses that — so we
+    // mirror the same logic here. Issue #1357.
+    const disabledLines = new Set<number>()
+    const disableNextRe = /(?:eslint|pickier)-disable-next-line\b([^*\n]*)/
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(disableNextRe)
+      if (!m)
+        continue
+      const ruleList = m[1].trim()
+      // Empty list disables all rules for the next line.
+      if (ruleList === '' || /\bprefer-const\b/.test(ruleList))
+        disabledLines.add(i + 2) // 1-indexed line directly below
+    }
+
     let changed = false
     for (let i = 0; i < lines.length; i++) {
+      // Skip if a disable-next-line directive points at this line
+      // (1-indexed, so i+1).
+      if (disabledLines.has(i + 1))
+        continue
       const line = lines[i]
       // Only auto-fix `let` declarations, not `var`.
       //
