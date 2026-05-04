@@ -59,7 +59,7 @@
     "typescript": "^6.0.3"
   },
   "overrides": {
-    "@stacksjs/clapp": "0.2.0"
+    "@stacksjs/clapp": "^0.2.6"
   },
   "git-hooks": {
     "pre-commit": {
