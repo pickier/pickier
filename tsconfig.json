@@ -3,7 +3,6 @@
     "target": "esnext",
     "lib": ["esnext"],
     "moduleDetection": "force",
-    "baseUrl": ".",
     "module": "esnext",
     "moduleResolution": "bundler",
     "paths": {
