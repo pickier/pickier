@@ -59,7 +59,7 @@
     "@biomejs/biome": "^1.9.4",
     "eslint": "^9.39.1",
     "happy-dom": "^20.0.11",
-    "jsdom": "^25.0.1",
+    "jsdom": "^29.1.1",
     "mitata": "^1.0.34",
     "oxfmt": "^0.1.0",
     "prettier": "^3.7.4",
