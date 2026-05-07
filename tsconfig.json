@@ -6,6 +6,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "paths": {
+      "bunfig": ["./packages/pickier/src/types/bunfig.ts"],
       "pickier": ["./packages/pickier/src/index.ts"]
     },
     "resolveJsonModule": true,
@@ -24,7 +25,18 @@
     "skipDefaultLibCheck": true,
     "skipLibCheck": true
   },
+  "include": [
+    "packages/pickier/src/**/*.ts",
+    "packages/pickier/bin/**/*.ts",
+    "packages/pickier/build.ts",
+    "packages/pickier/test/**/*.ts",
+    "packages/zig/**/*.ts"
+  ],
   "exclude": [
+    "node_modules/**/*",
+    "pantry/**/*",
+    "**/node_modules/**/*",
+    "**/pantry/**/*",
     "packages/pickier/test/fixtures/**/*",
     "packages/pickier/test/output/**/*",
     "packages/pickier/dist/**/*",

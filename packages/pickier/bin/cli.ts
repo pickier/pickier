@@ -96,6 +96,13 @@ async function main() {
 
   const cli = new CLI('pickier')
 
+  const normalizeActionArgs = (args: unknown[]): [string[], Record<string, unknown>] => {
+    const [cmdGlobsRaw, optsRaw] = args
+    const cmdGlobs = Array.isArray(cmdGlobsRaw) ? cmdGlobsRaw.filter((item): item is string => typeof item === 'string') : []
+    const opts = optsRaw && typeof optsRaw === 'object' ? optsRaw as Record<string, unknown> : {}
+    return [cmdGlobs, opts]
+  }
+
   // Default command: `pickier .` lints, `pickier . --format` formats
   cli
     .command('[...globs]', 'Lint files (default)')
@@ -114,7 +121,8 @@ async function main() {
     .example('pickier . --fix')
     .example('pickier . --format')
     .example('pickier src --fix --verbose')
-    .action(async (cmdGlobs: string[], opts: Record<string, unknown> & { format?: boolean }) => {
+    .action(async (...args: unknown[]) => {
+      const [cmdGlobs, opts] = normalizeActionArgs(args)
       if (cmdGlobs.length === 0) {
         cli.outputHelp()
         return
@@ -149,7 +157,8 @@ async function main() {
     .example('pickier lint .')
     .example('pickier lint src --fix')
     .example('pickier lint "src/**/*.{ts,tsx}" --reporter json')
-    .action(async (cmdGlobs: string[], opts: Record<string, unknown>) => {
+    .action(async (...args: unknown[]) => {
+      const [cmdGlobs, opts] = normalizeActionArgs(args)
       const { runUnified } = await import('../src/run.ts')
       const code = await runUnified(cmdGlobs, { ...opts, mode: 'lint' } as Parameters<typeof runUnified>[1])
       process.exit(code)
@@ -166,7 +175,8 @@ async function main() {
     .option('--verbose', 'Verbose output')
     .example('pickier format . --write')
     .example('pickier format . --check')
-    .action(async (cmdGlobs: string[], opts: Record<string, unknown>) => {
+    .action(async (...args: unknown[]) => {
+      const [cmdGlobs, opts] = normalizeActionArgs(args)
       const { runUnified } = await import('../src/run.ts')
       const code = await runUnified(cmdGlobs, { ...opts, mode: 'format' } as Parameters<typeof runUnified>[1])
       process.exit(code)
@@ -189,7 +199,8 @@ async function main() {
     .option('--verbose', 'Verbose output')
     .example('pickier run . --mode lint --fix')
     .example('pickier run . --mode format --write')
-    .action(async (cmdGlobs: string[], opts: Record<string, unknown>) => {
+    .action(async (...args: unknown[]) => {
+      const [cmdGlobs, opts] = normalizeActionArgs(args)
       const { runUnified } = await import('../src/run.ts')
       const code = await runUnified(cmdGlobs, opts as Parameters<typeof runUnified>[1])
       process.exit(code)
