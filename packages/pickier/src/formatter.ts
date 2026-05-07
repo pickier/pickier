@@ -5,7 +5,7 @@ import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
-import { colors, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES } from './utils'
 
 let _logger: Logger | null = null
 function getLogger(): Logger {
@@ -240,6 +240,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   const globIgnores = isGlobbingOutsideProject
     ? [...UNIVERSAL_IGNORES]
     : cfg.ignores
+  const ignoreMatcher = createIgnoreMatcher(globIgnores)
 
   let entries: string[] = []
   const simpleDirPattern = patterns.length === 1 && /\*\*\/\*$/.test(patterns[0])
@@ -255,7 +256,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
         for (const it of items) {
           const full = join(dir, it)
           const st = statSync(full)
-          if (shouldIgnorePath(full, globIgnores))
+          if (ignoreMatcher(full))
             continue
           if (st.isDirectory())
             stack.push(full)
@@ -285,7 +286,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   trace('globbed entries', entries.length)
 
   const files = entries.filter((f) => {
-    if (shouldIgnorePath(f, globIgnores))
+    if (ignoreMatcher(f))
       return false
     const idx = f.lastIndexOf('.')
     if (idx < 0)

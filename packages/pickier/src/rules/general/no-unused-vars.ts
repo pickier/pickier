@@ -174,12 +174,12 @@ export const noUnusedVarsRule: RuleModule = {
     }
     computeTemplateLines()
 
+    const declRe = new RegExp('^\\s*(?:const|let|var)\\s+(.+?)' + ';' + '?\\s*$')
     for (let i = 0; i < lines.length; i++) {
       // Skip lines inside template literal body (generated code, not real code)
       if (lineStartsInTemplate[i])
         continue
       const line = lines[i]
-      const declRe = new RegExp('^\\s*(?:const|let|var)\\s+(.+?)' + ';' + '?\\s*$')
       const decl = line.match(declRe)
       if (!decl)
         continue

@@ -692,6 +692,17 @@ interface ParsedImport {
   original: string
 }
 
+function collectIdentifierSet(text: string): Set<string> {
+  const identifiers = new Set<string>()
+  const identifierRe = /[$A-Z_][\w$]*/gi
+  let match = identifierRe.exec(text)
+  while (match !== null) {
+    identifiers.add(match[0])
+    match = identifierRe.exec(text)
+  }
+  return identifiers
+}
+
 export function formatImports(source: string): string {
   // Fast path: if file doesn't start with import/comment/blank, no import block to process
   const firstChar = source[0]
@@ -722,17 +733,8 @@ export function formatImports(source: string): string {
   const rest = lines.slice(idx).join('\n')
 
   // Remove unused only for simple named (no alias). Keep defaults, namespaces, and all type specifiers.
-  const codeText = rest
-  const isWordChar = (c: string) => c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c === '_' || c === '$'
-  const used = (name: string): boolean => {
-    for (let pos = codeText.indexOf(name, 0); pos !== -1; pos = codeText.indexOf(name, pos + name.length)) {
-      const before = pos > 0 ? codeText[pos - 1] : ' '
-      const after = pos + name.length < codeText.length ? codeText[pos + name.length] : ' '
-      if (!isWordChar(before) && !isWordChar(after))
-        return true
-    }
-    return false
-  }
+  const usedIdentifiers = collectIdentifierSet(rest)
+  const used = (name: string): boolean => usedIdentifiers.has(name)
   for (const imp of imports) {
     if (imp.kind !== 'value')
       continue

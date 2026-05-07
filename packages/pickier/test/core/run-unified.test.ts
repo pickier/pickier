@@ -54,6 +54,18 @@ describe('runUnified mode routing', () => {
       expect(code).toBe(0)
     })
 
+    it('returns 1 in check mode for an unformatted single file', async () => {
+      const file = join(dir, 'test.ts')
+      const original = 'const x = "hello"  \n\n\n'
+      writeFileSync(file, original, 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      const code = await runUnified([file], { mode: 'format', check: true })
+
+      expect(code).toBe(1)
+      expect(readFileSync(file, 'utf8')).toBe(original)
+    })
+
     it('handles glob patterns by falling through to linter', async () => {
       const file = join(dir, 'a.ts')
       writeFileSync(file, 'const x = "hello"\n', 'utf8')
@@ -64,6 +76,18 @@ describe('runUnified mode routing', () => {
       expect(code).toBe(0)
       const result = readFileSync(file, 'utf8')
       expect(result).toContain("'hello'")
+    })
+
+    it('returns 1 in check mode for unformatted glob matches', async () => {
+      const file = join(dir, 'a.ts')
+      const original = 'const x = "hello"  \n\n\n'
+      writeFileSync(file, original, 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      const code = await runUnified([`${dir}/**/*.ts`], { mode: 'format', check: true })
+
+      expect(code).toBe(1)
+      expect(readFileSync(file, 'utf8')).toBe(original)
     })
 
     it('handles directory path by falling through to linter', async () => {

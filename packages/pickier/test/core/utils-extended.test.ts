@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
 import process from 'node:process'
-import { expandPatterns, getRuleSetting, isCodeFile, shouldIgnorePath } from '../../src/utils'
+import { createIgnoreMatcher, expandPatterns, getRuleSetting, isCodeFile, shouldIgnorePath } from '../../src/utils'
 
 process.env.PICKIER_NO_AUTO_CONFIG = '1'
 
@@ -151,6 +151,13 @@ describe('shouldIgnorePath', () => {
       '/tmp/external/node_modules/foo.js',
       ['**/node_modules/**', '**/custom-dir/**'],
     )).toBe(true)
+  })
+
+  it('reuses compiled ignore matchers', () => {
+    const matcher = createIgnoreMatcher(['**/node_modules/**', '**/*.test.ts'])
+    expect(matcher(join(cwd, 'node_modules/foo/bar.ts'))).toBe(true)
+    expect(matcher(join(cwd, 'src/foo.test.ts'))).toBe(true)
+    expect(matcher(join(cwd, 'src/foo.ts'))).toBe(false)
   })
 })
 

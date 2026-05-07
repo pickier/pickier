@@ -6,7 +6,7 @@ import { Logger } from '@stacksjs/clarity'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
-import { colors, createLimiter, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, shouldIgnorePath, UNIVERSAL_IGNORES } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
 let _logger: Logger | null = null
@@ -28,27 +28,22 @@ export async function lintText(
   filePath = 'untitled',
   signal?: AbortSignal,
 ): Promise<LintIssue[]> {
-  if (signal?.aborted) {
+  if (signal?.aborted)
     throw new Error('AbortError')
-    // Avoid duplicate plugin execution inside scanContent
-  }
 
-  const cfg2 = cfg as any
-  cfg2._internalSkipPluginRulesInScan = true
-  const issues = scanContent(filePath, text, cfg)
+  const suppress = parseDisableDirectives(text)
+  const commentLines = getCommentLines(text)
+  const issues = scanContentOptimized(filePath, text, cfg, suppress, commentLines)
   if (signal?.aborted)
     throw new Error('AbortError')
   try {
     const pluginIssues = await applyPlugins(filePath, text, cfg)
-    const suppress = parseDisableDirectives(text)
-    const commentLines = getCommentLines(text)
     for (const i of pluginIssues) {
       if (signal?.aborted)
         throw new Error('AbortError')
       if (isSuppressed(i.ruleId as string, i.line, suppress))
         continue
-      // Skip issues that are on comment-only lines
-      if (commentLines.has(i.line))
+      if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
         continue
       issues.push({
         filePath: i.filePath,
@@ -98,6 +93,7 @@ export async function runLintProgrammatic(
   const globIgnores = isGlobbingOutsideProject
     ? [...UNIVERSAL_IGNORES] // Use ALL universal ignores when outside project
     : cfg.ignores
+  const ignoreMatcher = createIgnoreMatcher(globIgnores)
 
   let entries: string[] = []
   const nonGlobSingle = patterns.length === 1 && !/[*?[\]{}()!]/.test(patterns[0])
@@ -126,7 +122,7 @@ export async function runLintProgrammatic(
         for (const it of items) {
           const full = join(dir, it)
           const st = statSync(full)
-          if (shouldIgnorePath(full, globIgnores))
+          if (ignoreMatcher(full))
             continue
           if (st.isDirectory())
             stack.push(full)
@@ -168,7 +164,7 @@ export async function runLintProgrammatic(
       cntNodeModules++
       continue
     }
-    if (shouldIgnorePath(f, globIgnores)) {
+    if (ignoreMatcher(f)) {
       cntIgnored++
       continue
     }
@@ -181,9 +177,9 @@ export async function runLintProgrammatic(
   }
   trace('filter:programmatic', { total: cntTotal, included: cntIncluded, node_modules: cntNodeModules, ignored: cntIgnored, wrongExt: cntWrongExt })
 
-  // OPTIMIZATION: Parallel file processing with concurrency limit
+  // OPTIMIZATION: Parallel file processing with a bounded worker queue. This
+  // avoids allocating one pending Promise per file on very large projects.
   const concurrency = ENV.CONCURRENCY
-  const limit = createLimiter(concurrency)
 
   const processFile = async (file: string): Promise<LintIssue[]> => {
     if (signal?.aborted)
@@ -194,8 +190,6 @@ export async function runLintProgrammatic(
     const suppress = parseDisableDirectives(src)
     const commentLines = getCommentLines(src)
 
-    const cfgAny = cfg as any
-    cfgAny._internalSkipPluginRulesInScan = true
     // Pass pre-computed data to avoid re-parsing
     let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
 
@@ -206,8 +200,7 @@ export async function runLintProgrammatic(
           throw new Error('AbortError')
         if (isSuppressed(i.ruleId as string, i.line, suppress))
           continue
-        // Skip issues that are on comment-only lines
-        if (commentLines.has(i.line))
+        if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
           continue
         issues.push({
           filePath: i.filePath,
@@ -265,7 +258,7 @@ export async function runLintProgrammatic(
     return issues
   }
 
-  const issueArrays = await Promise.all(files.map(file => limit(() => processFile(file))))
+  const issueArrays = await processWithConcurrency(files, concurrency, processFile)
   const allIssues = issueArrays.flat()
 
   const errors = allIssues.filter(i => i.severity === 'error').length
@@ -306,11 +299,11 @@ function parseDisableDirectives(content: string): DisableDirectives {
     const lineNo = i + 1
 
     // Match disable-next-line comments
-    const nextLineMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable-next-line\s+(\S.*)$/)
+    const nextLineMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable-next-line(?:\s+(\S.*))?$/)
     if (nextLineMatch) {
       // Strip trailing -- comments (e.g., "rule-name -- explanation")
-      const ruleText = nextLineMatch[1].replace(/\s+--\s.*$/, '')
-      const list = ruleText.split(',').map(s => s.trim()).filter(Boolean)
+      const ruleText = nextLineMatch[1]?.replace(/\s+--\s.*$/, '')
+      const list = ruleText ? ruleText.split(',').map(s => s.trim()).filter(Boolean) : ['*']
       if (list.length > 0) {
         const target = lineNo + 1 // next line (1-indexed)
         const set = nextLine.get(target) || new Set<string>()
@@ -428,29 +421,6 @@ function _parseDisableNextLine(content: string): SuppressMap {
   return parseDisableDirectives(content).nextLine
 }
 
-// OPTIMIZATION: Binary search helper to find largest value < target
-function binarySearchLargestLessThan(arr: number[], target: number): number {
-  if (arr.length === 0 || arr[0] >= target)
-    return -1
-
-  let left = 0
-  let right = arr.length - 1
-  let result = -1
-
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2)
-    if (arr[mid] < target) {
-      result = arr[mid]
-      left = mid + 1
-    }
-    else {
-      right = mid - 1
-    }
-  }
-
-  return result
-}
-
 function isSuppressed(ruleId: string, line: number, directives: SuppressMap | DisableDirectives): boolean {
   // Handle legacy SuppressMap format
   if (directives instanceof Map) {
@@ -471,18 +441,37 @@ function isSuppressed(ruleId: string, line: number, directives: SuppressMap | Di
   if (nextLineSet && matchesRule(ruleId, nextLineSet))
     return true
 
-  // OPTIMIZATION: Use binary search on pre-sorted arrays
-  const lastDisableLine = binarySearchLargestLessThan(directives.sortedDisableLines, line)
-  const lastEnableLine = binarySearchLargestLessThan(directives.sortedEnableLines, line)
+  // Range directives must be evaluated per rule. A global "last enable" line is
+  // incorrect because enabling no-console should not re-enable prefer-const.
+  let disabled = false
+  let disableIndex = 0
+  let enableIndex = 0
+  while (true) {
+    const nextDisable = disableIndex < directives.sortedDisableLines.length
+      ? directives.sortedDisableLines[disableIndex]
+      : Number.POSITIVE_INFINITY
+    const nextEnable = enableIndex < directives.sortedEnableLines.length
+      ? directives.sortedEnableLines[enableIndex]
+      : Number.POSITIVE_INFINITY
+    const nextDirectiveLine = Math.min(nextDisable, nextEnable)
+    if (nextDirectiveLine >= line)
+      break
 
-  // If there's a disable directive and no more recent enable, check if the rule is disabled
-  if (lastDisableLine !== -1 && lastDisableLine > lastEnableLine) {
-    const disabledRules = directives.rangeDisable.get(lastDisableLine)!
-    if (matchesRule(ruleId, disabledRules))
-      return true
+    if (nextDisable === nextDirectiveLine) {
+      const disabledRules = directives.rangeDisable.get(nextDisable)!
+      if (matchesRule(ruleId, disabledRules))
+        disabled = true
+      disableIndex++
+      continue
+    }
+
+    const enabledRules = directives.rangeEnable.get(nextEnable)!
+    if (enabledRules.has('*') || matchesRule(ruleId, enabledRules))
+      disabled = false
+    enableIndex++
   }
 
-  return false
+  return disabled
 }
 
 function matchesRule(ruleId: string, ruleSet: Set<string>): boolean {
@@ -505,6 +494,13 @@ function matchesRule(ruleId: string, ruleSet: Set<string>): boolean {
     }
   }
   return false
+}
+
+function shouldSkipCommentOnlyPluginIssue(ruleId: string): boolean {
+  // Most code-oriented plugin rules should ignore comment-only lines to avoid
+  // false positives from examples in comments. Comment rules are the exception:
+  // their whole job is to inspect comment text.
+  return ruleId !== 'spaced-comment' && !ruleId.endsWith('/spaced-comment')
 }
 
 /**
@@ -568,131 +564,77 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
   }
 }
 
-export async function applyPlugins(filePath: string, content: string, cfg: PickierConfig): Promise<Array<any>> /* PluginLintIssue[] */ {
-  const issues: Array<any> = []
-  let pluginDefs: Array<PickierPlugin> = getAllPlugins()
+async function processWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  if (items.length === 0)
+    return results
+  let nextIndex = 0
+  const workerCount = Math.max(1, Math.min(Math.max(1, concurrency), items.length))
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await worker(items[index], index)
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, runWorker))
+  return results
+}
+
+interface PlannedRule {
+  pluginName: string
+  ruleName: string
+  fullRuleId: string
+  rule: any
+  severity?: 'error' | 'warning'
+  options?: unknown
+}
+
+interface PluginPlan {
+  checkRules: PlannedRule[]
+  fixRules: PlannedRule[]
+  fixableRuleIds: Set<string>
+  fixableBareRuleNames: Set<string>
+}
+
+const pluginPlanCache = new WeakMap<PickierConfig, PluginPlan>()
+
+function getPluginDefinitions(cfg: PickierConfig): PickierPlugin[] {
+  let pluginDefs: PickierPlugin[] = getAllPlugins()
 
   if (cfg.plugins && cfg.plugins.length > 0) {
     const coreNames = new Set(['pickier', 'style', 'regexp', 'ts'])
     const userPlugins = cfg.plugins.filter(p => typeof p !== 'string') as PickierPlugin[]
     const hasCoreMatch = userPlugins.some(p => coreNames.has(p.name))
-    // If user provided plugins and none are core, only use user plugins
     pluginDefs = hasCoreMatch ? pluginDefs : []
     for (const p of userPlugins)
       pluginDefs.push(p)
   }
 
-  // Merge bare rules into pluginRules for convenience
+  return pluginDefs
+}
+
+function getRulesConfig(cfg: PickierConfig, pluginDefs: PickierPlugin[]): RulesConfigMap {
   const rulesConfig: RulesConfigMap = { ...(cfg.pluginRules || {}) as RulesConfigMap }
   if (cfg.rules?.noUnusedCapturingGroup)
     rulesConfig['regexp/no-unused-capturing-group'] = cfg.rules.noUnusedCapturingGroup
 
-  // Rule aliasing: map antfu/ prefix to actual implementations
   const ruleAliases: Record<string, string> = {
     'antfu/curly': 'style/curly',
     'antfu/if-newline': 'style/if-newline',
     'antfu/no-top-level-await': 'ts/no-top-level-await',
   }
 
-  // Apply aliases: if antfu/X is configured, map it to the actual rule
   for (const [alias, target] of Object.entries(ruleAliases)) {
-    if (rulesConfig[alias as keyof RulesConfigMap]) {
+    if (rulesConfig[alias as keyof RulesConfigMap])
       rulesConfig[target as keyof RulesConfigMap] = rulesConfig[alias as keyof RulesConfigMap]
-      // Don't delete the alias entry in case it's referenced elsewhere
-    }
   }
 
-  // Also support bare rule IDs (without plugin prefix) by mapping to any plugins that define them
-  for (const key of Object.keys(cfg.pluginRules || {})) {
-    if (!key.includes('/')) {
-      for (const p of pluginDefs) {
-        if (p.rules && Object.prototype.hasOwnProperty.call(p.rules, key)) {
-          (rulesConfig as any)[`${p.name}/${key}`] = (cfg.pluginRules as any)[key]
-        }
-      }
-    }
-  }
-
-  const baseCtx: RuleContext = { filePath, config: cfg }
-
-  // Track which bare rule names have been executed to avoid running duplicate implementations
-  const executedRules = new Set<string>()
-
-  for (const plugin of pluginDefs) {
-    const r = plugin.rules
-    for (const ruleName in r) {
-      const fullRuleId = `${plugin.name}/${ruleName}`
-      const setting = getRuleSetting(rulesConfig, fullRuleId)
-      if (!setting.enabled)
-        continue
-
-      // Skip if this bare rule name was already executed by another plugin
-      if (executedRules.has(ruleName)) {
-        continue
-      }
-      executedRules.add(ruleName)
-      const rule = r[ruleName]!
-      const overrideSeverity = setting.severity
-      if (!rule || typeof (rule as any).check !== 'function') {
-        // If a rule is referenced in config but has no implementation (e.g. JSON-stripped functions),
-        // only raise an internal error when configured as 'error'. Otherwise, skip silently.
-        if (overrideSeverity === 'error') {
-          issues.push({
-            filePath,
-            line: 1,
-            column: 1,
-            ruleId: `${fullRuleId}-internal` as any,
-            message: 'Rule missing implementation (check function is undefined)',
-            severity: 'error',
-          })
-        }
-        continue
-      }
-      try {
-        trace('rule:start', fullRuleId)
-        const ruleTimeoutMs = ENV.RULE_TIMEOUT_MS
-        const ctx: RuleContext = { ...baseCtx, options: setting.options }
-        const out = await withTimeout(Promise.resolve().then(() => (rule as any).check(content, ctx)), ruleTimeoutMs, `rule:${fullRuleId}`)
-        trace('rule:end', fullRuleId, Array.isArray(out) ? out.length : 0)
-        for (const i of out) {
-          // Ensure all issues have help text
-          const issueWithHelp = ensureHelpText(i, fullRuleId)
-          if (overrideSeverity)
-            issues.push({ ...issueWithHelp, severity: overrideSeverity })
-          else
-            issues.push(issueWithHelp)
-        }
-      }
-      catch (e: any) {
-        issues.push({
-          filePath,
-          line: 1,
-          column: 1,
-          ruleId: `${fullRuleId}-internal` as any,
-          message: `Rule threw: ${e?.message || e}`,
-          severity: 'error',
-        })
-      }
-    }
-  }
-  return issues
-}
-
-function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
-  const pluginDefs: Array<PickierPlugin> = getAllPlugins()
-  if (cfg.plugins && cfg.plugins.length > 0) {
-    for (const p of cfg.plugins) {
-      if (typeof p === 'string')
-        continue
-      pluginDefs.push(p)
-    }
-  }
-
-  // Merge bare rules into pluginRules for convenience
-  const rulesConfig: RulesConfigMap = { ...(cfg.pluginRules || {}) as RulesConfigMap }
-  if (cfg.rules?.noUnusedCapturingGroup)
-    (rulesConfig as any)['regexp/no-unused-capturing-group'] = cfg.rules.noUnusedCapturingGroup
-  // Support bare rule IDs by mapping to matching plugins
   for (const key of Object.keys(cfg.pluginRules || {})) {
     if (!key.includes('/')) {
       for (const p of pluginDefs) {
@@ -702,27 +644,181 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
     }
   }
 
+  return rulesConfig
+}
+
+function getPluginPlan(cfg: PickierConfig): PluginPlan {
+  const cached = pluginPlanCache.get(cfg)
+  if (cached)
+    return cached
+
+  const pluginDefs = getPluginDefinitions(cfg)
+  const rulesConfig = getRulesConfig(cfg, pluginDefs)
+  const checkRules: PlannedRule[] = []
+  const fixRules: PlannedRule[] = []
+  const fixableRuleIds = new Set<string>(['no-debugger'])
+  const fixableBareRuleNames = new Set<string>(['no-debugger'])
+  const executedRules = new Set<string>()
+
+  for (const plugin of pluginDefs) {
+    for (const ruleName in plugin.rules) {
+      const fullRuleId = `${plugin.name}/${ruleName}`
+      const setting = getRuleSetting(rulesConfig, fullRuleId)
+      if (!setting.enabled)
+        continue
+
+      // Compatibility aliases can point multiple plugin prefixes at the same
+      // implementation. Execute the first enabled bare rule once per file.
+      if (executedRules.has(ruleName))
+        continue
+      executedRules.add(ruleName)
+
+      const rule = plugin.rules[ruleName]!
+      const planned: PlannedRule = {
+        pluginName: plugin.name,
+        ruleName,
+        fullRuleId,
+        rule,
+        severity: setting.severity,
+        options: setting.options,
+      }
+
+      if (typeof (rule as any)?.check === 'function')
+        checkRules.push(planned)
+      else if (setting.severity === 'error') {
+        checkRules.push(planned)
+      }
+
+      if (typeof (rule as any)?.fix === 'function') {
+        fixRules.push(planned)
+        fixableRuleIds.add(fullRuleId)
+        fixableBareRuleNames.add(ruleName)
+      }
+    }
+  }
+
+  const plan = { checkRules, fixRules, fixableRuleIds, fixableBareRuleNames }
+  pluginPlanCache.set(cfg, plan)
+  return plan
+}
+
+function isShellPath(filePath: string, content: string): boolean {
+  return /\.(?:sh|bash|zsh|ksh|dash)$/.test(filePath)
+    || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)
+}
+
+function isLockfilePath(filePath: string): boolean {
+  return /(?:^|[/\\])(?:bun\.lock|bun\.lockb|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|npm-shrinkwrap\.json)$/.test(filePath)
+}
+
+function shouldRunPlannedRule(rule: PlannedRule, filePath: string, content: string): boolean {
+  switch (rule.pluginName) {
+    case 'markdown':
+      return filePath.endsWith('.md')
+    case 'shell':
+      return isShellPath(filePath, content)
+    case 'publint':
+      return /(?:^|[/\\])package\.json$/.test(filePath)
+    case 'lockfile':
+      return isLockfilePath(filePath)
+    case 'node':
+    case 'ts':
+    case 'general':
+    case 'quality':
+    case 'eslint':
+    case 'regexp':
+    case 'unused-imports':
+    case 'perfectionist':
+      return /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(filePath)
+    default:
+      return true
+  }
+}
+
+export async function applyPlugins(filePath: string, content: string, cfg: PickierConfig): Promise<Array<any>> /* PluginLintIssue[] */ {
+  const issues: Array<any> = []
+  const plan = getPluginPlan(cfg)
+
+  const baseCtx: RuleContext = { filePath, config: cfg }
+
+  for (const planned of plan.checkRules) {
+    if (!shouldRunPlannedRule(planned, filePath, content))
+      continue
+
+    const { fullRuleId, rule, severity: overrideSeverity } = planned
+    if (!rule || typeof (rule as any).check !== 'function') {
+      // If a rule is referenced in config but has no implementation (e.g.
+      // JSON-stripped functions), only raise an internal error when configured
+      // as 'error'. Otherwise, skip silently.
+      if (overrideSeverity === 'error') {
+        issues.push({
+          filePath,
+          line: 1,
+          column: 1,
+          ruleId: `${fullRuleId}-internal` as any,
+          message: 'Rule missing implementation (check function is undefined)',
+          severity: 'error',
+        })
+      }
+      continue
+    }
+    try {
+      trace('rule:start', fullRuleId)
+      const ruleTimeoutMs = ENV.RULE_TIMEOUT_MS
+      const ctx: RuleContext = { ...baseCtx, options: planned.options }
+      const started = performance.now()
+      const out = await withTimeout(Promise.resolve().then(() => (rule as any).check(content, ctx)), ruleTimeoutMs, `rule:${fullRuleId}`)
+      const elapsed = performance.now() - started
+      if (elapsed > ruleTimeoutMs) {
+        issues.push({
+          filePath,
+          line: 1,
+          column: 1,
+          ruleId: `${fullRuleId}-internal` as any,
+          message: `Rule exceeded timeout budget: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms`,
+          severity: 'error',
+        })
+      }
+      trace('rule:end', fullRuleId, Array.isArray(out) ? out.length : 0)
+      for (const i of out) {
+        // Ensure all issues have help text
+        const issueWithHelp = ensureHelpText(i, fullRuleId)
+        if (overrideSeverity)
+          issues.push({ ...issueWithHelp, severity: overrideSeverity })
+        else
+          issues.push(issueWithHelp)
+      }
+    }
+    catch (e: any) {
+      issues.push({
+        filePath,
+        line: 1,
+        column: 1,
+        ruleId: `${fullRuleId}-internal` as any,
+        message: `Rule threw: ${e?.message || e}`,
+        severity: 'error',
+      })
+    }
+  }
+  return issues
+}
+
+function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
+  const plan = getPluginPlan(cfg)
   const baseCtx: RuleContext = { filePath, config: cfg }
   let out = content
   let changed = true
   let passes = 0
   while (changed && passes++ < MAX_FIXER_PASSES) {
     changed = false
-    for (const plugin of pluginDefs) {
-      for (const ruleName in plugin.rules) {
-        const fullRuleId = `${plugin.name}/${ruleName}`
-        const setting = getRuleSetting(rulesConfig, fullRuleId)
-        if (!setting.enabled)
-          continue
-        const rule = plugin.rules[ruleName]!
-        if (typeof rule.fix !== 'function')
-          continue
-        const ctx: RuleContext = { ...baseCtx, options: setting.options }
-        const next = rule.fix(out, ctx)
-        if (next !== out) {
-          out = next
-          changed = true
-        }
+    for (const planned of plan.fixRules) {
+      if (!shouldRunPlannedRule(planned, filePath, out))
+        continue
+      const ctx: RuleContext = { ...baseCtx, options: planned.options }
+      const next = planned.rule.fix(out, ctx)
+      if (next !== out) {
+        out = next
+        changed = true
       }
     }
   }
@@ -950,6 +1046,7 @@ function getCommentLines(content: string): Set<number> {
   let state: State = 'code'
   let lineNo = 1
   let lineHasCode = false // Track if current line has any non-comment code
+  let lineSawComment = false // Track if current line contains only comment text
   let lineStartedInBlockComment = false // Track if line started inside a block comment
 
   for (let i = 0; i < content.length; i++) {
@@ -965,17 +1062,18 @@ function getCommentLines(content: string): Set<number> {
       if (lineStartedInBlockComment && state === 'block-comment') {
         commentLines.add(lineNo)
       }
-      else if (!lineHasCode && state !== 'block-comment') {
-        // Line had no code and isn't continuing a block comment to next line
-        // This handles lines that are entirely // comments or whitespace
+      else if (!lineHasCode && lineSawComment && state !== 'block-comment') {
+        // Line had no code and contains a complete line/block comment.
+        commentLines.add(lineNo)
       }
-      else if (!lineHasCode) {
+      else if (!lineHasCode && state === 'block-comment') {
         commentLines.add(lineNo)
       }
 
       // Reset for next line
       lineNo++
       lineHasCode = false
+      lineSawComment = false
       lineStartedInBlockComment = (state === 'block-comment')
 
       // Line comments end at newline
@@ -990,6 +1088,7 @@ function getCommentLines(content: string): Set<number> {
       case 'code':
         if (ch === '/' && next === '/') {
           state = 'line-comment'
+          lineSawComment = true
           i++ // skip next char
         }
         else if (ch === '/' && next === '*') {
@@ -1036,7 +1135,8 @@ function getCommentLines(content: string): Set<number> {
             }
             i-- // will be incremented by for loop
           }
-else {
+          else {
+            lineSawComment = true
             state = 'block-comment'
             i++ // skip next char
           }
@@ -1142,6 +1242,9 @@ else {
   if (lineStartedInBlockComment && state === 'block-comment') {
     commentLines.add(lineNo)
   }
+  else if (!lineHasCode && lineSawComment && state !== 'block-comment') {
+    commentLines.add(lineNo)
+  }
   else if (!lineHasCode && state === 'block-comment') {
     commentLines.add(lineNo)
   }
@@ -1185,6 +1288,13 @@ export function scanContentOptimized(
     || filePath.endsWith('bun.lock')
   // Skip code-level rules for non-code files (markdown, yaml, etc.)
   const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc' || isShell
+  const indentRuleSetting
+    = (cfg.rules as any)?.indent
+      ?? (cfg.pluginRules as any)?.indent
+      ?? (cfg.pluginRules as any)?.['style/indent']
+  const indentDisabled = indentRuleSetting === 'off'
+  const isTemplate = fileExt === 'stx' || fileExt === 'html' || fileExt === 'htm' || fileExt === 'vue'
+  const shouldCheckIndent = !indentDisabled && !isMd && !isTemplate
   let quotesReported = false
   const sevMap = (s: 'warn' | 'error' | 'off' | undefined): 'warning' | 'error' | undefined =>
     s === 'warn' ? 'warning' : s === 'error' ? 'error' : undefined
@@ -1211,36 +1321,37 @@ export function scanContentOptimized(
 
   // Build a set of line numbers that are inside multi-line template literals
   const linesInTemplate = new Set<number>()
-  let inTemplate = false
-  let escaped = false
-  let currentLine = 1
-  for (let i = 0; i < content.length; i++) {
-    const ch = content[i]
+  if (content.includes('`')) {
+    let inTemplate = false
+    let escaped = false
+    let currentLine = 1
+    for (let i = 0; i < content.length; i++) {
+      const ch = content[i]
 
-    if (escaped) {
-      escaped = false
-      if (ch === '\n')
+      if (escaped) {
+        escaped = false
+        if (ch === '\n')
+          currentLine++
+        continue
+      }
+
+      if (ch === '\\') {
+        escaped = true
+        continue
+      }
+
+      if (ch === '\n') {
         currentLine++
-      continue
-    }
+        continue
+      }
 
-    if (ch === '\\') {
-      escaped = true
-      continue
-    }
+      if (ch === '`') {
+        inTemplate = !inTemplate
+        continue
+      }
 
-    if (ch === '\n') {
-      currentLine++
-      continue
-    }
-
-    if (ch === '`') {
-      inTemplate = !inTemplate
-      continue
-    }
-
-    if (inTemplate) {
-      linesInTemplate.add(currentLine)
+      if (inTemplate)
+        linesInTemplate.add(currentLine)
     }
   }
 
@@ -1273,15 +1384,11 @@ export function scanContentOptimized(
     // Also skip template languages (.stx/.html/.vue) where mixed indentation
     // between markup and embedded scripts is normal, and skip when the user
     // has explicitly opted out via rules.indent / pluginRules.indent.
-    const indentRuleSetting
-      = (cfg.rules as any)?.indent
-        ?? (cfg.pluginRules as any)?.indent
-        ?? (cfg.pluginRules as any)?.['style/indent']
-    const indentDisabled = indentRuleSetting === 'off'
-    const isTemplate = fileExt === 'stx' || fileExt === 'html' || fileExt === 'htm' || fileExt === 'vue'
-    const leadingMatch = line.match(/^[ \t]*/)
-    const leading = leadingMatch ? leadingMatch[0] : ''
-    if (!indentDisabled && !isMd && !isTemplate && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
+    let wsEnd = 0
+    while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
+      wsEnd++
+    const leading = wsEnd > 0 ? line.slice(0, wsEnd) : ''
+    if (shouldCheckIndent && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }
@@ -1413,26 +1520,45 @@ export function scanContentOptimized(
     if (!skipCodeRules && wantNoCondAssign && !linesInTemplate.has(lineNo)) {
       // Strip comments, regex literals, and string literals to avoid false positives
       const strippedLine = stripComments(stripRegexLiterals(line))
+      const conditionLine = strippedLine.replace(/'[^']*'|"[^"]*"/g, '""')
       // Check for assignment (single =) but exclude comparisons (==, ===) and arrow functions (=>)
       // Also strip string literals from condition before checking (e.g., ch === '=' should not trigger)
-      const checkCond = (cond: string) => /[^=!<>]=(?![=>])/.test(cond.replace(/'[^']*'|"[^"]*"/g, '""'))
-      const m1 = strippedLine.match(/\b(?:if|while)\s*\(([^)]*)\)/)
+      const checkCond = (cond: string) => /[^=!<>]=(?![=>])/.test(cond)
+      const m1 = conditionLine.match(/\b(?:if|while)\s*\(([^)]*)\)/)
       if (m1) {
         const cond = m1[1]
         if (checkCond(cond)) {
-          if (!isSuppressed('no-cond-assign', lineNo, suppress))
-            issues.push({ filePath, line: lineNo, column: Math.max(1, line.indexOf('(') + 1), ruleId: 'no-cond-assign', message: 'Unexpected assignment within a conditional expression', severity: wantNoCondAssign, help: 'Use === or == for comparison instead of = (assignment). If assignment was intentional, wrap it in parentheses: if ((x = value))' })
+          if (!isSuppressed('no-cond-assign', lineNo, suppress)) {
+            issues.push({
+              filePath,
+              line: lineNo,
+              column: Math.max(1, line.indexOf('(') + 1),
+              ruleId: 'no-cond-assign',
+              message: 'Unexpected assignment within a conditional expression',
+              severity: wantNoCondAssign,
+              help: 'Use === or == for comparison instead of = (assignment). Wrap intentional assignments in extra parentheses.',
+            })
+          }
         }
       }
-      const mFor = strippedLine.match(/\bfor\s*\(([^)]*)\)/)
+      const mFor = conditionLine.match(/\bfor\s*\(([^)]*)\)/)
       if (mFor) {
         const inside = mFor[1]
         const parts = inside.split(';')
         if (parts.length >= 2) {
           const cond = parts[1]
           if (checkCond(cond)) {
-            if (!isSuppressed('no-cond-assign', lineNo, suppress))
-              issues.push({ filePath, line: lineNo, column: Math.max(1, line.indexOf('(') + 1), ruleId: 'no-cond-assign', message: 'Unexpected assignment within a conditional expression', severity: wantNoCondAssign, help: 'Use === or == for comparison instead of = (assignment). If assignment was intentional, wrap it in parentheses: for (let i = 0; (x = arr[i]); i++)' })
+            if (!isSuppressed('no-cond-assign', lineNo, suppress)) {
+              issues.push({
+                filePath,
+                line: lineNo,
+                column: Math.max(1, line.indexOf('(') + 1),
+                ruleId: 'no-cond-assign',
+                message: 'Unexpected assignment within a conditional expression',
+                severity: wantNoCondAssign,
+                help: 'Use === or == for comparison instead of = (assignment). Wrap intentional assignments in extra parentheses.',
+              })
+            }
           }
         }
       }
@@ -1450,74 +1576,30 @@ export function scanContent(filePath: string, content: string, cfg: PickierConfi
   // Use optimized version for base scanning
   const issues = scanContentOptimized(filePath, content, cfg, suppress, commentLines)
 
-  // Synchronous plugin rule checks for callers that directly use scanContent (e.g. unit tests).
-  // When runLint orchestrates, it sets an internal flag to skip this to avoid duplication.
-  if (!(cfg as any)._internalSkipPluginRulesInScan) {
-    try {
-      let pluginDefs: Array<PickierPlugin> = getAllPlugins()
-      if (cfg.plugins && cfg.plugins.length > 0) {
-        const coreNames = new Set(['pickier', 'style', 'regexp', 'ts'])
-        const userPlugins = cfg.plugins.filter(p => typeof p !== 'string') as PickierPlugin[]
-        const hasCoreMatch = userPlugins.some(p => coreNames.has(p.name))
-        pluginDefs = hasCoreMatch ? pluginDefs : []
-        for (const p of userPlugins) pluginDefs.push(p)
-      }
-
-      const rulesConfig: RulesConfigMap = { ...(cfg.pluginRules || {}) as RulesConfigMap }
-      if (cfg.rules?.noUnusedCapturingGroup)
-        (rulesConfig as any)['regexp/no-unused-capturing-group'] = cfg.rules.noUnusedCapturingGroup
-      for (const key of Object.keys(cfg.pluginRules || {})) {
-        if (!key.includes('/')) {
-          for (const p of pluginDefs) {
-            if (p.rules && Object.prototype.hasOwnProperty.call(p.rules, key))
-              (rulesConfig as any)[`${p.name}/${key}`] = (cfg.pluginRules as any)[key]
-          }
-        }
-      }
-
-      const isRuleEnabled = (ruleId: string): boolean => {
-        const raw = (rulesConfig as any)[ruleId]
-        const setting = typeof raw === 'string' ? raw : undefined
-        return setting === 'error' || setting === 'warn' || setting === 'warning'
-      }
-      const getRuleSeverity = (ruleId: string): 'error' | 'warning' | undefined => {
-        const raw = (rulesConfig as any)[ruleId]
-        const setting = typeof raw === 'string' ? raw : undefined
-        if (setting === 'error')
-          return 'error'
-        if (setting === 'warn' || setting === 'warning')
-          return 'warning'
-        return undefined
-      }
-
-      const ctx: RuleContext = { filePath, config: cfg }
-      const executedRulesInScan = new Set<string>()
-      for (const plugin of pluginDefs) {
-        const r = plugin.rules
-        for (const ruleName in r) {
-          const fullRuleId = `${plugin.name}/${ruleName}`
-          if (!isRuleEnabled(fullRuleId))
-            continue
-          // Skip if this bare rule name was already executed by another plugin
-          if (executedRulesInScan.has(ruleName))
-            continue
-          executedRulesInScan.add(ruleName)
-          const rule = r[ruleName]!
-          if (!rule || typeof (rule as any).check !== 'function')
-            continue
-          const out = (rule as any).check(content, ctx)
-          for (const i of out) {
-            if (!isSuppressed(i.ruleId as string, i.line, suppress)) {
-              const sev = getRuleSeverity(fullRuleId)
-              issues.push(sev ? { ...i, severity: sev } : i)
-            }
-          }
-        }
+  // Synchronous plugin rule checks for callers that directly use scanContent
+  // (mostly unit tests). CLI paths call scanContentOptimized + applyPlugins so
+  // they can use async timeout handling without mutating shared config.
+  try {
+    const plan = getPluginPlan(cfg)
+    const ctx: RuleContext = { filePath, config: cfg }
+    for (const planned of plan.checkRules) {
+      if (!shouldRunPlannedRule(planned, filePath, content))
+        continue
+      if (!planned.rule || typeof planned.rule.check !== 'function')
+        continue
+      const out = planned.rule.check(content, { ...ctx, options: planned.options })
+      for (const i of out) {
+        if (isSuppressed(i.ruleId as string, i.line, suppress))
+          continue
+        if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
+          continue
+        const issueWithHelp = ensureHelpText(i, planned.fullRuleId)
+        issues.push(planned.severity ? { ...issueWithHelp, severity: planned.severity } : issueWithHelp)
       }
     }
-    catch {
-      // swallow plugin errors in scanContent to keep behavior simple for tests
-    }
+  }
+  catch {
+    // swallow plugin errors in scanContent to keep behavior simple for tests
   }
 
   return issues
@@ -1563,6 +1645,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
     const globIgnores = isGlobbingOutsideProject
       ? [...UNIVERSAL_IGNORES] // Use ALL universal ignores when outside project
       : cfg.ignores
+    const ignoreMatcher = createIgnoreMatcher(globIgnores)
     if (enableDiagnostics) {
       getLogger().info(`[pickier:diagnostics] Globbing outside project: ${isGlobbingOutsideProject}, ignore patterns: ${globIgnores.length}`)
       if (isGlobbingOutsideProject)
@@ -1606,7 +1689,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
           for (const it of items) {
             const full = join(dir, it)
             const st = statSync(full)
-            if (shouldIgnorePath(full, globIgnores))
+            if (ignoreMatcher(full))
               continue
             if (st.isDirectory())
               stack.push(full)
@@ -1675,7 +1758,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
         cntNodeModules++
         continue
       }
-      if (shouldIgnorePath(f, globIgnores)) {
+      if (ignoreMatcher(f)) {
         cntIgnored++
         continue
       }
@@ -1708,9 +1791,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       }
     }
 
-    // OPTIMIZATION: Parallel file processing with concurrency limit
+    // OPTIMIZATION: Parallel file processing with a bounded worker queue.
     const concurrency = ENV.CONCURRENCY
-    const limit = createLimiter(concurrency)
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Starting to process ${files.length} files with concurrency ${concurrency}...`)
 
@@ -1727,8 +1809,21 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       // FAST PATH: format-only mode — just run formatCode() directly, skip scanning/plugins
       if (formatOnly) {
         const fixed = formatCode(src, cfg, file)
-        if (fixed !== src && !options.dryRun) {
-          writeFileSync(file, fixed, 'utf8')
+        if (fixed !== src) {
+          if (!options.dryRun) {
+            writeFileSync(file, fixed, 'utf8')
+          }
+          else {
+            return [{
+              filePath: file,
+              line: 1,
+              column: 1,
+              ruleId: 'format',
+              message: 'File is not formatted',
+              severity: 'error',
+              help: 'Run pickier format with --write to apply formatting.',
+            }]
+          }
         }
         return []
       }
@@ -1738,9 +1833,6 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       const isCodeFileForComments = /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(file)
       const commentLines = isCodeFileForComments ? getCommentLines(src) : new Set<number>()
 
-      // Set internal flag to avoid duplicate plugin execution inside scanContent
-      const cfgAny = cfg as any
-    cfgAny._internalSkipPluginRulesInScan = true
       let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
 
       // Run plugin rules (async with timeouts) and merge
@@ -1749,8 +1841,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
         for (const i of pluginIssues) {
           if (isSuppressed(i.ruleId as string, i.line, suppress))
             continue
-          // Skip issues that are on comment-only lines (code files only)
-          if (commentLines.has(i.line))
+          if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
             continue
           issues.push({
             filePath: i.filePath,
@@ -1828,7 +1919,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       return issues
     }
 
-    const issueArrays = await Promise.all(files.map(file => limit(() => processFile(file))))
+    const issueArrays = await processWithConcurrency(files, concurrency, processFile)
     const allIssues = issueArrays.flat()
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Processing complete! Found ${allIssues.length} issues total`)
@@ -1865,30 +1956,15 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       const errorsText = errors === 1 ? 'error' : 'errors'
       const warningsText = warnings === 1 ? 'warning' : 'warnings'
 
-      // Count fixable issues (rules with fix functions)
-      const pluginDefs = getAllPlugins()
-      const fixableRuleIds = new Set<string>()
-
-      // Built-in fixable rules
-      fixableRuleIds.add('no-debugger')
-
-      // Plugin rules with fix functions
-      for (const plugin of pluginDefs) {
-        for (const ruleName in plugin.rules) {
-          const rule = plugin.rules[ruleName]
-          if (rule && typeof rule.fix === 'function') {
-            fixableRuleIds.add(`${plugin.name}/${ruleName}`)
-          }
-        }
-      }
+      // Count fixable issues from the cached plugin plan.
+      const pluginPlan = getPluginPlan(cfg)
 
       let fixableErrors = 0
       let fixableWarnings = 0
       for (const issue of allIssues) {
         const ruleId = issue.ruleId as string
-        // Check both full rule ID (plugin/rule) and short form (rule)
-        const isFixable = fixableRuleIds.has(ruleId)
-          || Array.from(fixableRuleIds).some(id => id.endsWith(`/${ruleId}`))
+        const isFixable = pluginPlan.fixableRuleIds.has(ruleId)
+          || pluginPlan.fixableBareRuleNames.has(ruleId)
 
         if (isFixable) {
           if (issue.severity === 'error')

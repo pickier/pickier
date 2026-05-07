@@ -122,4 +122,18 @@ describe('disable-next-line directives', () => {
     const code = await runLint([dir], { reporter: 'json' })
     expect(code).toBe(0)
   })
+
+  it('suppresses all rules with bare disable-next-line', async () => {
+    const dir = tmp()
+    const file = 'g.ts'
+    const src = [
+      '// eslint-disable-next-line',
+      'debugger',
+      '',
+    ].join('\n')
+    writeFileSync(join(dir, file), src, 'utf8')
+
+    const code = await runLint([dir], { reporter: 'json' })
+    expect(code).toBe(0)
+  })
 })

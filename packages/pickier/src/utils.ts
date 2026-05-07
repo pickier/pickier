@@ -74,21 +74,13 @@ function globToRegex(pattern: string): RegExp {
   return new RegExp(`^${src}$`)
 }
 
-function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
-  for (const p of patterns) {
-    const re = globToRegex(p)
-    // match against full path or just the basename
-    if (re.test(filePath) || re.test(filePath.replace(/\\/g, '/')))
-      return true
-  }
-  return false
-}
+type IgnoreMatcher = (absPath: string) => boolean
 
 /**
  * Walk a directory recursively, yielding file paths.
  * Skips directories matching ignore patterns.
  */
-function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Generator<string> {
+function* walkDirWithMatcher(dir: string, ignoreMatcher: IgnoreMatcher, dot: boolean): Generator<string> {
   let entries: string[]
   try {
     entries = readdirSync(dir)
@@ -99,18 +91,21 @@ function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Gen
   for (const name of entries) {
     if (!dot && name.startsWith('.')) continue
     const full = join(dir, name)
-    const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
-    if (ignore.length && matchesAnyPattern(rel, ignore)) continue
+    if (ignoreMatcher(full)) continue
     let st
     try { st = statSync(full) }
     catch { continue }
     if (st.isDirectory()) {
-      yield* walkDir(full, ignore, dot, cwd)
+      yield* walkDirWithMatcher(full, ignoreMatcher, dot)
     }
     else {
       yield full
     }
   }
+}
+
+function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Generator<string> {
+  yield* walkDirWithMatcher(dir, createIgnoreMatcher(ignore, cwd), dot)
 }
 
 /**
@@ -123,6 +118,7 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
   const ignore = opts.ignore ?? []
   const dot = opts.dot ?? false
   const absolute = opts.absolute ?? true
+  const ignoreMatcher = createIgnoreMatcher(ignore, cwd)
 
   // Fast path: Bun.Glob (available in Bun runtime)
   if (typeof (globalThis as any).Bun?.Glob !== 'undefined') {
@@ -133,7 +129,7 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
       for await (const file of g.scan({ cwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
         const full = isAbsolute(file) ? file : join(cwd, file)
         const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
-        if (ignore.length && matchesAnyPattern(rel, ignore)) continue
+        if (ignoreMatcher(full)) continue
         results.push(absolute ? full : rel)
       }
     }
@@ -150,7 +146,7 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
         const st = statSync(full)
         if (!st.isDirectory()) {
           const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
-          if (!ignore.length || !matchesAnyPattern(rel, ignore))
+          if (!ignoreMatcher(full))
             results.push(absolute ? full : rel)
         }
         else {
@@ -493,51 +489,95 @@ function toPosixPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
-/**
- * Lightweight ignore matcher supporting common patterns like double-star slash dir slash double-star.
- * (Example: patterns matching any path segment named "dir" recursively.)
- * Not a full glob engine; optimized for directory skip checks in manual traversal.
- */
-export function shouldIgnorePath(absPath: string, ignoreGlobs: string[]): boolean {
-  // For files outside the project, only apply universal ignore patterns
-  const isOutsideProject = !absPath.startsWith(process.cwd())
-  const universalIgnores = ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**']
+interface CompiledIgnorePattern {
+  raw: string
+  kind: 'extension' | 'segment' | 'suffix'
+  value: string
+}
 
-  const effectiveIgnores = isOutsideProject
-    ? ignoreGlobs.filter(pattern => universalIgnores.includes(pattern))
-    : ignoreGlobs
-
-  const rel = toPosixPath(isOutsideProject ? absPath : absPath.slice(process.cwd().length))
-  // quick checks for typical patterns **/name/**
-  for (const g of effectiveIgnores) {
-    // normalize
+function compileIgnoreGlobs(ignoreGlobs: readonly string[]): CompiledIgnorePattern[] {
+  const compiled: CompiledIgnorePattern[] = []
+  for (const g of ignoreGlobs) {
     const gg = toPosixPath(g.trim())
+    if (!gg)
+      continue
 
     // handle file extension patterns like **/*.test.ts or **/*.spec.ts
     const filePattern = gg.match(/\*\*\/\*\.(.+)$/)
     if (filePattern) {
-      const extension = filePattern[1]
-      if (rel.endsWith(`.${extension}`))
-        return true
+      compiled.push({ raw: gg, kind: 'extension', value: filePattern[1] })
       continue
     }
 
     // handle patterns like any-depth/name/any-depth (including dot-prefixed names)
     const m = gg.match(/\*\*\/(.+?)\/\*\*$/)
     if (m) {
-      const name = m[1]
-      if (rel.includes(`/${name}/`) || rel.endsWith(`/${name}`))
-        return true
+      compiled.push({ raw: gg, kind: 'segment', value: m[1] })
       continue
     }
+
     // handle any-depth/name (no trailing any-depth)
     const m2 = gg.match(/\*\*\/(.+)$/)
     if (m2) {
-      const name = m2[1].replace(/\/$/, '')
-      if (rel.includes(`/${name}/`) || rel.endsWith(`/${name}`))
-        return true
-      continue
+      compiled.push({ raw: gg, kind: 'suffix', value: m2[1].replace(/\/$/, '') })
     }
   }
-  return false
+  return compiled
+}
+
+/**
+ * Build a reusable matcher for ignore checks.
+ *
+ * File discovery may check the same ignore list tens of thousands of times, so
+ * callers should create one matcher per run and reuse it instead of reparsing
+ * glob strings for every path.
+ */
+export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string = process.cwd()): IgnoreMatcher {
+  if (ignoreGlobs.length === 0)
+    return () => false
+
+  const compiled = compileIgnoreGlobs(ignoreGlobs)
+  if (compiled.length === 0)
+    return () => false
+
+  const universalRaw = new Set<string>(UNIVERSAL_IGNORES)
+
+  return (absPath: string): boolean => {
+    const normalizedAbs = toPosixPath(absPath)
+    const normalizedCwd = toPosixPath(cwd).replace(/\/$/, '')
+    const isOutsideProject = !normalizedAbs.startsWith(normalizedCwd)
+    const rel = isOutsideProject
+      ? normalizedAbs
+      : normalizedAbs.slice(normalizedCwd.length)
+
+    for (const pattern of compiled) {
+      // Outside-project scans must not apply project-specific ignore rules such
+      // as docs/** or custom test globs to arbitrary external paths.
+      if (isOutsideProject && !universalRaw.has(pattern.raw))
+        continue
+
+      if (pattern.kind === 'extension') {
+        if (rel.endsWith(`.${pattern.value}`))
+          return true
+        continue
+      }
+
+      if (pattern.kind === 'segment' || pattern.kind === 'suffix') {
+        const name = pattern.value
+        if (rel.includes(`/${name}/`) || rel.endsWith(`/${name}`))
+          return true
+      }
+    }
+
+    return false
+  }
+}
+
+/**
+ * Lightweight ignore matcher supporting common patterns like double-star slash
+ * dir slash double-star. Kept for public utility callers; the linter hot path
+ * should use `createIgnoreMatcher()` and reuse the returned function.
+ */
+export function shouldIgnorePath(absPath: string, ignoreGlobs: string[]): boolean {
+  return createIgnoreMatcher(ignoreGlobs)(absPath)
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runLint } from '../../src/linter'
+import { lintText, runLint } from '../../src/linter'
+import { defaultConfig } from '../../src/config'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-lint-file-disable-'))
@@ -124,5 +125,45 @@ describe('file-level disable directives', () => {
 
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
     expect(code).toBe(0)
+  })
+
+  it('keeps range disable/enable state isolated per rule', async () => {
+    const issues = await lintText([
+      '// eslint-disable no-console',
+      '// eslint-disable prefer-const',
+      '// eslint-enable no-console',
+      'let value = 1',
+      'console.log(value)',
+      '',
+    ].join('\n'), defaultConfig, 'range.ts')
+
+    expect(issues.some(issue => issue.ruleId === 'no-console')).toBe(true)
+    expect(issues.some(issue => issue.ruleId === 'pickier/prefer-const')).toBe(false)
+  })
+
+  it('filters plugin issues reported on comment-only lines', async () => {
+    const cfg = {
+      ...defaultConfig,
+      plugins: [{
+        name: 'custom',
+        rules: {
+          'comment-line': {
+            check: () => [{
+              filePath: 'comment.ts',
+              line: 1,
+              column: 1,
+              ruleId: 'custom/comment-line',
+              message: 'comment line issue',
+              severity: 'error' as const,
+            }],
+          },
+        },
+      }],
+      pluginRules: { 'custom/comment-line': 'error' as const },
+    }
+
+    const issues = await lintText('// just a comment\nconst value = 1\n', cfg, 'comment.ts')
+
+    expect(issues.some(issue => issue.ruleId === 'custom/comment-line')).toBe(false)
   })
 })

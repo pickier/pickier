@@ -279,7 +279,7 @@ describe('run.ts format fast path (functional)', () => {
     expect(out.endsWith('\n')).toBe(true)
   })
 
-  it('returns 0 in check mode (fast path)', async () => {
+  it('returns 0 in check mode for formatted files (fast path)', async () => {
     const { runUnified } = await import('../../src/run')
     const dir = tmp()
     const file = join(dir, 'clean.ts')
@@ -288,6 +288,16 @@ describe('run.ts format fast path (functional)', () => {
 
     const code = await runUnified([file], { mode: 'format', check: true })
     expect(code).toBe(0)
+  })
+
+  it('returns 1 in check mode for unformatted files (fast path)', async () => {
+    const { runUnified } = await import('../../src/run')
+    const dir = tmp()
+    const file = join(dir, 'dirty.ts')
+    writeFileSync(file, 'const a = "hello"  \n\n\n', 'utf8')
+
+    const code = await runUnified([file], { mode: 'format', check: true })
+    expect(code).toBe(1)
   })
 
   it('does not write in check mode', async () => {

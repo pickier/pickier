@@ -128,14 +128,35 @@ function getVariantPriority(cls: string): number {
   return priority
 }
 
+interface ClassSortKey {
+  group: number
+  variant: number
+}
+
+const sortKeyCache = new Map<string, ClassSortKey>()
+
+function getClassSortKey(cls: string): ClassSortKey {
+  const cached = sortKeyCache.get(cls)
+  if (cached)
+    return cached
+  const key = {
+    group: getGroupIndex(cls),
+    variant: getVariantPriority(cls),
+  }
+  sortKeyCache.set(cls, key)
+  return key
+}
+
 function sortClasses(classes: string[]): string[] {
   return [...classes].sort((a, b) => {
-    const ga = getGroupIndex(a)
-    const gb = getGroupIndex(b)
+    const aKey = getClassSortKey(a)
+    const bKey = getClassSortKey(b)
+    const ga = aKey.group
+    const gb = bKey.group
     if (ga !== gb)
       return ga - gb
-    const va = getVariantPriority(a)
-    const vb = getVariantPriority(b)
+    const va = aKey.variant
+    const vb = bKey.variant
     if (va !== vb)
       return va - vb
     return a.localeCompare(b)
@@ -188,6 +209,8 @@ function looksLikeJsExpression(value: string): boolean {
 
 function extractClassValues(content: string): ClassMatch[] {
   const matches: ClassMatch[] = []
+  if (!content.includes('class') && !content.includes('clsx') && !content.includes('cn(') && !content.includes('tw(') && !content.includes('cva(') && !content.includes('tv('))
+    return matches
 
   for (const re of [ATTR_RE, ATTR_TMPL_RE, UTIL_FN_RE]) {
     re.lastIndex = 0

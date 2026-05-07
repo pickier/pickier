@@ -23,6 +23,8 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
         const cfg = await loadConfigFromPath(options.config)
         const src = readFileSync(filePath, 'utf8')
         const fmt = formatCode(src, cfg, filePath)
+        if (options.check && fmt !== src)
+          return 1
         if (options.write && fmt !== src) {
           writeFileSync(filePath, fmt, 'utf8')
         }
