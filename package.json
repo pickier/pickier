@@ -41,9 +41,9 @@
     "test:rules": "bun run --cwd packages/pickier test:rules",
     "test:plugin": "bun run --cwd packages/pickier test:plugin",
     "test:watch": "bun run --cwd packages/pickier test:watch",
-    "dev:docs": "bun --bun vitepress dev docs",
-    "build:docs": "bun --bun vitepress build docs",
-    "preview:docs": "bun --bun vitepress preview docs",
+    "dev:docs": "bun --bun bunpress dev docs",
+    "build:docs": "bun --bun bunpress build docs",
+    "preview:docs": "bun --bun bunpress preview docs",
     "typecheck": "bun --bun tsc --noEmit"
   },
   "devDependencies": {
@@ -57,9 +57,6 @@
     "bun-git-hooks": "^0.3.1",
     "bun-plugin-dtsx": "^0.9.14",
     "typescript": "^6.0.3"
-  },
-  "overrides": {
-    "@stacksjs/clapp": "^0.2.6"
   },
   "git-hooks": {
     "pre-commit": {

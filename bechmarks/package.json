@@ -45,8 +45,8 @@
     "bench:breakdown": "bun run benchmarks/breakdown.ts",
     "bench:format-comparison": "bun run benchmarks/format-comparison.bench.ts",
     "bench:all": "bun run bench:lint && bun run bench:format && bun run bench:combined",
-    "lint": "bunx --bun eslint .",
-    "lint:fix": "bunx --bun eslint . --fix",
+    "lint": "bunx --bun pickier .",
+    "lint:fix": "bunx --bun pickier . --fix",
     "prepublishOnly": "bun --bun run build",
     "test": "bun test"
   },
@@ -57,7 +57,6 @@
     "@babel/parser": "^7.28.5",
     "@babel/traverse": "^7.28.5",
     "@biomejs/biome": "^1.9.4",
-    "eslint": "^9.39.1",
     "happy-dom": "^20.0.11",
     "jsdom": "^25.0.1",
     "mitata": "^1.0.34",
