@@ -83,6 +83,6 @@
     "@stacksjs/ts-spell-check": "^0.1.0"
   },
   "devDependencies": {
-    "bunfig": "^0.15.11"
+    "bunfig": "^0.15.13"
   }
 }

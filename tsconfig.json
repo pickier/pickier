@@ -6,7 +6,6 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "paths": {
-      "bunfig": ["./packages/pickier/src/types/bunfig.ts"],
       "pickier": ["./packages/pickier/src/index.ts"]
     },
     "resolveJsonModule": true,
