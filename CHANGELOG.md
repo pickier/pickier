@@ -1,3 +1,56 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.28...v0.1.29)
+
+### 🐛 Bug Fixes
+
+- **deps**: relax @stacksjs/clapp override to ^0.2.6 ([ed4a3a0](https://github.com/pickier/pickier/commit/ed4a3a0)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **prefer-const**: detect destructuring reassignment + respect disable comments (#1357) ([8bcbfc9](https://github.com/pickier/pickier/commit/8bcbfc9)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1357](https://github.com/pickier/pickier/issues/1357), [#1357](https://github.com/pickier/pickier/issues/1357))
+- **deps**: pin @stacksjs/clapp to 0.2.0 via overrides ([2dd78c9](https://github.com/pickier/pickier/commit/2dd78c9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### ⚡ Performance Improvements
+
+- streamline lint and format hot paths ([afc5111](https://github.com/pickier/pickier/commit/afc5111)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.29 ([e094f78](https://github.com/pickier/pickier/commit/e094f78)) _(by Chris <chrisbreuer93@gmail.com>)_
+- use released bunfig declarations ([05ce3af](https://github.com/pickier/pickier/commit/05ce3af)) _(by Chris <chrisbreuer93@gmail.com>)_
+- keep generated dependency types out of typecheck ([55a11aa](https://github.com/pickier/pickier/commit/55a11aa)) _(by Chris <chrisbreuer93@gmail.com>)_
+- switch lint scripts from eslint to pickier (bechmarks) + drop unnecessary clapp override ([a75dc37](https://github.com/pickier/pickier/commit/a75dc37)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **ci**: bump actions/checkout to v6, actions/cache to v5 ([45f47e9](https://github.com/pickier/pickier/commit/45f47e9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- refresh bun.lock to pick up bun-plugin-dtsx@0.9.18 ([6514867](https://github.com/pickier/pickier/commit/6514867)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **tsconfig**: drop deprecated baseUrl ([a3fbfea](https://github.com/pickier/pickier/commit/a3fbfea)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.28...HEAD)
+
+### 🐛 Bug Fixes
+
+- **deps**: relax @stacksjs/clapp override to ^0.2.6 ([ed4a3a0](https://github.com/pickier/pickier/commit/ed4a3a0)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **prefer-const**: detect destructuring reassignment + respect disable comments (#1357) ([8bcbfc9](https://github.com/pickier/pickier/commit/8bcbfc9)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1357](https://github.com/pickier/pickier/issues/1357), [#1357](https://github.com/pickier/pickier/issues/1357))
+- **deps**: pin @stacksjs/clapp to 0.2.0 via overrides ([2dd78c9](https://github.com/pickier/pickier/commit/2dd78c9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### ⚡ Performance Improvements
+
+- streamline lint and format hot paths ([afc5111](https://github.com/pickier/pickier/commit/afc5111)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- use released bunfig declarations ([05ce3af](https://github.com/pickier/pickier/commit/05ce3af)) _(by Chris <chrisbreuer93@gmail.com>)_
+- keep generated dependency types out of typecheck ([55a11aa](https://github.com/pickier/pickier/commit/55a11aa)) _(by Chris <chrisbreuer93@gmail.com>)_
+- switch lint scripts from eslint to pickier (bechmarks) + drop unnecessary clapp override ([a75dc37](https://github.com/pickier/pickier/commit/a75dc37)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **ci**: bump actions/checkout to v6, actions/cache to v5 ([45f47e9](https://github.com/pickier/pickier/commit/45f47e9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- refresh bun.lock to pick up bun-plugin-dtsx@0.9.18 ([6514867](https://github.com/pickier/pickier/commit/6514867)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **tsconfig**: drop deprecated baseUrl ([a3fbfea](https://github.com/pickier/pickier/commit/a3fbfea)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.27...v0.1.28)
 
 ### 🐛 Bug Fixes
