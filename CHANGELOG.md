@@ -1,3 +1,29 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.30...v0.1.31)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: handle regexes in template expressions ([9edeb86](https://github.com/pickier/pickier/commit/9edeb86)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **release**: publish pickier package workspace ([5ffd457](https://github.com/pickier/pickier/commit/5ffd457)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.31 ([d5dd891](https://github.com/pickier/pickier/commit/d5dd891)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.30...HEAD)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: handle regexes in template expressions ([9edeb86](https://github.com/pickier/pickier/commit/9edeb86)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **release**: publish pickier package workspace ([5ffd457](https://github.com/pickier/pickier/commit/5ffd457)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.29...v0.1.30)
 
 ### 🐛 Bug Fixes
