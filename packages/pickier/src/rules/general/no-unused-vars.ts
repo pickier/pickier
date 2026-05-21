@@ -824,6 +824,27 @@ else {
           }
 
           if (inTmplExpr) {
+            if (ch === '/') {
+              const before = lineToProcess.slice(0, k).trimEnd()
+              const regexPrecedeRe = /[=([{,:;!&|?]$/
+              if (!before || regexPrecedeRe.test(before) || before.endsWith('return')) {
+                k++
+                while (k < lineToProcess.length) {
+                  if (lineToProcess[k] === '\\') {
+                    k += 2
+                    continue
+                  }
+                  if (lineToProcess[k] === '/') {
+                    while (k + 1 < lineToProcess.length && /[gimsuvy]/.test(lineToProcess[k + 1])) {
+                      k++
+                    }
+                    break
+                  }
+                  k++
+                }
+                continue
+              }
+            }
             if (ch === '`') {
               depthTmplStack.push(-1)
               continue

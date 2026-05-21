@@ -245,6 +245,24 @@ describe('general/no-unused-vars', () => {
     expect(paramIssues).toEqual([])
   })
 
+  it('tracks typed arrow params when block bodies contain regex literals with backticks', () => {
+    const src = [
+      'const config = { dialect: \'mysql\' }',
+      'const quoteId = (identifier: string): string => {',
+      '  const s = String(identifier)',
+      '  if (config.dialect === \'mysql\')',
+      '    return `\\`${s.replace(/`/g, \'``\')}\\``',
+      '  return `"${s.replace(/"/g, \'""\')}"`',
+      '}',
+      'console.log(quoteId(\'name\'))',
+      '',
+    ].join('\n')
+
+    const issues = noUnusedVarsRule.check(src, { filePath: 'a.ts', config: {} as any })
+    const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+    expect(paramIssues).toEqual([])
+  })
+
   it('still flags unused typed arrow function params', () => {
     const src = [
       'const f = (unused: string): string => \'x\'',
