@@ -1,3 +1,42 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.29...v0.1.30)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: track typed arrow expression bodies ([9a2db06](https://github.com/pickier/pickier/commit/9a2db06)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- **buddy-bot**: regenerate workflow from current template ([28c1d85](https://github.com/pickier/pickier/commit/28c1d85)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.30 ([d03dd17](https://github.com/pickier/pickier/commit/d03dd17)) _(by Chris <chrisbreuer93@gmail.com>)_
+- use released gitlint ([2cdec76](https://github.com/pickier/pickier/commit/2cdec76)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.29...HEAD)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: track typed arrow expression bodies ([9a2db06](https://github.com/pickier/pickier/commit/9a2db06)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- **buddy-bot**: regenerate workflow from current template ([28c1d85](https://github.com/pickier/pickier/commit/28c1d85)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- use released gitlint ([2cdec76](https://github.com/pickier/pickier/commit/2cdec76)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.28...v0.1.29)
 
 ### 🐛 Bug Fixes
