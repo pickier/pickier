@@ -29,7 +29,8 @@ jobs:
         run: bun install
 
       - name: Publish
-        run: pantry publish --npm --access public './packages/pickier'
+        working-directory: packages/pickier
+        run: pantry publish --npm --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
