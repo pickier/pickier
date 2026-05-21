@@ -1,3 +1,27 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.31...v0.1.32)
+
+### 🐛 Bug Fixes
+
+- **release**: publish pickier from package directory ([30907c9](https://github.com/pickier/pickier/commit/30907c9)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.32 ([7ccefe0](https://github.com/pickier/pickier/commit/7ccefe0)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.31...HEAD)
+
+### 🐛 Bug Fixes
+
+- **release**: publish pickier from package directory ([30907c9](https://github.com/pickier/pickier/commit/30907c9)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.30...v0.1.31)
 
 ### 🐛 Bug Fixes
