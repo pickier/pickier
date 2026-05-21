@@ -865,6 +865,60 @@ else {
       }
       return null
     }
+    const collectArrowExpressionBody = (startLine: number, arrowCol: number): string => {
+      const state = {
+        parenDepth: 0,
+        braceDepth: 0,
+        bracketDepth: 0,
+        inTemplate: false,
+      }
+      const updateState = (text: string): void => {
+        for (let k = 0; k < text.length; k++) {
+          const ch = text[k]
+          if (ch === '`')
+            state.inTemplate = !state.inTemplate
+          else if (ch === '(')
+            state.parenDepth++
+          else if (ch === ')')
+            state.parenDepth--
+          else if (ch === '{')
+            state.braceDepth++
+          else if (ch === '}')
+            state.braceDepth--
+          else if (ch === '[')
+            state.bracketDepth++
+          else if (ch === ']')
+            state.bracketDepth--
+        }
+      }
+      const isOpen = (): boolean =>
+        state.parenDepth > 0 || state.braceDepth > 0 || state.bracketDepth > 0 || state.inTemplate
+      const endsWithContinuation = (text: string): boolean =>
+        /(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)$/.test(text.trimEnd())
+      const startsWithContinuation = (text: string): boolean =>
+        /^(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)/.test(text.trimStart())
+
+      let bodyText = lines[startLine].slice(arrowCol + 2)
+      updateState(bodyText)
+
+      let nextLine = startLine + 1
+      while (nextLine < lines.length) {
+        const previousLine = nextLine === startLine + 1 ? bodyText : lines[nextLine - 1]
+        const shouldContinue = !bodyText.trim()
+          || isOpen()
+          || endsWithContinuation(previousLine)
+          || startsWithContinuation(lines[nextLine])
+
+        if (!shouldContinue)
+          break
+
+        bodyText += `\n${lines[nextLine]}`
+        updateState(lines[nextLine])
+        nextLine++
+      }
+
+      return bodyText
+    }
 
     // Multi-line template literal state tracking for main processing loop.
     // Persists across lines to correctly mask generated code inside template body content.
@@ -1353,79 +1407,7 @@ else {
                   }
                 }
                 else {
-                  // Expression body (no braces) - collect lines until statement end
-                  // Collect rest of current line and continue to next lines if expression continues
-                  bodyText = line.slice(arrowIdx + 2)
-                  let parenDepth = 0
-                  let braceDepth = 0
-                  let bracketDepth = 0
-                  let inTemplate = false
-
-                  // Check if expression continues on next lines by tracking nesting
-                  for (let k = arrowIdx + 2; k < line.length; k++) {
-                    const ch = line[k]
-                    if (ch === '`')
-                      inTemplate = !inTemplate
-                    else if (ch === '(')
-                      parenDepth++
-                    else if (ch === ')')
-                      parenDepth--
-                    else if (ch === '{')
-                      braceDepth++
-                    else if (ch === '}')
-                      braceDepth--
-                    else if (ch === '[')
-                      bracketDepth++
-                    else if (ch === ']')
-                      bracketDepth--
-                  }
-
-                  // If body is empty/whitespace on current line, include next line(s)
-                  let nextLine = i + 1
-                  if ((!bodyText.trim() || inTemplate) && nextLine < lines.length) {
-                    bodyText += `\n${lines[nextLine]}`
-                    for (let k = 0; k < lines[nextLine].length; k++) {
-                      const ch = lines[nextLine][k]
-                      if (ch === '`')
-                        inTemplate = !inTemplate
-                      else if (ch === '(')
-                        parenDepth++
-                      else if (ch === ')')
-                        parenDepth--
-                      else if (ch === '{')
-                        braceDepth++
-                      else if (ch === '}')
-                        braceDepth--
-                      else if (ch === '[')
-                        bracketDepth++
-                      else if (ch === ']')
-                        bracketDepth--
-                    }
-                    nextLine++
-                  }
-
-                  // If there's unclosed nesting or open template literal, continue to next lines
-                  while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0 || inTemplate)) {
-                    bodyText += `\n${lines[nextLine]}`
-                    for (let k = 0; k < lines[nextLine].length; k++) {
-                      const ch = lines[nextLine][k]
-                      if (ch === '`')
-                        inTemplate = !inTemplate
-                      else if (ch === '(')
-                        parenDepth++
-                      else if (ch === ')')
-                        parenDepth--
-                      else if (ch === '{')
-                        braceDepth++
-                      else if (ch === '}')
-                        braceDepth--
-                      else if (ch === '[')
-                        bracketDepth++
-                      else if (ch === ']')
-                        bracketDepth--
-                    }
-                    nextLine++
-                  }
+                  bodyText = collectArrowExpressionBody(i, arrowIdx)
                 }
                 for (const name of params) {
                   if (!name || argIgnoreRe.test(name) || name === 'undefined')
@@ -1491,79 +1473,7 @@ else {
             }
           }
           else {
-            // Expression body (no braces) - collect lines until statement end
-            bodyText = line.slice(arrowIdx + 2)
-            let parenDepth = 0
-            let braceDepth = 0
-            let bracketDepth = 0
-            let inTemplate = false
-
-            // Check if expression continues on next lines by tracking nesting
-            for (let k = arrowIdx + 2; k < line.length; k++) {
-              const ch = line[k]
-              if (ch === '`')
-                inTemplate = !inTemplate
-              else if (ch === '(')
-                parenDepth++
-              else if (ch === ')')
-                parenDepth--
-              else if (ch === '{')
-                braceDepth++
-              else if (ch === '}')
-                braceDepth--
-              else if (ch === '[')
-                bracketDepth++
-              else if (ch === ']')
-                bracketDepth--
-            }
-
-            // If body is empty/whitespace on current line or inside template literal, include next line(s)
-            // This handles cases like: .filter(d =>\n  d.range.contains(position),\n)
-            let nextLine = i + 1
-            if ((!bodyText.trim() || inTemplate) && nextLine < lines.length) {
-              bodyText += `\n${lines[nextLine]}`
-              for (let k = 0; k < lines[nextLine].length; k++) {
-                const ch = lines[nextLine][k]
-                if (ch === '`')
-                  inTemplate = !inTemplate
-                else if (ch === '(')
-                  parenDepth++
-                else if (ch === ')')
-                  parenDepth--
-                else if (ch === '{')
-                  braceDepth++
-                else if (ch === '}')
-                  braceDepth--
-                else if (ch === '[')
-                  bracketDepth++
-                else if (ch === ']')
-                  bracketDepth--
-              }
-              nextLine++
-            }
-
-            // If there's unclosed nesting or open template literal, continue to next lines
-            while (nextLine < lines.length && (parenDepth > 0 || braceDepth > 0 || bracketDepth > 0 || inTemplate)) {
-              bodyText += `\n${lines[nextLine]}`
-              for (let k = 0; k < lines[nextLine].length; k++) {
-                const ch = lines[nextLine][k]
-                if (ch === '`')
-                  inTemplate = !inTemplate
-                else if (ch === '(')
-                  parenDepth++
-                else if (ch === ')')
-                  parenDepth--
-                else if (ch === '{')
-                  braceDepth++
-                else if (ch === '}')
-                  braceDepth--
-                else if (ch === '[')
-                  bracketDepth++
-                else if (ch === ']')
-                  bracketDepth--
-              }
-              nextLine++
-            }
+            bodyText = collectArrowExpressionBody(i, arrowIdx)
           }
           const useRe = new RegExp(`\\b${name}\\b`, 'g')
           if (!useRe.test(bodyText)) {

@@ -224,6 +224,41 @@ describe('general/no-unused-vars', () => {
     expect(code).toBe(0)
   })
 
+  it('tracks used params in typed arrow functions with block and multiline ternary bodies', () => {
+    const src = [
+      'const isPostgres = true',
+      'const setCols = [\'name\']',
+      'const quoteId = (identifier: string): string => {',
+      '  const escaped = String(identifier).replace(/"/g, \'""\')',
+      '  return `"${escaped}"`',
+      '}',
+      'const quoteCol = (column: string): string => isPostgres',
+      '  ? `"${column.replace(/"/g, \'""\')}"`',
+      '  : `"${column.replace(/"/g, \'""\')}"`',
+      'const updateList = setCols.map(column => `${quoteCol(column)} = EXCLUDED.${quoteCol(column)}`).join(\', \')',
+      'console.log(quoteId(updateList))',
+      '',
+    ].join('\n')
+
+    const issues = noUnusedVarsRule.check(src, { filePath: 'a.ts', config: {} as any })
+    const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+    expect(paramIssues).toEqual([])
+  })
+
+  it('still flags unused typed arrow function params', () => {
+    const src = [
+      'const f = (unused: string): string => \'x\'',
+      'console.log(f)',
+      '',
+    ].join('\n')
+
+    const issues = noUnusedVarsRule.check(src, { filePath: 'a.ts', config: {} as any })
+    const paramIssues = issues.filter(i =>
+      i.message.includes('\'unused\'') && i.message.includes('(function parameter)'),
+    )
+    expect(paramIssues).toHaveLength(1)
+  })
+
   it('distinguishes object literals from function bodies in arrow functions', async () => {
     const dir = tmp()
     const file = 'k.ts'

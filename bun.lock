@@ -25,6 +25,7 @@
       },
       "dependencies": {
         "@stacksjs/clapp": "^0.2.3",
+        "@stacksjs/clarity": "^0.3.24",
       },
       "devDependencies": {
         "bunfig": "^0.15.13",
