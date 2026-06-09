@@ -815,6 +815,54 @@ export function hasIndentIssue(
   return spaces % indentSize !== 0
 }
 
+/**
+ * Skip a template literal starting at `input[start] === '\`'`, returning the
+ * index just past its closing backtick. Handles `${...}` interpolations —
+ * including nested templates and quoted strings inside them — by balancing
+ * braces, so the *correct* closing backtick is found rather than the first
+ * backtick of a nested template. Returns input.length for an unterminated
+ * (multi-line) opening.
+ */
+function skipTemplate(input: string, start: number): number {
+  let i = start + 1
+  while (i < input.length) {
+    const c = input[i]
+    if (c === '\\') {
+      i += 2
+      continue
+    }
+    if (c === '`')
+      return i + 1
+    if (c === '$' && input[i + 1] === '{') {
+      i += 2
+      let depth = 1
+      while (i < input.length && depth > 0) {
+        const d = input[i]
+        if (d === '\\') {
+          i += 2
+          continue
+        }
+        if (d === '`') {
+          i = skipTemplate(input, i)
+          continue
+        }
+        if (d === '\'' || d === '"') {
+          i = skipQuoted(input, i, d)
+          continue
+        }
+        if (d === '{')
+          depth++
+        else if (d === '}')
+          depth--
+        i++
+      }
+      continue
+    }
+    i++
+  }
+  return i
+}
+
 function maskStrings(input: string): { text: string, strings: string[] } {
   // Fast path: no quotes at all — skip character scan
   if (!input.includes('\'') && !input.includes('"') && !input.includes('`'))
@@ -831,18 +879,25 @@ function maskStrings(input: string): { text: string, strings: string[] } {
       if (i > segStart)
         parts.push(input.slice(segStart, i))
       const start = i
-      const close = ch
-      i++
-      while (i < input.length) {
-        if (input[i] === '\\') {
-          i += 2
-          continue
-        }
-        if (input[i] === close) {
-          i++
-          break
-        }
+      if (ch === '`') {
+        // Template: skip ${...} interpolations (which may contain nested
+        // templates/strings) so the real closing backtick is matched.
+        i = skipTemplate(input, i)
+      }
+      else {
+        const close = ch
         i++
+        while (i < input.length) {
+          if (input[i] === '\\') {
+            i += 2
+            continue
+          }
+          if (input[i] === close) {
+            i++
+            break
+          }
+          i++
+        }
       }
       strings.push(input.slice(start, i))
       parts.push(`@@S${strings.length - 1}@@`)
