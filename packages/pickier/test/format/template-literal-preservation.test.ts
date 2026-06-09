@@ -79,4 +79,29 @@ describe('template literal preservation (#1361)', () => {
     const once = fmt(input)
     expect(fmt(once)).toBe(once)
   })
+
+  // The opening line begins in code but ends inside the template — its tail
+  // (after the backtick) is string content and must survive verbatim too.
+  it('preserves trailing whitespace on the opening backtick line', () => {
+    const input = 'const t = `   \n  body\n`\nconst z = 1\n'
+    expect(fmt(input)).toBe(input)
+  })
+
+  it('still normalizes the code prefix of the opening line', () => {
+    const input = 'const   t   =   `   \n  body\n`\n'
+    const out = fmt(input)
+    expect(out).toBe('const t = `   \n  body\n`\n')
+  })
+
+  it('keeps the separating space before a returned template', () => {
+    const input = 'function f() {\n  return `   \n  hi\n`\n}\n'
+    expect(fmt(input)).toBe(input)
+  })
+
+  it('preserves an interpolation that opens on the first line', () => {
+    const input = 'const t = `abc ${x}   \n  more\n`\n'
+    const out = fmt(input)
+    expect(out).not.toContain('$ {')
+    expect(out).toBe(input)
+  })
 })
