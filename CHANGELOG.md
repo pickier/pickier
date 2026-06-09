@@ -1,3 +1,22 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.33...v0.1.34)
+
+### 🐛 Bug Fixes
+
+- **format**: mask nested templates inside ${...} interpolations (#1365) ([3a99b94](https://github.com/pickier/pickier/commit/3a99b94)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1365](https://github.com/pickier/pickier/issues/1365), [#1365](https://github.com/pickier/pickier/issues/1365))
+
+### 🧪 Tests
+
+- **format**: lock in #1366 nested-interpolation example as regression (#1367) ([074c71b](https://github.com/pickier/pickier/commit/074c71b)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1366](https://github.com/pickier/pickier/issues/1366), [#1367](https://github.com/pickier/pickier/issues/1367), [#1366](https://github.com/pickier/pickier/issues/1366), [#1367](https://github.com/pickier/pickier/issues/1367))
+
+### 🧹 Chores
+
+- release v0.1.34 ([d7987af](https://github.com/pickier/pickier/commit/d7987af)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Glenn Michael Torregosa <gtorregosa@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.32...v0.1.33)
 
 ### 🐛 Bug Fixes
