@@ -367,7 +367,11 @@ function normalizeSpacingLine(line: string): string {
 // line, whether we are inside a template literal's text so such lines can be
 // emitted verbatim. The scan degrades safely: on exotic input it can only ever
 // under-format (skip a line), never corrupt one.
-type TmplCtx = { t: 'tmpl' } | { t: 'interp', braces: number }
+// `start` records the index of the backtick that opened the template, but only
+// while scanning the line on which it opened (carried-over contexts from earlier
+// lines are reset to -1 on entry). It lets callers split an opening line into a
+// formattable code prefix and a verbatim template tail.
+type TmplCtx = { t: 'tmpl', start: number } | { t: 'interp', braces: number }
 
 /** True when the next character to process is inside template *text*. */
 function inTemplateText(stack: TmplCtx[]): boolean {
@@ -395,8 +399,21 @@ function skipQuoted(line: string, i: number, quote: string): number {
  * Advance template-literal tracking across one line (mutates `stack`). `stack`
  * records nested template / `${...}` interpolation contexts so callers know,
  * per line, whether they're inside template text.
+ *
+ * Returns the split index for a line that *begins* in code but *ends* inside
+ * template text: the position of the backtick that opened the outermost template
+ * still open at end-of-line. Everything from that index to EOL is verbatim
+ * template content; the prefix before it is ordinary code. Returns -1 when the
+ * line does not end inside a template opened on this line (callers fall back to
+ * their start-of-line `inTemplateText` check for fully-interior lines).
  */
-function advanceTemplateState(line: string, stack: TmplCtx[]): void {
+function advanceTemplateState(line: string, stack: TmplCtx[]): number {
+  // Carried-over template contexts opened on earlier lines are not split points
+  // for *this* line — their text already started before column 0.
+  for (const ctx of stack) {
+    if (ctx.t === 'tmpl')
+      ctx.start = -1
+  }
   let i = 0
   while (i < line.length) {
     const top = stack[stack.length - 1]
@@ -405,7 +422,7 @@ function advanceTemplateState(line: string, stack: TmplCtx[]): void {
     if (top === undefined || top.t === 'interp') {
       // Code context: top level, or inside ${ ... }.
       if (ch === '`') {
-        stack.push({ t: 'tmpl' })
+        stack.push({ t: 'tmpl', start: i })
         i++
         continue
       }
@@ -414,7 +431,7 @@ function advanceTemplateState(line: string, stack: TmplCtx[]): void {
         continue
       }
       if (ch === '/' && line[i + 1] === '/')
-        return // line comment — nothing template-relevant after it
+        break // line comment — nothing template-relevant after it
       if (top !== undefined) {
         // Inside ${...}: balance braces so the matching } closes the interp.
         if (ch === '{') {
@@ -452,6 +469,16 @@ function advanceTemplateState(line: string, stack: TmplCtx[]): void {
       i++
     }
   }
+
+  // If the line ends inside template text, find the outermost (bottom-most)
+  // template opened on this line — its backtick is where verbatim content begins.
+  if (inTemplateText(stack)) {
+    for (const ctx of stack) {
+      if (ctx.t === 'tmpl' && ctx.start >= 0)
+        return ctx.start
+    }
+  }
+  return -1
 }
 
 /**
@@ -474,11 +501,28 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // Lines inside a multi-line template literal's text are emitted verbatim —
     // re-indenting / re-spacing them corrupts the string and breaks ${...}.
     const protectedLine = inTemplateText(tmplStack)
+    let splitIdx = -1
     if (tmplStack.length > 0 || line.indexOf('`') !== -1)
-      advanceTemplateState(line, tmplStack)
+      splitIdx = advanceTemplateState(line, tmplStack)
     if (protectedLine) {
       result[idx] = line
       continue
+    }
+
+    // The line begins in code but ends inside a template opened on this line.
+    // Format only the code prefix and re-attach the template tail verbatim so its
+    // trailing whitespace / internal spacing is never collapsed (issue #1361).
+    let tmplTail = ''
+    let prefixEndedWithSpace = false
+    if (splitIdx >= 0) {
+      tmplTail = line.slice(splitIdx)
+      const prefix = line.slice(0, splitIdx)
+      if (prefix.length === 0) {
+        result[idx] = tmplTail
+        continue
+      }
+      prefixEndedWithSpace = RE_TRAILING_WS.test(prefix)
+      line = prefix
     }
 
     if (line.length === 0) {
@@ -516,6 +560,14 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
           line = line.replace(RE_DUP_SEMI, ';')
         }
       }
+    }
+
+    if (splitIdx >= 0) {
+      // Restore a single separating space the prefix may have had before the
+      // backtick (e.g. `return \`…\``), then append the untouched template tail.
+      if (prefixEndedWithSpace && !RE_TRAILING_WS.test(line))
+        line += ' '
+      line += tmplTail
     }
 
     result[idx] = line
@@ -571,10 +623,13 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
     for (const l of rawLines) {
       // Inside a multi-line template literal, keep the line verbatim — trimming
       // trailing whitespace or collapsing blanks would change the string value.
+      // `endsInTemplate` covers the opening line, whose tail (after the backtick)
+      // is template content even though the line *starts* in code (issue #1361).
       const protectedLine = inTemplateText(stack)
+      let endsInTemplate = false
       if (stack.length > 0 || l.indexOf('`') !== -1)
-        advanceTemplateState(l, stack)
-      if (protectedLine) {
+        endsInTemplate = advanceTemplateState(l, stack) >= 0
+      if (protectedLine || endsInTemplate) {
         lines.push(l)
         blank = 0
         continue
