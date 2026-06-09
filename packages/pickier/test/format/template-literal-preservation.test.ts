@@ -121,4 +121,14 @@ describe('template literal preservation (#1361)', () => {
     expect(out).not.toContain('$ {')
     expect(out).toBe(input)
   })
+
+  // Issue #1366: the innermost ${logs} inside a nested template (itself inside a
+  // ternary interpolation) was rewritten to `$ {logs}`. Fixed by the recursive
+  // skipTemplate in #1365; this locks in the reporter's exact real-world example.
+  it('preserves a nested template inside a ternary interpolation (#1366)', () => {
+    const input = 'throw new Error(`${label} failed${logs ? `:\\n${logs}` : \'\'}`)\n'
+    const out = fmt(input)
+    expect(out).not.toContain('$ {')
+    expect(out).toBe(input)
+  })
 })
