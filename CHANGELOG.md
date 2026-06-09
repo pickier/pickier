@@ -1,3 +1,25 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.32...v0.1.33)
+
+### 🐛 Bug Fixes
+
+- **format**: preserve trailing whitespace on template opening line (#1361) (#1364) ([077e0e5](https://github.com/pickier/pickier/commit/077e0e5)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1361](https://github.com/pickier/pickier/issues/1361), [#1364](https://github.com/pickier/pickier/issues/1364), [#1361](https://github.com/pickier/pickier/issues/1361), [#1364](https://github.com/pickier/pickier/issues/1364))
+- **format**: preserve multi-line template literal contents (#1361) (#1363) ([63a7a46](https://github.com/pickier/pickier/commit/63a7a46)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1361](https://github.com/pickier/pickier/issues/1361), [#1363](https://github.com/pickier/pickier/issues/1363), [#1361](https://github.com/pickier/pickier/issues/1361), [#1363](https://github.com/pickier/pickier/issues/1363))
+- **scripts**: stop double-generating CHANGELOG on release ([fc0e6a9](https://github.com/pickier/pickier/commit/fc0e6a9)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- **buddy-bot**: add daily cleanup cron to workflow ([d813ea9](https://github.com/pickier/pickier/commit/d813ea9)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.33 ([5c2e908](https://github.com/pickier/pickier/commit/5c2e908)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: refresh bun.lock to pick up buddy-bot 0.9.20 ([fd34acb](https://github.com/pickier/pickier/commit/fd34acb)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Glenn Michael Torregosa <gtorregosa@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.31...v0.1.32)
 
 ### 🐛 Bug Fixes
