@@ -360,6 +360,100 @@ function normalizeSpacingLine(line: string): string {
   return strings.length > 0 ? unmaskStrings(t, strings) : t
 }
 
+// ── Multi-line template-literal tracking ──────────────────────────────────
+// The line-based formatter must never touch the *contents* of a template
+// literal (re-indenting, re-spacing `${` → `$ {`, re-quoting, or trimming would
+// corrupt the string and break interpolation). These helpers track, line by
+// line, whether we are inside a template literal's text so such lines can be
+// emitted verbatim. The scan degrades safely: on exotic input it can only ever
+// under-format (skip a line), never corrupt one.
+type TmplCtx = { t: 'tmpl' } | { t: 'interp', braces: number }
+
+/** True when the next character to process is inside template *text*. */
+function inTemplateText(stack: TmplCtx[]): boolean {
+  const top = stack[stack.length - 1]
+  return top !== undefined && top.t === 'tmpl'
+}
+
+/** Skip a normal '...' / "..." string; returns the index past the close. */
+function skipQuoted(line: string, i: number, quote: string): number {
+  i++
+  while (i < line.length) {
+    const c = line[i]
+    if (c === '\\') {
+      i += 2
+      continue
+    }
+    if (c === quote)
+      return i + 1
+    i++
+  }
+  return i
+}
+
+/**
+ * Advance template-literal tracking across one line (mutates `stack`). `stack`
+ * records nested template / `${...}` interpolation contexts so callers know,
+ * per line, whether they're inside template text.
+ */
+function advanceTemplateState(line: string, stack: TmplCtx[]): void {
+  let i = 0
+  while (i < line.length) {
+    const top = stack[stack.length - 1]
+    const ch = line[i]
+
+    if (top === undefined || top.t === 'interp') {
+      // Code context: top level, or inside ${ ... }.
+      if (ch === '`') {
+        stack.push({ t: 'tmpl' })
+        i++
+        continue
+      }
+      if (ch === '\'' || ch === '"') {
+        i = skipQuoted(line, i, ch)
+        continue
+      }
+      if (ch === '/' && line[i + 1] === '/')
+        return // line comment — nothing template-relevant after it
+      if (top !== undefined) {
+        // Inside ${...}: balance braces so the matching } closes the interp.
+        if (ch === '{') {
+          top.braces++
+          i++
+          continue
+        }
+        if (ch === '}') {
+          if (top.braces === 0)
+            stack.pop()
+          else
+            top.braces--
+          i++
+          continue
+        }
+      }
+      i++
+    }
+    else {
+      // Inside template text.
+      if (ch === '\\') {
+        i += 2
+        continue
+      }
+      if (ch === '`') {
+        stack.pop()
+        i++
+        continue
+      }
+      if (ch === '$' && line[i + 1] === '{') {
+        stack.push({ t: 'interp', braces: 0 })
+        i += 2
+        continue
+      }
+      i++
+    }
+  }
+}
+
 /**
  * Fused single-pass code line processor.
  * Combines fixQuotes + fixIndentation + normalizeCodeSpacing + removeStylisticSemicolons
@@ -372,9 +466,20 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
   const preferred = cfg.format.quotes
   const doSemiRemoval = cfg.format.semi === true
   let indentLevel = 0
+  const tmplStack: TmplCtx[] = []
 
   for (let idx = 0; idx < len; idx++) {
     let line = lines[idx]
+
+    // Lines inside a multi-line template literal's text are emitted verbatim —
+    // re-indenting / re-spacing them corrupts the string and breaks ${...}.
+    const protectedLine = inTemplateText(tmplStack)
+    if (tmplStack.length > 0 || line.indexOf('`') !== -1)
+      advanceTemplateState(line, tmplStack)
+    if (protectedLine) {
+      result[idx] = line
+      continue
+    }
 
     if (line.length === 0) {
       result[idx] = ''
@@ -422,7 +527,18 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
 function collapseBlankLines(lines: string[], maxConsecutive: number): string[] {
   const out: string[] = []
   let blank = 0
+  const stack: TmplCtx[] = []
   for (const l of lines) {
+    // Blank lines inside a multi-line template literal are part of the string —
+    // keep them verbatim rather than collapsing them.
+    const protectedLine = inTemplateText(stack)
+    if (stack.length > 0 || l.indexOf('`') !== -1)
+      advanceTemplateState(l, stack)
+    if (protectedLine) {
+      out.push(l)
+      blank = 0
+      continue
+    }
     if (l === '') {
       blank++
       if (blank <= maxConsecutive)
@@ -450,8 +566,20 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
     lines = []
     let blank = 0
     const maxConsecutive = Math.max(0, cfg.format.maxConsecutiveBlankLines)
+    const stack: TmplCtx[] = []
 
     for (const l of rawLines) {
+      // Inside a multi-line template literal, keep the line verbatim — trimming
+      // trailing whitespace or collapsing blanks would change the string value.
+      const protectedLine = inTemplateText(stack)
+      if (stack.length > 0 || l.indexOf('`') !== -1)
+        advanceTemplateState(l, stack)
+      if (protectedLine) {
+        lines.push(l)
+        blank = 0
+        continue
+      }
+
       // Fast path: skip regex for lines that don't end with whitespace
       const last = l[l.length - 1]
       const trimmed = (last === ' ' || last === '\t') ? l.replace(RE_TRAILING_WS, '') : l
