@@ -104,4 +104,21 @@ describe('template literal preservation (#1361)', () => {
     expect(out).not.toContain('$ {')
     expect(out).toBe(input)
   })
+
+  // A nested template inside an interpolation, all on one line — maskStrings
+  // used to match the nested template's opening backtick as the outer close,
+  // exposing the inner ${...} to the spacing pass.
+  it('preserves a nested template inside an interpolation (single line)', () => {
+    const input = 'const k = `a${x ? `b${y}c` : z}d`\n'
+    const out = fmt(input)
+    expect(out).not.toContain('$ {')
+    expect(out).toBe(input)
+  })
+
+  it('preserves a conditional nested template interpolation (real-world key)', () => {
+    const input = 'const key = `S#${a}#${b}${r ? `#${r}` : d}`\n'
+    const out = fmt(input)
+    expect(out).not.toContain('$ {')
+    expect(out).toBe(input)
+  })
 })
