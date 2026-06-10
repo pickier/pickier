@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.34...v0.1.35)
+
+### 🐛 Bug Fixes
+
+- **format**: stop corrupting regexes, generics, compound assignments, comments, and imports (#1369) ([df07ad2](https://github.com/pickier/pickier/commit/df07ad2)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1369](https://github.com/pickier/pickier/issues/1369), [#1369](https://github.com/pickier/pickier/issues/1369))
+
+### 🧹 Chores
+
+- release v0.1.35 ([fc520db](https://github.com/pickier/pickier/commit/fc520db)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.33...v0.1.34)
 
 ### 🐛 Bug Fixes
