@@ -8,27 +8,90 @@ const SHELL_SHEBANG_RE = /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
 const _RE_LEADING_WS = /^[ \t]*/
-const RE_CLOSING_BRACE = /^\}/
-const RE_OPENING_BRACE = /\{\s*$/
+// Indent tracking counts braces, brackets AND parens — tracking only `{`
+// flattened multi-line arrays and call arguments to the enclosing level
+const RE_CLOSING_BRACE = /^[}\])]/
+const RE_OPENING_BRACE = /[{[(]\s*$/
+const RE_TRAILING_LINE_COMMENT = /\s*\/\/.*$/
+const RE_CONTROL_OPEN = /^(?:if|else\s+if|for|while)\s*\(/
+// `.method()` chain links, ternary branches, and logical-operator operands
+// that start a line continue the previous statement. `?.` is optional
+// chaining; a lone `:` could be a case label so require a space after it.
+const RE_CONTINUATION_LINE = /^(?:\.[\w$[]|\?[\s.:]|:\s|&&|\|\|)/
+
+/**
+ * Brace-less control-flow line whose single statement hangs one level deeper:
+ * `if (x)` / `else if (x)` / `for (...)` / `while (...)` where the line ends
+ * exactly at the `)` closing the condition, or a bare `else` / `do`. A
+ * single-line `if (x) stmt()` is NOT hanging — the line also ends with `)`,
+ * so the closing paren of the condition must be matched, not pattern-matched.
+ */
+function isHangingControlLine(code: string): boolean {
+  const m = RE_CONTROL_OPEN.exec(code)
+  if (!m)
+    return /^(?:else|do)\s*$/.test(code)
+  let depth = 0
+  let inStr: string | null = null
+  for (let i = m[0].length - 1; i < code.length; i++) {
+    const ch = code[i]
+    if (inStr) {
+      if (ch === '\\') {
+        i++
+        continue
+      }
+      if (ch === inStr)
+        inStr = null
+      continue
+    }
+    if (ch === '\'' || ch === '"' || ch === '`') {
+      inStr = ch
+      continue
+    }
+    if (ch === '(') {
+      depth++
+    }
+    else if (ch === ')') {
+      depth--
+      if (depth === 0)
+        return code.slice(i + 1).trim().length === 0
+    }
+  }
+  return false // condition not closed on this line
+}
 const RE_FOR_LOOP = /^\s*for\s*\(/
 const RE_EMPTY_SEMI = new RegExp('^\\s*' + ';' + '\\s*$')
 const RE_DUP_SEMI = new RegExp(';' + '{2,}\\s*$')
-const RE_SPACE_BEFORE_BRACE = /(\S)\{/g
+// Only after `)` or a word char (`if (x){`, `try{`) — `[{`, `({` and `${`
+// must stay tight (#1369)
+const RE_SPACE_BEFORE_BRACE = /([\w)])\{/g
 const RE_SPACE_AFTER_BRACE_KW = /\{(return|if|for|while|switch|const|let|var|function)\b/g
 const RE_COMMA_SPACE = /,(\S)/g
-const RE_EQUALS_SPACE = /(?<![=!<>])=(?![=><])/g
+// Lookbehind also excludes compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`,
+// `&&=`, `||=`, `??=`, `^=`) — splitting them produced `t / = d` (#1369)
+const RE_EQUALS_SPACE = /(?<![=!<>+\-*/%&|^?])=(?![=><])/g
 const RE_PLUS_OP = /(\w)\+(\w)/g
 const RE_MINUS_OP = /(\w)-(\w)/g
 const RE_STAR_OP = /(\w)\*(\w)/g
 const RE_SLASH_OP = /(\w)\/(\w)/g
-const RE_SEMI_SPACE = new RegExp(';' + '([^\\s' + ';' + '])', 'g')
-const RE_LT_OP = /([\w\])])<(\S)/g
-const RE_GT_OP = /(\S)>([\w[(])/g
+// Lookbehind requires code before the `;` so the leading-semicolon ASI-guard
+// idiom (`;(window as any).foo = ...`) keeps its conventional tight form
+const RE_SEMI_SPACE = new RegExp('(?<=\\S);' + '([^\\s' + ';' + '])', 'g')
+// Conservative on purpose: only space `<` / `>` against a numeric operand
+// (`i<10`, `(a+b)>0`). Identifier-vs-identifier comparisons (`a<b`) are
+// indistinguishable from generic type arguments (`Map<string, number>`,
+// `foo<Bar>()`) on a single line, and `(\S)>` also matched the `>` of an
+// unspaced arrow (`x=>y` → `x= > y`) — so those forms are left untouched
+// rather than risk changing program semantics (#1369).
+const RE_LT_OP = /([\w)\]])<(\d)/g
+const RE_GT_OP = /([\w)\]])>(\d)/g
 const RE_MULTI_SPACE = /\s{2,}/g
 const RE_BLANK_LINE = /^\s*$/
 const RE_LINE_COMMENT = /^\s*\/\//
 const RE_BLOCK_COMMENT = /^\s*\/\*/
 const RE_IMPORT_STMT = /^\s*import\b/
+// An import statement is complete once its module source string is present:
+// `... from 'mod'` or a side-effect `import 'mod'`
+const RE_IMPORT_COMPLETE = /\bfrom\s*['"][^'"]+['"]|^\s*import\s+['"][^'"]+['"]/
 const RE_PACKAGE_JSON = /package\.json$/i
 const RE_TSCONFIG_JSON = /[jt]sconfig(?:\..+)?\.json$/i
 const RE_TRAILING_WS = /[ \t]+$/
@@ -234,6 +297,27 @@ function fixQuotesLine(line: string, preferred: 'single' | 'double'): string {
     const ch = line[i]
 
     if (inString === 0) {
+      if (ch === '/') {
+        // Comments and regex literals are not strings — quotes inside them
+        // must never be converted (corrupted /"([^"]*)"/ patterns, #1369)
+        const nxt = line[i + 1]
+        if (nxt === '/')
+          break
+        if (nxt === '*') {
+          const end = line.indexOf('*/', i + 2)
+          i = end === -1 ? line.length : end + 2
+          continue
+        }
+        if (isRegexStart(line, i)) {
+          const end = scanRegexEnd(line, i)
+          if (end !== -1) {
+            i = end
+            continue
+          }
+        }
+        i++
+        continue
+      }
       if (ch === '"') {
         inString = 2
         stringStart = i
@@ -320,6 +404,10 @@ function normalizeSpacingLine(line: string): string {
   if (firstNonSpace < line.length) {
     const c = line[firstNonSpace]
     if (c === '/' && (line[firstNonSpace + 1] === '/' || line[firstNonSpace + 1] === '*'))
+      return line
+    // Block-comment continuation lines (`* ...` inside /** ... */) are prose,
+    // not code — spacing rules corrupted JSDoc examples like `${expr}` (#1369).
+    if (c === '*')
       return line
   }
 
@@ -482,6 +570,56 @@ function advanceTemplateState(line: string, stack: TmplCtx[]): number {
 }
 
 /**
+ * Determine whether a line ends inside a /* ... *​/ block comment.
+ * `startsIn` is the state carried over from the previous line. Quoted strings
+ * and template literals are skipped so comment markers inside them don't
+ * flip the state; `//` line comments end scanning for the rest of the line.
+ */
+function blockCommentStateAfter(line: string, startsIn: boolean): boolean {
+  let inBlock = startsIn
+  let inStr: string | null = null
+  let i = 0
+  while (i < line.length) {
+    const ch = line[i]
+    if (inBlock) {
+      if (ch === '*' && line[i + 1] === '/') {
+        inBlock = false
+        i += 2
+        continue
+      }
+      i++
+      continue
+    }
+    if (inStr) {
+      if (ch === '\\') {
+        i += 2
+        continue
+      }
+      if (ch === inStr)
+        inStr = null
+      i++
+      continue
+    }
+    if (ch === '\'' || ch === '"' || ch === '`') {
+      inStr = ch
+      i++
+      continue
+    }
+    if (ch === '/') {
+      if (line[i + 1] === '/')
+        break
+      if (line[i + 1] === '*') {
+        inBlock = true
+        i += 2
+        continue
+      }
+    }
+    i++
+  }
+  return inBlock
+}
+
+/**
  * Fused single-pass code line processor.
  * Combines fixQuotes + fixIndentation + normalizeCodeSpacing + removeStylisticSemicolons
  * into ONE split/join cycle instead of four separate ones.
@@ -493,10 +631,22 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
   const preferred = cfg.format.quotes
   const doSemiRemoval = cfg.format.semi === true
   let indentLevel = 0
+  let hangDepth = 0
+  let inBlockComment = false
   const tmplStack: TmplCtx[] = []
 
   for (let idx = 0; idx < len; idx++) {
     let line = lines[idx]
+
+    // Lines inside a multi-line /* ... */ comment are prose, not code — emit
+    // them verbatim. Re-indenting stripped the conventional ` * ` alignment
+    // (which hasIndentIssue explicitly accepts) and quote/spacing rules
+    // rewrote JSDoc text and code examples (#1369).
+    if (inBlockComment) {
+      inBlockComment = blockCommentStateAfter(line, true)
+      result[idx] = line
+      continue
+    }
 
     // Lines inside a multi-line template literal's text are emitted verbatim —
     // re-indenting / re-spacing them corrupts the string and breaks ${...}.
@@ -508,6 +658,12 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
       result[idx] = line
       continue
     }
+
+    // Track whether this plain code line leaves us inside a block comment.
+    // Template-involved lines are skipped: their backtick content is already
+    // handled above and must not be mistaken for comment markers.
+    if (splitIdx < 0 && tmplStack.length === 0)
+      inBlockComment = blockCommentStateAfter(line, false)
 
     // The line begins in code but ends inside a template opened on this line.
     // Format only the code prefix and re-attach the template tail verbatim so its
@@ -542,10 +698,24 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     if (RE_CLOSING_BRACE.test(trimmed))
       indentLevel = Math.max(0, indentLevel - 1)
 
-    line = makeIndent(indentLevel, cfg) + trimmed
+    // Continuation lines (`.method()` chains, ternary `?` / `:` branches,
+    // `&&` / `||` operands) conventionally sit one level deeper than the
+    // statement they continue — previously they were flattened (#1369)
+    const continuationBump = RE_CONTINUATION_LINE.test(trimmed) ? 1 : 0
 
-    if (RE_OPENING_BRACE.test(trimmed))
+    line = makeIndent(indentLevel + hangDepth + continuationBump, cfg) + trimmed
+
+    if (RE_OPENING_BRACE.test(trimmed)) {
       indentLevel += 1
+      hangDepth = 0
+    }
+    else if (!trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*')) {
+      // Brace-less control flow (`if (x)` / `else` / `for (...)` without `{`)
+      // hangs its single statement one level deeper; previously that
+      // statement was snapped back to the enclosing level (#1369).
+      const code = trimmed.replace(RE_TRAILING_LINE_COMMENT, '')
+      hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
+    }
 
     // Phase 3: Normalize spacing
     line = normalizeSpacingLine(line)
@@ -863,9 +1033,67 @@ function skipTemplate(input: string, start: number): number {
   return i
 }
 
+// Keywords after which a `/` starts a regex literal rather than division
+const REGEX_PRECEDING_KEYWORDS = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'do', 'else', 'case', 'yield', 'await'])
+
+/**
+ * Heuristic: does the `/` at `slashIdx` start a regex literal (vs division)?
+ * A regex can start after an operator/opening punctuator or certain keywords;
+ * after an identifier, number, `)` or `]` a `/` is division.
+ */
+function isRegexStart(input: string, slashIdx: number): boolean {
+  let j = slashIdx - 1
+  while (j >= 0 && (input[j] === ' ' || input[j] === '\t'))
+    j--
+  if (j < 0)
+    return true
+  const prev = input[j]
+  if ('(,=:[!&|?;{}<>+-*%^~'.includes(prev))
+    return true
+  if (/[\w$]/.test(prev)) {
+    let k = j
+    while (k >= 0 && /[\w$]/.test(input[k]))
+      k--
+    return REGEX_PRECEDING_KEYWORDS.has(input.slice(k + 1, j + 1))
+  }
+  return false
+}
+
+/**
+ * Scan a regex literal starting at `start` (pointing at the opening `/`).
+ * Handles `\` escapes and `[...]` character classes (where `/` is literal).
+ * Returns the index just past the closing `/` and its flags, or -1 when the
+ * literal does not terminate on this line (then treated as division).
+ */
+function scanRegexEnd(input: string, start: number): number {
+  let i = start + 1
+  let inClass = false
+  while (i < input.length) {
+    const c = input[i]
+    if (c === '\\') {
+      i += 2
+      continue
+    }
+    if (c === '[') {
+      inClass = true
+    }
+    else if (c === ']') {
+      inClass = false
+    }
+    else if (c === '/' && !inClass) {
+      i++
+      while (i < input.length && /[a-z]/i.test(input[i]))
+        i++
+      return i
+    }
+    i++
+  }
+  return -1
+}
+
 function maskStrings(input: string): { text: string, strings: string[] } {
-  // Fast path: no quotes at all — skip character scan
-  if (!input.includes('\'') && !input.includes('"') && !input.includes('`'))
+  // Fast path: no quotes or slashes at all — skip character scan
+  if (!input.includes('\'') && !input.includes('"') && !input.includes('`') && !input.includes('/'))
     return { text: input, strings: [] }
 
   const strings: string[] = []
@@ -874,6 +1102,47 @@ function maskStrings(input: string): { text: string, strings: string[] } {
   let segStart = 0
   while (i < input.length) {
     const ch = input[i]
+    if (ch === '/') {
+      const next = input[i + 1]
+      if (next === '/') {
+        // Trailing line comment — prose, masked so spacing rules don't
+        // rewrite hyphenated words (`as-is` → `as - is`, #1369)
+        if (i > segStart)
+          parts.push(input.slice(segStart, i))
+        strings.push(input.slice(i))
+        parts.push(`@@S${strings.length - 1}@@`)
+        segStart = input.length
+        break
+      }
+      if (next === '*') {
+        // Inline block comment — masked for the same reason
+        const end = input.indexOf('*/', i + 2)
+        const stop = end === -1 ? input.length : end + 2
+        if (i > segStart)
+          parts.push(input.slice(segStart, i))
+        strings.push(input.slice(i, stop))
+        parts.push(`@@S${strings.length - 1}@@`)
+        i = stop
+        segStart = i
+        continue
+      }
+      if (isRegexStart(input, i)) {
+        const end = scanRegexEnd(input, i)
+        if (end !== -1) {
+          // Mask the regex literal — spacing rules corrupted quantifiers
+          // (`/a{2,3}/` → `/a {2, 3}/`) and character classes (#1369).
+          if (i > segStart)
+            parts.push(input.slice(segStart, i))
+          strings.push(input.slice(i, end))
+          parts.push(`@@S${strings.length - 1}@@`)
+          i = end
+          segStart = i
+          continue
+        }
+      }
+      i++
+      continue
+    }
     if (ch === '\'' || ch === '"' || ch === '`') {
       // Flush non-string segment
       if (i > segStart)
@@ -949,26 +1218,79 @@ export function formatImports(source: string): string {
 
   const lines = source.split('\n')
   const imports: ParsedImport[] = []
+  // Comments must survive import organization (#1369 — they were silently
+  // deleted before): lines before the first import stay above the block,
+  // comments between imports are re-emitted after it, and comments after the
+  // last import (e.g. a JSDoc for the following declaration) belong to `rest`.
+  const preamble: string[] = []
+  const interleaved: string[] = []
   let idx = 0
-  // capture contiguous import block at top allowing comments and blank lines
+  let lastEnd = 0 // just past the last consumed import statement
+  let pendingStart = -1 // first comment line seen after the last import
+  let sawImport = false
+
   while (idx < lines.length) {
     const line = lines[idx]
-    if (RE_BLANK_LINE.test(line) || RE_LINE_COMMENT.test(line) || RE_BLOCK_COMMENT.test(line)) {
+    if (RE_BLANK_LINE.test(line)) {
       idx++
+      continue
+    }
+    if (RE_LINE_COMMENT.test(line) || RE_BLOCK_COMMENT.test(line)) {
+      const start = idx
+      if (RE_BLOCK_COMMENT.test(line)) {
+        // consume the whole /* ... */ block (may span lines)
+        while (idx < lines.length && !lines[idx].includes('*/'))
+          idx++
+        idx++
+      }
+      else {
+        idx++
+      }
+      if (!sawImport) {
+        for (let k = start; k < idx && k < lines.length; k++)
+          preamble.push(lines[k])
+        lastEnd = idx
+      }
+      else if (pendingStart < 0) {
+        pendingStart = start
+      }
       continue
     }
     if (!RE_IMPORT_STMT.test(line))
       break
-    const stmt = line.trim()
+    // Multi-line import statements: join lines until the module source string
+    // appears. Previously the opening `import {` line was consumed and the
+    // remaining specifier lines left behind as broken syntax (#1369).
+    let stmt = line.trim()
+    let stmtEnd = idx + 1
+    while (!RE_IMPORT_COMPLETE.test(stmt) && stmtEnd < lines.length && stmtEnd - idx < 50) {
+      stmt += ` ${lines[stmtEnd].trim()}`
+      stmtEnd++
+    }
+    if (!RE_IMPORT_COMPLETE.test(stmt))
+      return source
     const parsed = parseImportStatement(stmt)
-    if (parsed)
-      imports.push(parsed)
-    idx++
+    if (!parsed)
+      return source
+    // comments buffered since the previous import are interleaved — keep them
+    if (pendingStart >= 0) {
+      for (let k = pendingStart; k < idx; k++) {
+        if (!RE_BLANK_LINE.test(lines[k]))
+          interleaved.push(lines[k])
+      }
+      pendingStart = -1
+    }
+    imports.push(parsed)
+    idx = stmtEnd
+    lastEnd = idx
+    sawImport = true
   }
   if (imports.length === 0)
     return source
 
-  const rest = lines.slice(idx).join('\n')
+  // Trailing comments (no import after them) belong to the following code
+  const restStart = pendingStart >= 0 ? pendingStart : lastEnd
+  const rest = lines.slice(restStart).join('\n')
 
   // Remove unused only for simple named (no alias). Keep defaults, namespaces, and all type specifiers.
   const usedIdentifiers = collectIdentifierSet(rest)
@@ -1110,16 +1432,23 @@ export function formatImports(source: string): string {
     return a.source.localeCompare(b.source)
   })
 
+  const head = preamble.length > 0 ? `${preamble.join('\n')}\n` : ''
+
   // If no imports remain after filtering, return the rest without import block
   if (entries.length === 0) {
-    // Remove leading newlines from rest for consistency
-    return rest.replace(/^\n+/, '')
+    const restClean = rest.replace(/^\n+/, '')
+    const kept = [...interleaved]
+    if (head || kept.length > 0)
+      return `${head}${kept.length > 0 ? `${kept.join('\n')}\n` : ''}${restClean}`
+    return restClean
   }
 
   const rendered = entries.map(renderImport).join('\n')
+  const mid = interleaved.length > 0 ? `\n${interleaved.join('\n')}` : ''
   // ensure a trailing blank line after imports if there is following code
-  const sep = rest.length > 0 && !rest.startsWith('\n') ? '\n\n' : '\n'
-  return `${rendered}${sep}${rest.replace(/^\n+/, '')}`
+  const restClean = rest.replace(/^\n+/, '')
+  const sep = restClean.length > 0 ? '\n\n' : '\n'
+  return `${head}${rendered}${mid}${sep}${restClean}`
 }
 
 function renderImport(imp: ParsedImport): string {
