@@ -54,14 +54,14 @@
     "pickier": "workspace:*"
   },
   "devDependencies": {
-    "@babel/parser": "^7.28.5",
-    "@babel/traverse": "^7.28.5",
+    "@babel/parser": "^7.29.7",
+    "@babel/traverse": "^7.29.7",
     "@biomejs/biome": "^1.9.4",
-    "happy-dom": "^20.0.11",
+    "happy-dom": "^20.10.3",
     "jsdom": "^25.0.1",
     "mitata": "^1.0.34",
-    "oxfmt": "^0.1.0",
-    "prettier": "^3.7.4",
+    "oxfmt": "^0.54.0",
+    "prettier": "^3.8.4",
     "typescript": "^5.9.3"
   }
 }
