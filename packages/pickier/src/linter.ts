@@ -1048,6 +1048,12 @@ function getCommentLines(content: string): Set<number> {
   let lineHasCode = false // Track if current line has any non-comment code
   let lineSawComment = false // Track if current line contains only comment text
   let lineStartedInBlockComment = false // Track if line started inside a block comment
+  // Brace-depth stack for `${ … }` template-literal interpolations. Each entry
+  // tracks the `{`/`}` nesting inside one interpolation so the closing `}` is
+  // matched correctly (and nested templates/regex/strings don't desync the
+  // scanner, which previously made block comments below a template literal with
+  // an interpolation get misread as code).
+  const interpStack: number[] = []
 
   for (let i = 0; i < content.length; i++) {
     const ch = content[i]
@@ -1196,6 +1202,26 @@ else {
           state = 'string-template'
           lineHasCode = true
         }
+        else if (ch === '{') {
+          // Track nesting inside an active `${ … }` interpolation.
+          if (interpStack.length)
+            interpStack[interpStack.length - 1]++
+          lineHasCode = true
+        }
+        else if (ch === '}') {
+          // A `}` at interpolation depth 0 closes the interpolation and returns
+          // to the enclosing template literal; otherwise it's a normal block.
+          if (interpStack.length) {
+            if (interpStack[interpStack.length - 1] === 0) {
+              interpStack.pop()
+              state = 'string-template'
+            }
+            else {
+              interpStack[interpStack.length - 1]--
+            }
+          }
+          lineHasCode = true
+        }
         else if (!/\s/.test(ch)) {
           lineHasCode = true
         }
@@ -1220,6 +1246,13 @@ else {
       case 'string-template':
         if (ch === '\\') {
           i++
+          break
+        }
+        if (ch === '$' && next === '{') {
+          // Enter a `${ … }` interpolation: its contents are code.
+          interpStack.push(0)
+          state = 'code'
+          i++ // skip '{'
           break
         }
         if (ch === '`') state = 'code'

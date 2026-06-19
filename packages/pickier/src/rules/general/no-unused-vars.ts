@@ -210,6 +210,19 @@ export const noUnusedVarsRule: RuleModule = {
 
         // Track string boundaries
         if (!inString) {
+          // Stop at a trailing line comment, and skip inline block comments —
+          // their text (and any commas in it) must not be read as declarators.
+          // `//` inside a string is handled by the `inString` branch below, so
+          // URLs like 'http://…' are safe.
+          if (ch === '/' && after[k + 1] === '/')
+            break
+          if (ch === '/' && after[k + 1] === '*') {
+            k += 2
+            while (k < after.length && !(after[k] === '*' && after[k + 1] === '/'))
+              k++
+            k++ // skip the closing '/'
+            continue
+          }
           if (ch === '\'') {
             inString = 'single'
           }
