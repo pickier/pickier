@@ -85,6 +85,20 @@ describe('MD037 - no-space-in-emphasis', () => {
     const fixed = noSpaceInEmphasisRule.fix!(input, { filePath: 'test.md', config: {} as any })
     expect(fixed).toBe(input)
   })
+
+  it('fix: leaves adjacent emphasis spans untouched (no cross-span pairing)', async () => {
+    const { noSpaceInEmphasisRule } = await import('../../../src/rules/markdown/no-space-in-emphasis')
+    const input = 'the most popular proxies — **caddy** and **nginx** — plus more'
+    const fixed = noSpaceInEmphasisRule.fix!(input, { filePath: 'test.md', config: {} as any })
+    expect(fixed).toBe(input)
+  })
+
+  it('fix: leaves markers inside inline code spans untouched', async () => {
+    const { noSpaceInEmphasisRule } = await import('../../../src/rules/markdown/no-space-in-emphasis')
+    const input = 'Use `** not emphasis **` here'
+    const fixed = noSpaceInEmphasisRule.fix!(input, { filePath: 'test.md', config: {} as any })
+    expect(fixed).toBe(input)
+  })
 })
 
 // ─── no-space-in-links ───────────────────────────────────────────────────────

@@ -337,6 +337,23 @@ _italic **and bold**_
     expect(fixed).toBe(`*first* and *second* and **strong** text
 `)
   })
+
+  it('should not convert underscores inside inline code spans across lines', async () => {
+    // Regression: the whole-text fixer paired the lone `_` in `reverse_proxy`
+    // with the lone `_` in `proxy_pass` (a line later) and rewrote both to `*`.
+    const content = `| \`caddy\` | \`caddy reverse_proxy\`. |
+| \`nginx\` | \`nginx proxy_pass\` with upstream keepalive. |
+`
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({
+      'markdown/emphasis-style': ['error', { style: 'asterisk' }],
+    })
+    const options: LintOptions = { reporter: 'json', config: configPath, fix: true }
+
+    await runLint([tempPath], options)
+    const fixed = readFileSync(tempPath, 'utf8')
+    expect(fixed).toBe(content)
+  })
 })
 
 describe('Edge Cases: no-space-in-code fixer', () => {

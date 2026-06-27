@@ -84,6 +84,14 @@ describe('MD032 - blanks-around-lists fix', () => {
     const fixed = blanksAroundListsRule.fix!(input, { filePath: 'test.md', config: {} as any })
     expect(fixed.startsWith('\n')).toBe(false)
   })
+
+  it('fix: does not split a list item from its indented continuation line', async () => {
+    const { blanksAroundListsRule } = await import('../../../src/rules/markdown/blanks-around-lists')
+    const input = 'Intro\n- Item one\n  wrapped continuation\n- Item two\nAfter\n'
+    const fixed = blanksAroundListsRule.fix!(input, { filePath: 'test.md', config: {} as any })
+    // Blank lines surround the list, but the continuation stays attached.
+    expect(fixed).toBe('Intro\n\n- Item one\n  wrapped continuation\n- Item two\n\nAfter\n')
+  })
 })
 
 // ─── no-multiple-blanks fix ──────────────────────────────────────────────────
