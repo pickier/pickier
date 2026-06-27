@@ -1,3 +1,27 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.35...v0.1.36)
+
+### 🚀 Features
+
+- **markdown**: add inline-code-aware text helpers ([3fe0d17](https://github.com/pickier/pickier/commit/3fe0d17)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **markdown**: keep list items attached to indented continuation lines ([4a40cad](https://github.com/pickier/pickier/commit/4a40cad)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: stop emphasis fixers corrupting code spans and adjacent spans ([62b7ead](https://github.com/pickier/pickier/commit/62b7ead)) _(by Chris <chrisbreuer93@gmail.com>)_
+- eliminate comment false-positives (template interpolation + decl comment strip) ([41f9a38](https://github.com/pickier/pickier/commit/41f9a38)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧪 Tests
+
+- **markdown**: cover inline-code helpers and autofix corruption regressions ([5c3a3d5](https://github.com/pickier/pickier/commit/5c3a3d5)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.36 ([46cbcf3](https://github.com/pickier/pickier/commit/46cbcf3)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.34...v0.1.35)
 
 ### 🐛 Bug Fixes
