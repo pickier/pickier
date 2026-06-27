@@ -73,11 +73,31 @@ export const blanksAroundListsRule: RuleModule = {
     const lines = text.split(/\r?\n/)
     const result: string[] = []
     let inList = false
+    let inFence = false
+
+    const isListItemLine = (l: string) => /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(l)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const prevLine = i > 0 ? lines[i - 1] : ''
-      const isListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(line)
+
+      // Fenced code blocks: pass through verbatim and close any open list.
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        inList = false
+        result.push(line)
+        continue
+      }
+      if (inFence) {
+        result.push(line)
+        continue
+      }
+
+      const isListItem = isListItemLine(line)
+      const isBlank = line.trim().length === 0
+      // An indented, non-blank line under a list item is a continuation of it
+      // (e.g. a wrapped paragraph or nested content) — NOT the end of the list.
+      const isContinuation = inList && !isListItem && !isBlank && /^\s/.test(line)
 
       if (isListItem && !inList) {
         // Start of list - add blank line before if needed
@@ -86,18 +106,20 @@ export const blanksAroundListsRule: RuleModule = {
         }
         inList = true
       }
-      else if (!isListItem && line.trim().length > 0 && inList) {
+      else if (!isListItem && !isContinuation && !isBlank && inList) {
         // End of list - add blank line before next content
         inList = false
         if (result.length > 0) {
           result.push('')
         }
       }
-      else if (!isListItem && line.trim().length === 0) {
-        // Blank line might end list
+      else if (isBlank) {
+        // Blank line might end the list — it stays a list only if the next
+        // non-blank line is another item or a continuation of one.
         const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-        const nextIsListItem = /^(?:\s*)(?:[*\-+]|\d+\.)\s+/.test(nextLine)
-        if (!nextIsListItem && inList) {
+        const nextIsListItem = isListItemLine(nextLine)
+        const nextIsContinuation = /^\s+\S/.test(nextLine)
+        if (!nextIsListItem && !nextIsContinuation && inList) {
           inList = false
         }
       }
