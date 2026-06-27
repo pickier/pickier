@@ -1,4 +1,10 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines, maskInlineCode, replaceOutsideInlineCode } from './_fence-tracking'
+
+// Single-marker emphasis (not the double `**`/`__` of strong), matched only
+// outside code. `[^*]`/`[^_]` keeps a match from spanning across a `**`/`__`.
+const ASTERISK_EMPHASIS = /(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/
+const UNDERSCORE_EMPHASIS = /(?<!_)_(?!_)([^_]+)_(?!_)/
 
 /**
  * MD049 - Emphasis style
@@ -99,8 +105,12 @@ export const emphasisStyleRule: RuleModule = {
   fix: (text, ctx) => {
     const options = (ctx.options as { style?: 'asterisk' | 'underscore' | 'consistent' }) || {}
     const style = options.style || 'consistent'
+    const lines = text.split(/\r?\n/)
+    const inCode = getCodeBlockLines(lines)
 
-    // Determine target style
+    // Determine the target style — only from markers OUTSIDE code blocks and
+    // inline code spans, so a literal `_` in `` `reverse_proxy` `` (or a
+    // `*foo*` in a fenced example) can't decide the document's style.
     let targetStyle: 'asterisk' | 'underscore' = 'asterisk'
     if (style === 'asterisk') {
       targetStyle = 'asterisk'
@@ -109,28 +119,50 @@ export const emphasisStyleRule: RuleModule = {
       targetStyle = 'underscore'
     }
     else if (style === 'consistent') {
-      // Find first emphasis marker
-      const asteriskMatch = text.match(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/)
-      const underscoreMatch = text.match(/(?<!_)_(?!_)([^_]+)_(?!_)/)
-
-      if (asteriskMatch && (!underscoreMatch || asteriskMatch.index! < underscoreMatch.index!)) {
+      let firstAsterisk: { line: number, col: number } | null = null
+      let firstUnderscore: { line: number, col: number } | null = null
+      for (let i = 0; i < lines.length; i++) {
+        if (inCode.has(i))
+          continue
+        const stripped = maskInlineCode(lines[i])
+        if (firstAsterisk === null) {
+          const m = stripped.match(ASTERISK_EMPHASIS)
+          if (m)
+            firstAsterisk = { line: i, col: m.index! }
+        }
+        if (firstUnderscore === null) {
+          const m = stripped.match(UNDERSCORE_EMPHASIS)
+          if (m)
+            firstUnderscore = { line: i, col: m.index! }
+        }
+        if (firstAsterisk && firstUnderscore)
+          break
+      }
+      const cmp = (a: { line: number, col: number }, b: { line: number, col: number }) =>
+        a.line !== b.line ? a.line - b.line : a.col - b.col
+      if (firstAsterisk && (!firstUnderscore || cmp(firstAsterisk, firstUnderscore) < 0))
         targetStyle = 'asterisk'
-      }
-      else if (underscoreMatch) {
+      else if (firstUnderscore)
         targetStyle = 'underscore'
+    }
+
+    // Rewrite line-by-line, skipping code-block lines entirely and inline
+    // code spans within each line. Replacing across the whole text would pair
+    // a lone `_` on one line with a lone `_` lines later and corrupt both.
+    let changed = false
+    for (let i = 0; i < lines.length; i++) {
+      if (inCode.has(i))
+        continue
+      const after = replaceOutsideInlineCode(lines[i], seg =>
+        targetStyle === 'asterisk'
+          ? seg.replace(/(?<!_)_(?!_)([^_]+)_(?!_)/g, '*$1*')
+          : seg.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '_$1_'))
+      if (after !== lines[i]) {
+        lines[i] = after
+        changed = true
       }
     }
 
-    let fixed = text
-    if (targetStyle === 'asterisk') {
-      // Convert underscores to asterisks
-      fixed = fixed.replace(/(?<!_)_(?!_)([^_]+)_(?!_)/g, '*$1*')
-    }
-    else {
-      // Convert asterisks to underscores
-      fixed = fixed.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '_$1_')
-    }
-
-    return fixed
+    return changed ? lines.join('\n') : text
   },
 }

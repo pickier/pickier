@@ -1,4 +1,16 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { replaceOutsideInlineCode } from './_fence-tracking'
+
+// Spaces just inside a *genuine* emphasis span. The leading `(?<![A-Za-z0-9])`
+// / trailing `(?![A-Za-z0-9])` flanking guards keep the closing `**` of one
+// span and the opening `**` of the next from being mistaken for a single span
+// with "interior" spaces — e.g. `**caddy** and **nginx**` must stay untouched.
+const EMPHASIS_SPACE_PATTERNS = [
+  /(?<![A-Za-z0-9])\*\*\s+[^*]+?\*\*(?![A-Za-z0-9])/g, // ** text **  (space after opening)
+  /(?<![A-Za-z0-9])\*\*[^*]+?\s+\*\*(?![A-Za-z0-9])/g, // **text **   (space before closing)
+  /(?<![A-Za-z0-9])__\s+[^_]+?__(?![A-Za-z0-9])/g, //     __ text __  (space after opening)
+  /(?<![A-Za-z0-9])__[^_]+?\s+__(?![A-Za-z0-9])/g, //     __text __   (space before closing)
+]
 
 /**
  * MD037 - Spaces inside emphasis markers
@@ -28,14 +40,7 @@ export const noSpaceInEmphasisRule: RuleModule = {
 
       // Match complete paired emphasis with spaces just inside the markers
       // Only checks ** and __ (single * and _ are too ambiguous without a full parser)
-      const patterns = [
-        /\*\*\s+[^*]+?\*\*/g, // ** space...text ** (space after opening **)
-        /\*\*[^*]+?\s+\*\*/g, // **text...space ** (space before closing **)
-        /__\s+[^_]+?__/g, // __ space...text __ (space after opening __)
-        /__[^_]+?\s+__/g, // __text...space __ (space before closing __)
-      ]
-
-      for (const pattern of patterns) {
+      for (const pattern of EMPHASIS_SPACE_PATTERNS) {
         for (const match of stripped.matchAll(pattern)) {
           issues.push({
             filePath: ctx.filePath,
@@ -67,13 +72,19 @@ export const noSpaceInEmphasisRule: RuleModule = {
         continue
       }
 
-      let fixed = line
-      // Fix spaces inside ** emphasis
-      fixed = fixed.replace(/\*\*\s+([^*]+?)\*\*/g, '**$1**')
-      fixed = fixed.replace(/\*\*([^*]+?)\s+\*\*/g, '**$1**')
-      // Fix spaces inside __ emphasis
-      fixed = fixed.replace(/__\s+([^_]+?)__/g, '__$1__')
-      fixed = fixed.replace(/__([^_]+?)\s+__/g, '__$1__')
+      // Rewrite only outside inline code spans, with the same flanking guards
+      // as the checker so adjacent emphasis spans (`**a** and **b**`) and
+      // markers inside `` `code` `` are left alone.
+      const fixed = replaceOutsideInlineCode(line, (seg) => {
+        let s = seg
+        // Fix spaces inside ** emphasis
+        s = s.replace(/(?<![A-Za-z0-9])(\*\*)\s+([^*]+?)\*\*(?![A-Za-z0-9])/g, '$1$2**')
+        s = s.replace(/(?<![A-Za-z0-9])(\*\*)([^*]+?)\s+\*\*(?![A-Za-z0-9])/g, '$1$2**')
+        // Fix spaces inside __ emphasis
+        s = s.replace(/(?<![A-Za-z0-9])(__)\s+([^_]+?)__(?![A-Za-z0-9])/g, '$1$2__')
+        s = s.replace(/(?<![A-Za-z0-9])(__)([^_]+?)\s+__(?![A-Za-z0-9])/g, '$1$2__')
+        return s
+      })
       result.push(fixed)
     }
 
