@@ -121,3 +121,86 @@ export function getCodeBlockLines(lines: string[]): Set<number> {
 export function isInsideCodeBlock(lines: string[], targetIdx: number): boolean {
   return getCodeBlockLines(lines).has(targetIdx)
 }
+
+/**
+ * Walk a single line and invoke `onText` for each run that sits OUTSIDE an
+ * inline code span and `onCode` for each code span (backticks included).
+ *
+ * A code span is a run of N backticks, then any text, then the next run of
+ * EXACTLY N backticks (CommonMark). Backtick runs without a matching close
+ * are treated as ordinary text — never opening an unterminated span — so a
+ * stray `` ` `` in prose can't swallow the rest of the line.
+ */
+function eachInlineSegment(
+  line: string,
+  onText: (segment: string) => void,
+  onCode: (segment: string) => void,
+): void {
+  let i = 0
+  let textStart = 0
+  while (i < line.length) {
+    if (line[i] !== '`') {
+      i++
+      continue
+    }
+    // Measure the opening backtick run.
+    let n = 0
+    while (line[i + n] === '`')
+      n++
+    // Find a closing run of EXACTLY n backticks.
+    let j = i + n
+    let close = -1
+    while (j < line.length) {
+      if (line[j] === '`') {
+        let k = 0
+        while (line[j + k] === '`')
+          k++
+        if (k === n) {
+          close = j
+          break
+        }
+        j += k
+      }
+      else {
+        j++
+      }
+    }
+    if (close === -1) {
+      // No matching close — backticks are literal text. Skip past this run
+      // so we don't re-measure it, leaving it in the pending text segment.
+      i += n
+      continue
+    }
+    if (textStart < i)
+      onText(line.slice(textStart, i))
+    onCode(line.slice(i, close + n))
+    i = close + n
+    textStart = i
+  }
+  if (textStart < line.length)
+    onText(line.slice(textStart))
+}
+
+/**
+ * Apply `transform` to the parts of `line` that are OUTSIDE inline code
+ * spans, leaving code-span text (and its backticks) verbatim. Lets
+ * emphasis/style fixers rewrite prose without corrupting literal markers
+ * such as `reverse_proxy` inside `` `caddy reverse_proxy` ``.
+ */
+export function replaceOutsideInlineCode(line: string, transform: (segment: string) => string): string {
+  let out = ''
+  eachInlineSegment(line, seg => { out += transform(seg) }, (seg) => { out += seg })
+  return out
+}
+
+/**
+ * Blank out inline code spans (replacing every character — backticks and
+ * content — with spaces) while preserving length and column positions. Used
+ * by detectors that want to scan prose for markers without matching anything
+ * inside a code span.
+ */
+export function maskInlineCode(line: string): string {
+  let out = ''
+  eachInlineSegment(line, (seg) => { out += seg }, (seg) => { out += ' '.repeat(seg.length) })
+  return out
+}
