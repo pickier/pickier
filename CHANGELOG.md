@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.36...v0.1.37)
+
+### 🐛 Bug Fixes
+
+- **markdown**: don't treat fenced code lines as ATX headings/blockquotes ([7b55704](https://github.com/pickier/pickier/commit/7b55704)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.37 ([afe39cf](https://github.com/pickier/pickier/commit/afe39cf)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.35...v0.1.36)
 
 ### 🚀 Features
