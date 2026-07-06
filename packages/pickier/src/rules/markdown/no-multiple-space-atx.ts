@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD019 - Multiple spaces after hash on atx style heading
@@ -10,8 +11,14 @@ export const noMultipleSpaceAtxRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const codeLines = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
+      // A `#` line inside a fenced/indented code block (e.g. a shell comment)
+      // is not an ATX heading — never flag or rewrite it.
+      if (codeLines.has(i))
+        continue
+
       const line = lines[i]
 
       // Check for ATX heading with multiple spaces after hash
@@ -33,7 +40,10 @@ export const noMultipleSpaceAtxRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    const fixedLines = lines.map((line) => {
+    const codeLines = getCodeBlockLines(lines)
+    const fixedLines = lines.map((line, i) => {
+      if (codeLines.has(i))
+        return line
       // Replace multiple spaces after hash with single space
       return line.replace(/^(#{1,6})\s{2,}/, '$1 ')
     })

@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD027 - Multiple spaces after blockquote symbol
@@ -10,8 +11,13 @@ export const noMultipleSpaceBlockquoteRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const codeLines = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
+      // A `>` line inside a code block is content, not a blockquote.
+      if (codeLines.has(i))
+        continue
+
       const line = lines[i]
 
       // Check for blockquote with multiple spaces after >
@@ -34,7 +40,10 @@ export const noMultipleSpaceBlockquoteRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    const fixedLines = lines.map((line) => {
+    const codeLines = getCodeBlockLines(lines)
+    const fixedLines = lines.map((line, i) => {
+      if (codeLines.has(i))
+        return line
       // Replace multiple spaces after blockquote symbol with single space
       return line.replace(/^(\s*>+)\s{2,}/, '$1 ')
     })

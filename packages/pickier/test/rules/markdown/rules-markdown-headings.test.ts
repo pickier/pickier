@@ -334,3 +334,46 @@ describe('MD026 - no-trailing-punctuation', () => {
     }
   })
 })
+
+describe('atx-space rules ignore fenced code blocks', () => {
+  async function lintFix(src: string, ruleId: string): Promise<{ issues: any[], fixed: string }> {
+    const tempPath = createTempFile(src)
+    const configPath = createConfigWithMarkdownRules({ [ruleId]: 'error' })
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+    try {
+      await runLint([tempPath], { reporter: 'json', config: configPath })
+    }
+    finally {
+      console.log = originalLog
+    }
+    await runLint([tempPath], { reporter: 'json', config: configPath, fix: true })
+    const { readFileSync } = await import('node:fs')
+    return { issues: JSON.parse(output).issues, fixed: readFileSync(tempPath, 'utf8') }
+  }
+
+  // A shell comment inside a ```sh fence looks like `#   text` — it must not be
+  // treated as an ATX heading (the bug that mangled aligned CLI-output docs).
+  const shellDoc = '# Real Heading\n\n```sh\nlt vpn:selftest\n#   Key generation:      ok\n#   Handshake:           ok\n```\n'
+
+  it('no-multiple-space-atx does not flag or rewrite fenced `#   ` comments', async () => {
+    const { issues, fixed } = await lintFix(shellDoc, 'markdown/no-multiple-space-atx')
+    expect(issues).toHaveLength(0)
+    expect(fixed).toBe(shellDoc)
+  })
+
+  it('no-multiple-space-atx still fixes real headings outside fences', async () => {
+    const src = '##   Spaced Heading\n\n```sh\n#   stays\n```\n'
+    const { issues, fixed } = await lintFix(src, 'markdown/no-multiple-space-atx')
+    expect(issues.length).toBeGreaterThan(0)
+    expect(fixed).toBe('## Spaced Heading\n\n```sh\n#   stays\n```\n')
+  })
+
+  it('no-missing-space-atx does not flag `#comment` inside a fence', async () => {
+    const src = '# Title\n\n```sh\n#no-space-comment\n```\n'
+    const { issues, fixed } = await lintFix(src, 'markdown/no-missing-space-atx')
+    expect(issues).toHaveLength(0)
+    expect(fixed).toBe(src)
+  })
+})
