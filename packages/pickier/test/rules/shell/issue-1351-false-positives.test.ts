@@ -304,3 +304,17 @@ done
     finally { console.log = originalLog }
   })
 })
+
+describe('shell/quote-variables heredoc tracking is string-aware', () => {
+  it('still flags unquoted vars after a << inside a string', async () => {
+    const src = '#!/bin/bash\necho "a << b"\nrm $unquoted\n'
+    const { result } = await lintRule(src, 'shell/quote-variables')
+    expect(result.issues.some((i: any) => i.ruleId === 'shell/quote-variables')).toBe(true)
+  })
+
+  it('skips heredoc content for quoted delimiters', async () => {
+    const src = '#!/bin/bash\ncat << \'EOF\'\nrm $raw\nEOF\n'
+    const { code } = await lintRule(src, 'shell/quote-variables')
+    expect(code).toBe(0)
+  })
+})

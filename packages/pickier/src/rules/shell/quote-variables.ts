@@ -1,4 +1,5 @@
 import type { RuleModule } from '../../types'
+import { heredocDelimiter } from './_shared'
 
 /**
  * SC2086: Double quote variable expansions to prevent word splitting and globbing.
@@ -34,16 +35,14 @@ export const quoteVariablesRule: RuleModule = {
           inHeredoc = false
         continue
       }
-      const heredocMatch = line.match(/<<-?\s*(['"])(\w+)\1/)
-      if (heredocMatch) {
+      // String-aware: a << inside a quoted string is not a heredoc
+      const delim = heredocDelimiter(line)
+      if (delim) {
         inHeredoc = true
-        heredocDelim = heredocMatch[2]
-        continue
-      }
-      const heredocMatch2 = line.match(/<<-?\s*(\w+)/)
-      if (heredocMatch2 && !heredocMatch) {
-        inHeredoc = true
-        heredocDelim = heredocMatch2[1]
+        heredocDelim = delim
+        // Quoted delimiter (<< 'EOF') disables expansion — skip this line too
+        if (new RegExp(`<<-?\\s*['"]${delim}['"]`).test(line))
+          continue
       }
 
       // Skip comment lines
