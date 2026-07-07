@@ -70,6 +70,14 @@ describe('MD038 - no-space-in-code', () => {
     const fixed = noSpaceInCodeRule.fix!(input, { filePath: 'test.md', config: {} as any })
     expect(fixed).toBe(input)
   })
+
+  it('ignores code-span-like content inside a nested fenced block', async () => {
+    const { noSpaceInCodeRule } = await import('../../../src/rules/markdown/no-space-in-code')
+    // the ``` line is content of the ~~~ fence, so `a \` b \` c` is inside code
+    const doc = '~~~\n```\na ` b ` c\n```\n~~~\n'
+    expect(noSpaceInCodeRule.check(doc, { filePath: 'test.md', config: {} as any })).toHaveLength(0)
+    expect(noSpaceInCodeRule.fix!(doc, { filePath: 'test.md', config: {} as any })).toBe(doc)
+  })
 })
 
 // ─── no-trailing-spaces ──────────────────────────────────────────────────────

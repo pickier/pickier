@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD038 - Spaces inside code span elements
@@ -10,17 +11,13 @@ export const noSpaceInCodeRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      // Skip fenced/indented code — backtick runs there are content
+      if (codeLines.has(i))
         continue
 
       // Find code spans by matching balanced backtick groups (lazy match finds shortest span)
@@ -45,16 +42,12 @@ export const noSpaceInCodeRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
     const result: string[] = []
 
-    for (const line of lines) {
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        result.push(line)
-        continue
-      }
-      if (inFence) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (codeLines.has(i)) {
         result.push(line)
         continue
       }
