@@ -251,21 +251,35 @@ function makeIndent(visualLevels: number, cfg: PickierConfig): string {
 function convertDoubleToSingle(str: string): string {
   // strip surrounding quotes: "xyz" → xyz
   const inner = str.slice(1, -1)
-  // Strategy: swap quote types for cleaner output
-  // Unescape escaped double quotes: \"  → "
-  // Swap single quotes to double quotes: ' → " (since they're literals in the string)
-  let result = inner.replace(/\\"/g, '"') // unescape \"
-  result = result.replace(/'/g, '"') // swap ' to "
+  // Unescape escaped double quotes: \" → " (no longer needs escaping inside '...')
+  // Callers guarantee the content has no unescaped single quotes.
+  const result = inner.replace(/\\"/g, '"')
   return `'${result}'`
 }
 
 function convertSingleToDouble(str: string): string {
   const inner = str.slice(1, -1)
-  // Unescape escaped single quotes: \'  → '
-  // Swap double quotes to single quotes: " → '
-  let result = inner.replace(/\\'/g, '\'')
-  result = result.replace(/"/g, '\'')
+  // Unescape escaped single quotes: \' → '
+  // Callers guarantee the content has no unescaped double quotes.
+  const result = inner.replace(/\\'/g, '\'')
   return `"${result}"`
+}
+
+/**
+ * A quoted string can only switch quote style without changing its runtime
+ * value when it contains no unescaped occurrence of the target quote
+ * (`"it's"` must stay double-quoted; rewriting it would corrupt the content).
+ */
+function hasUnescapedChar(content: string, ch: string): boolean {
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\\') {
+      i++
+      continue
+    }
+    if (content[i] === ch)
+      return true
+  }
+  return false
 }
 
 function fixQuotes(content: string, preferred: 'single' | 'double', filePath: string): string {
@@ -355,12 +369,14 @@ function fixQuotesLine(line: string, preferred: 'single' | 'double'): string {
       const closeChar = inString === 1 ? '\'' : '"'
       if (ch === closeChar) {
         // Found closing quote — convert if needed
-        const needConvert = (inString === 2 && wantSingle) || (inString === 1 && !wantSingle)
+        const stringContent = line.slice(stringStart + 1, i)
+        const targetQuote = wantSingle ? '\'' : '"'
+        const needConvert = ((inString === 2 && wantSingle) || (inString === 1 && !wantSingle))
+          && !hasUnescapedChar(stringContent, targetQuote)
         if (needConvert) {
           // Flush segment before string
           if (stringStart > segStart)
             parts.push(line.slice(segStart, stringStart))
-          const stringContent = line.slice(stringStart + 1, i)
           if (inString === 2)
             parts.push(convertDoubleToSingle(`"${stringContent}"`))
           else
@@ -888,6 +904,27 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
   return `${joined}\n`
 }
 
+/**
+ * Whether the string opening at `openIdx` can switch to the target quote style
+ * without changing its runtime value — i.e. it contains no unescaped target
+ * quote before its closing quote. Mirrors the fixer's guard so the linter
+ * never flags a quote the fixer refuses to rewrite.
+ */
+function quoteConvertible(line: string, openIdx: number, quote: string, target: string): boolean {
+  for (let j = openIdx + 1; j < line.length; j++) {
+    const c = line[j]
+    if (c === '\\') {
+      j++
+      continue
+    }
+    if (c === quote)
+      return true
+    if (c === target)
+      return false
+  }
+  return true
+}
+
 export function detectQuoteIssues(line: string, preferred: 'single' | 'double'): number[] {
   // return character indices (0-based) where offending quote starts
 
@@ -922,7 +959,7 @@ export function detectQuoteIssues(line: string, preferred: 'single' | 'double'):
         if (preferred === 'double') {
           // Single quote when double is preferred
           const beforeSlash = line.lastIndexOf('//', i)
-          if (beforeSlash === -1 || beforeSlash > i) {
+          if ((beforeSlash === -1 || beforeSlash > i) && quoteConvertible(line, i, '\'', '"')) {
             indices.push(i)
           }
         }
@@ -933,7 +970,7 @@ export function detectQuoteIssues(line: string, preferred: 'single' | 'double'):
         if (preferred === 'single') {
           // Double quote when single is preferred
           const beforeSlash = line.lastIndexOf('//', i)
-          if (beforeSlash === -1 || beforeSlash > i) {
+          if ((beforeSlash === -1 || beforeSlash > i) && quoteConvertible(line, i, '"', '\'')) {
             indices.push(i)
           }
         }

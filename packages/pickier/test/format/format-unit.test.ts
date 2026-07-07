@@ -279,6 +279,19 @@ describe('quote fixing', () => {
     expect(result.length).toBeGreaterThan(0)
   })
 
+  it('keeps double quotes when content has an apostrophe (would corrupt)', () => {
+    expect(fmt('const x = "it\'s fine"\n')).toBe('const x = "it\'s fine"\n')
+  })
+
+  it('keeps single quotes when content has a double quote and double is preferred', () => {
+    const input = 'const b = \'say "hi"\'\n'
+    expect(fmt(input, 'test.ts', { quotes: 'double' })).toBe(input)
+  })
+
+  it('still converts when the embedded target quote is escaped', () => {
+    expect(fmt('const x = "it\\\'s"\n')).toBe('const x = \'it\\\'s\'\n')
+  })
+
   it('does not modify quotes in non-code files', () => {
     const input = 'const x = "hello"\n'
     const result = fmt(input, 'readme.md')
