@@ -1,5 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { replaceOutsideInlineCode } from './_fence-tracking'
+import { getCodeBlockLines, replaceOutsideInlineCode } from './_fence-tracking'
 
 // Spaces just inside a *genuine* emphasis span. The leading `(?<![A-Za-z0-9])`
 // / trailing `(?![A-Za-z0-9])` flanking guards keep the closing `**` of one
@@ -22,17 +22,13 @@ export const noSpaceInEmphasisRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      // Skip fenced/indented code — emphasis markers there are content
+      if (codeLines.has(i))
         continue
 
       // Strip inline code spans to avoid false positives (use non-whitespace placeholder)
@@ -58,16 +54,12 @@ export const noSpaceInEmphasisRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
     const result: string[] = []
 
-    for (const line of lines) {
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        result.push(line)
-        continue
-      }
-      if (inFence) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (codeLines.has(i)) {
         result.push(line)
         continue
       }

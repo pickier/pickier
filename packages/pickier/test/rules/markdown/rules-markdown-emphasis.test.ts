@@ -30,6 +30,14 @@ describe('MD037 - no-space-in-emphasis', () => {
       console.log = originalLog
     }
   })
+
+  it('ignores emphasis-like content inside a nested fenced block', async () => {
+    const { noSpaceInEmphasisRule } = await import('../../../src/rules/markdown/no-space-in-emphasis')
+    const md = { filePath: 'a.md', config: {} as any }
+    const doc = '~~~\n```\n** hi **\n```\n~~~\n'
+    expect(noSpaceInEmphasisRule.check(doc, md)).toHaveLength(0)
+    expect(noSpaceInEmphasisRule.fix!(doc, md)).toBe(doc)
+  })
 })
 
 describe('MD038 - no-space-in-code', () => {
