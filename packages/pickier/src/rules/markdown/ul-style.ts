@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD004 - Unordered list style
@@ -10,22 +11,18 @@ export const ulStyleRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
+    const codeLines = getCodeBlockLines(lines)
 
     const options = (ctx.options as { style?: 'asterisk' | 'dash' | 'plus' | 'consistent' }) || {}
     const style = options.style || 'consistent'
 
     let detectedStyle: '*' | '-' | '+' | null = null
-    let inFence = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      // Skip fenced/indented code — `*` there is content, not a list marker
+      if (codeLines.has(i))
         continue
 
       // Check for unordered list item
@@ -89,6 +86,7 @@ export const ulStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     const lines = text.split(/\r?\n/)
+    const codeLines = getCodeBlockLines(lines)
 
     // Determine target marker
     let targetMarker: '*' | '-' | '+' = '*'
@@ -102,9 +100,11 @@ export const ulStyleRule: RuleModule = {
       targetMarker = '+'
     }
     else if (style === 'consistent') {
-      // Find first list marker
-      for (const line of lines) {
-        const match = line.match(/^(\s*)([*\-+])\s+/)
+      // Find first list marker outside code blocks
+      for (let i = 0; i < lines.length; i++) {
+        if (codeLines.has(i))
+          continue
+        const match = lines[i].match(/^(\s*)([*\-+])\s+/)
         if (match) {
           targetMarker = match[2] as '*' | '-' | '+'
           break
@@ -112,13 +112,8 @@ export const ulStyleRule: RuleModule = {
       }
     }
 
-    let inFence = false
-    const fixedLines = lines.map((line) => {
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        return line
-      }
-      if (inFence)
+    const fixedLines = lines.map((line, i) => {
+      if (codeLines.has(i))
         return line
       return line.replace(/^(\s*)([*\-+])(\s+)/, `$1${targetMarker}$3`)
     })

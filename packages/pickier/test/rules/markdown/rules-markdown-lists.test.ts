@@ -2,11 +2,20 @@
 import type { LintOptions } from '../../../src/types'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { runLint } from '../../../src/linter'
+import { ulStyleRule } from '../../../src/rules/markdown/ul-style'
 import { cleanupTempFiles, createConfigWithMarkdownRules, createTempFile } from './test-helpers'
 
 afterEach(() => cleanupTempFiles())
 
 describe('MD004 - ul-style', () => {
+  it('does not flag list-like markers inside a nested fenced block', () => {
+    const md = { filePath: 'a.md', config: {} as any, options: { style: 'dash' } }
+    // the ``` line is CONTENT of the ~~~ fence; `* not a list` is inside code
+    const doc = '- item\n\n~~~\n```\n* not a list\n```\n~~~\n\n- item2\n'
+    expect(ulStyleRule.check(doc, md)).toHaveLength(0)
+    expect(ulStyleRule.fix!(doc, md)).toContain('* not a list')
+  })
+
   it('should flag inconsistent unordered list markers', async () => {
     const content = `- Item 1
 * Item 2
