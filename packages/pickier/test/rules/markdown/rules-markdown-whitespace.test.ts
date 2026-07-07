@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import type { LintOptions } from '../../../src/types'
 import { afterEach, describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { runLint } from '../../../src/linter'
 import { cleanupTempFiles, createConfigWithMarkdownRules, createTempFile } from './test-helpers'
 
@@ -54,6 +55,17 @@ describe('MD010 - no-hard-tabs', () => {
     finally {
       console.log = originalLog
     }
+  })
+
+  it('fix keeps tabs inside fenced code blocks', async () => {
+    const content = 'Prose with\ttab\n\n```makefile\nall:\n\techo built\n```\n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({ 'markdown/no-hard-tabs': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath, fix: true }
+
+    await runLint([tempPath], options)
+    const fixed = readFileSync(tempPath, 'utf8')
+    expect(fixed).toBe('Prose with    tab\n\n```makefile\nall:\n\techo built\n```\n')
   })
 })
 

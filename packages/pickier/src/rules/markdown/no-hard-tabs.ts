@@ -41,7 +41,19 @@ export const noHardTabsRule: RuleModule = {
     return issues
   },
   fix: (text) => {
-    // Replace tabs with 4 spaces (standard tab width)
-    return text.replace(/\t/g, '    ')
+    // Replace tabs with 4 spaces (standard tab width) — but leave fenced
+    // code untouched, mirroring check() (tabs are semantic in Makefiles)
+    const lines = text.split(/\r?\n/)
+    let inFence = false
+    const fixed = lines.map((line) => {
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence)
+        return line
+      return line.replace(/\t/g, '    ')
+    })
+    return fixed.join('\n')
   },
 }
