@@ -76,6 +76,12 @@ describe('style/dot-location', () => {
     expect(result).toContain('foo\n')
     expect(result).toContain('.bar()')
   })
+
+  it('should not touch a trailing dot inside a multi-line template literal', () => {
+    const input = 'const s = `end.\nnext line`\n'
+    expect(dotLocationRule.check(input, ctx)).toHaveLength(0)
+    expect(dotLocationRule.fix!(input, ctx)).toBe(input)
+  })
 })
 
 describe('style/operator-linebreak', () => {

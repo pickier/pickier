@@ -1,4 +1,5 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
+import { computeLineStartsInTemplate } from '../general/_template-tracking'
 
 export const dotLocationRule: RuleModule = {
   meta: {
@@ -8,12 +9,18 @@ export const dotLocationRule: RuleModule = {
   check(content: string, context: RuleContext): LintIssue[] {
     const issues: LintIssue[] = []
     const lines = content.split(/\r?\n/)
+    const inTemplate = computeLineStartsInTemplate(content)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const trimmed = line.trim()
 
       if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'))
+        continue
+
+      // A trailing dot whose newline falls inside a template literal is
+      // string content, not a member access
+      if (inTemplate[i + 1])
         continue
 
       // Check if line ends with a dot (dot should be on next line)
@@ -38,12 +45,13 @@ export const dotLocationRule: RuleModule = {
   fix(content: string): string {
     const lines = content.split(/\r?\n/)
     const result: string[] = []
+    const inTemplate = computeLineStartsInTemplate(content)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const trimmed = line.trim()
 
-      if (trimmed.endsWith('.') && i + 1 < lines.length) {
+      if (trimmed.endsWith('.') && !inTemplate[i + 1] && i + 1 < lines.length) {
         const nextLine = lines[i + 1]
         const nextTrimmed = nextLine.trim()
         if (nextTrimmed && /^[a-zA-Z_$]/.test(nextTrimmed)) {
