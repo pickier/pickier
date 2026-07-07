@@ -82,7 +82,6 @@ function createSpellRule(
         const words = extractWords(line)
         for (const { word, offset: wordOffset } of words) {
           if (word.length < minLen) continue
-          if (word.length <= 2) continue
           if (word === word.toUpperCase() && word.length <= 5) continue
           if (userWords.has(word.toLowerCase())) continue
           if (progWords.has(word.toLowerCase())) continue
