@@ -2,7 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runLint } from '../../../src/linter'
+import { defaultConfig } from '../../../src/config'
+import { runLint, scanContent } from '../../../src/linter'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-rule-cond-assign-'))
@@ -54,5 +55,17 @@ describe('no-cond-assign', () => {
 
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
     expect(code).toBe(0)
+  })
+
+  it('reports the column of the condition paren, not an earlier paren', () => {
+    const src = 'foo(); if (x = 1) { }\n'
+    const cfg = {
+      ...defaultConfig,
+      rules: { ...defaultConfig.rules, noDebugger: 'off' as const, noConsole: 'off' as const, noCondAssign: 'error' as const },
+    }
+    const issues = scanContent('a.ts', src, cfg).filter(i => i.ruleId === 'no-cond-assign')
+    expect(issues).toHaveLength(1)
+    // The `if` paren is at 1-indexed column 11; the first ( on the line is foo's at 4
+    expect(issues[0].column).toBe(11)
   })
 })

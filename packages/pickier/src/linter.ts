@@ -1563,6 +1563,14 @@ export function scanContentOptimized(
       // Check for assignment (single =) but exclude comparisons (==, ===) and arrow functions (=>)
       // Also strip string literals from condition before checking (e.g., ch === '=' should not trigger)
       const checkCond = (cond: string) => /[^=!<>]=(?![=>])/.test(cond)
+      // Column should point at the condition's own paren, not the first (
+      // on the line (e.g. `foo(); if (x = 1)` must not report inside foo()).
+      const condParenColumn = (keyword: RegExp): number => {
+        const km = line.match(keyword)
+        if (km && km.index !== undefined)
+          return km.index + km[0].length
+        return Math.max(1, line.indexOf('(') + 1)
+      }
       const m1 = conditionLine.match(/\b(?:if|while)\s*\(([^)]*)\)/)
       if (m1) {
         const cond = m1[1]
@@ -1571,7 +1579,7 @@ export function scanContentOptimized(
             issues.push({
               filePath,
               line: lineNo,
-              column: Math.max(1, line.indexOf('(') + 1),
+              column: condParenColumn(/\b(?:if|while)\s*\(/),
               ruleId: 'no-cond-assign',
               message: 'Unexpected assignment within a conditional expression',
               severity: wantNoCondAssign,
@@ -1591,7 +1599,7 @@ export function scanContentOptimized(
               issues.push({
                 filePath,
                 line: lineNo,
-                column: Math.max(1, line.indexOf('(') + 1),
+                column: condParenColumn(/\bfor\s*\(/),
                 ruleId: 'no-cond-assign',
                 message: 'Unexpected assignment within a conditional expression',
                 severity: wantNoCondAssign,
