@@ -3,10 +3,23 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runLint } from '../../../src/linter'
+import { noUnusedCapturingGroupRule } from '../../../src/rules/regexp/no-unused-capturing-group'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-rule-regexp-'))
 }
+
+describe('regexp/no-unused-capturing-group v flag', () => {
+  const ctx = { filePath: 'a.ts', config: {} as any }
+  it('still flags an unused group on a regex with the ES2024 v flag', () => {
+    const noFlag = noUnusedCapturingGroupRule.check('if (/(x)/.test(s)) {}\n', ctx)
+    const vFlag = noUnusedCapturingGroupRule.check('if (/(x)/v.test(s)) {}\n', ctx)
+    expect(noFlag).toHaveLength(1)
+    // The v flag must not blind the scanner to the unused group
+    expect(vFlag).toHaveLength(1)
+    expect(vFlag[0].column).toBe(noFlag[0].column)
+  })
+})
 
 describe('regexp/no-unused-capturing-group', () => {
   it('flags unused capturing group in regex literal', async () => {

@@ -70,7 +70,7 @@ function parseRegexLiteral(content: string, idx: number): RegexInfo | null {
 
   // Skip flags
   let flagEnd = closedAt + 1
-  while (flagEnd < content.length && /[gimsuy]/.test(content[flagEnd])) flagEnd++
+  while (flagEnd < content.length && /[gimsuvy]/.test(content[flagEnd])) flagEnd++
 
   // Skip if backreferences present
   if (/\\[1-9]/.test(pattern)) return null
@@ -210,7 +210,7 @@ function skipRegexLiteral(content: string, idx: number): number {
     else if (c === ']') { if (inClass) inClass = false }
     else if (c === '/' && !inClass) {
       i++
-      while (i < content.length && /[gimsuy]/.test(content[i])) i++
+      while (i < content.length && /[gimsuvy]/.test(content[i])) i++
       return i
     }
     else if (c === '\n') { break }
