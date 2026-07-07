@@ -955,24 +955,22 @@ export function detectQuoteIssues(line: string, preferred: 'single' | 'double'):
     // Check for string boundaries
     if (!inString) {
       // Not inside any string - check if we're entering one
+      if (ch === '/' && line[i + 1] === '/') {
+        // Rest of the line is a comment — quotes there are prose, not code
+        break
+      }
       if (ch === '\'') {
-        if (preferred === 'double') {
+        if (preferred === 'double' && quoteConvertible(line, i, '\'', '"')) {
           // Single quote when double is preferred
-          const beforeSlash = line.lastIndexOf('//', i)
-          if ((beforeSlash === -1 || beforeSlash > i) && quoteConvertible(line, i, '\'', '"')) {
-            indices.push(i)
-          }
+          indices.push(i)
         }
         inString = 'single'
         continue
       }
       else if (ch === '"') {
-        if (preferred === 'single') {
+        if (preferred === 'single' && quoteConvertible(line, i, '"', '\'')) {
           // Double quote when single is preferred
-          const beforeSlash = line.lastIndexOf('//', i)
-          if ((beforeSlash === -1 || beforeSlash > i) && quoteConvertible(line, i, '"', '\'')) {
-            indices.push(i)
-          }
+          indices.push(i)
         }
         inString = 'double'
         continue

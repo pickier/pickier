@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test'
 import type { PickierConfig } from '../../src/types'
-import { formatCode } from '../../src/format'
+import { detectQuoteIssues, formatCode } from '../../src/format'
 
 // Base config matching default pickier settings
 const cfg: PickierConfig = {
@@ -290,6 +290,15 @@ describe('quote fixing', () => {
 
   it('still converts when the embedded target quote is escaped', () => {
     expect(fmt('const x = "it\\\'s"\n')).toBe('const x = \'it\\\'s\'\n')
+  })
+
+  it('detects offending quotes after a string containing //', () => {
+    // `//` inside a string is not a comment — later strings must still be flagged
+    expect(detectQuoteIssues('const a = "https://x", b = "y"', 'single')).toEqual([10, 27])
+  })
+
+  it('ignores quotes inside a trailing line comment', () => {
+    expect(detectQuoteIssues('const a = 1 // it "quotes" here', 'single')).toEqual([])
   })
 
   it('does not modify quotes in non-code files', () => {
