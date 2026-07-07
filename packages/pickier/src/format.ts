@@ -1,4 +1,5 @@
 import type { PickierConfig } from './types'
+import { heredocDelimiter } from './rules/shell/_shared'
 
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
@@ -153,11 +154,11 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
       continue
     }
 
-    // Detect heredoc start
-    const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-    if (heredocMatch) {
+    // Detect heredoc start (string-aware: `echo "a << b"` is not a heredoc)
+    const delim = heredocDelimiter(line)
+    if (delim) {
       inHeredoc = true
-      heredocDelim = heredocMatch[1]
+      heredocDelim = delim
     }
 
     // Strip leading whitespace

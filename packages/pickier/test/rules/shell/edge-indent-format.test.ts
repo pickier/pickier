@@ -432,6 +432,23 @@ describe('shell formatter — exhaustive edge cases', () => {
     expect(lines[6]).toBe('fi')
   })
 
+  it('does not treat << inside a quoted string as a heredoc', () => {
+    const input = 'if true; then\necho "a << b"\necho done\nfi\n'
+    const result = fmt(input)
+    const lines = result.split('\n')
+    expect(lines[1]).toBe('  echo "a << b"')
+    // formatting must continue after the string — no phantom heredoc state
+    expect(lines[2]).toBe('  echo done')
+    expect(lines[3]).toBe('fi')
+  })
+
+  it('still tracks quoted heredoc delimiters', () => {
+    const input = 'if true; then\ncat << \'EOF\'\n  raw $content\nEOF\necho done\nfi\n'
+    const result = fmt(input)
+    expect(result).toContain('  raw $content')
+    expect(result.split('\n')[4]).toBe('  echo done')
+  })
+
   // ─── Empty lines ──────────────────────────────────────────────
   it('blank lines inside blocks become empty', () => {
     const input = '#!/bin/bash\nif true; then\n\n  echo "ok"\nfi\n'
