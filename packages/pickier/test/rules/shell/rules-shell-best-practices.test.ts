@@ -257,6 +257,44 @@ describe('shell/no-broken-redirect', () => {
     }
   })
 
+  it('does not flag redirects quoted inside strings', async () => {
+    const content = '#!/bin/bash\necho "use: cmd 2>&1 > file is broken"\n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithShellRules({ 'shell/no-broken-redirect': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+
+    try {
+      const code = await runLint([tempPath], options)
+      expect(code).toBe(0)
+    }
+    finally {
+      console.log = originalLog
+    }
+  })
+
+  it('still flags broken redirects after a << inside a string', async () => {
+    const content = '#!/bin/bash\necho "a << b"\ncmd 2>&1 > output.log\n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithShellRules({ 'shell/no-broken-redirect': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+
+    try {
+      const code = await runLint([tempPath], options)
+      expect(code).toBe(1)
+    }
+    finally {
+      console.log = originalLog
+    }
+  })
+
   it('allows &> shorthand', async () => {
     const content = '#!/bin/bash\ncmd &> output.log\n'
     const tempPath = createTempFile(content)

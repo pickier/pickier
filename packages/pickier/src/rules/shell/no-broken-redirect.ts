@@ -1,4 +1,5 @@
 import type { RuleModule } from '../../types'
+import { heredocDelimiter, maskShellStrings } from './_shared'
 
 /**
  * SC2069: Detect broken redirect ordering.
@@ -24,10 +25,10 @@ export const noBrokenRedirectRule: RuleModule = {
           inHeredoc = false
         continue
       }
-      const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-      if (heredocMatch) {
+      const delim = heredocDelimiter(line)
+      if (delim) {
         inHeredoc = true
-        heredocDelim = heredocMatch[1]
+        heredocDelim = delim
       }
 
       const trimmed = line.replace(/^\s+/, '')
@@ -35,10 +36,13 @@ export const noBrokenRedirectRule: RuleModule = {
         continue
 
       // Pattern: 2>&1 appears BEFORE > or >> redirect to file
-      // This means stderr goes to terminal, not the file
-      const brokenPattern = line.match(/2>&1\s+>(?!&)\s*\S/)
+      // This means stderr goes to terminal, not the file.
+      // Match on the masked line so redirects quoted in strings don't count;
+      // masking preserves length, so indices map back to the original line.
+      const masked = maskShellStrings(line)
+      const brokenPattern = masked.match(/2>&1\s+>(?!&)\s*\S/)
       if (brokenPattern) {
-        const col = line.indexOf('2>&1')
+        const col = masked.indexOf('2>&1')
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
