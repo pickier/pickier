@@ -1,11 +1,13 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
 
 /**
- * Enforce using the global `Buffer` instead of `require("buffer").Buffer`.
- * In Node.js, `Buffer` is a global, so requiring it explicitly is unnecessary.
+ * Enforce using the global `Buffer` instead of importing it from the
+ * `buffer` module. In Node.js `Buffer` is a global, so importing or
+ * requiring it explicitly is unnecessary.
  *
  * Violations:
- * - Using `Buffer` without importing (should use require("buffer").Buffer)
+ * - `import { Buffer } from 'buffer'` / `'node:buffer'`
+ * - `const { Buffer } = require('buffer')`
  */
 export const preferGlobalBuffer: RuleModule = {
   meta: {
@@ -16,48 +18,32 @@ export const preferGlobalBuffer: RuleModule = {
     const issues: LintIssue[] = []
     const lines = content.split(/\r?\n/)
 
-    // Check if Buffer is imported from "buffer" module
-    const hasBufferImport = content.match(/(?:import|require)\s*\(?.*?['"]buffer['"]/)
+    // Match an import or require of the `buffer` / `node:buffer` module.
+    const importRe = /(?:import\b[^;\n]*\bfrom\s*|require\s*\(\s*)['"](?:node:)?buffer['"]/
 
-    // If no import, check for Buffer usage
-    if (!hasBufferImport) {
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const trimmed = line.trim()
+      if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*'))
+        continue
 
-        // Skip comments
-        const trimmed = line.trim()
-        if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*'))
-          continue
+      const match = line.match(importRe)
+      if (!match || match.index === undefined)
+        continue
 
-        // Pattern: Using Buffer as a global
-        const bufferUsagePattern = /\bBuffer\./
-        if (bufferUsagePattern.test(line)) {
-          // Check if it's not in a string
-          const match = line.match(bufferUsagePattern)
-          if (match) {
-            const beforeMatch = line.slice(0, match.index)
-            const singleQuotes = (beforeMatch.match(/'/g) || []).length
-            const doubleQuotes = (beforeMatch.match(/"/g) || []).length
-            const backticks = (beforeMatch.match(/`/g) || []).length
+      // Only relevant when the module is being used for `Buffer`.
+      if (!/\bBuffer\b/.test(line))
+        continue
 
-            // If odd number of quotes, we're inside a string
-            if (singleQuotes % 2 === 1 || doubleQuotes % 2 === 1 || backticks % 2 === 1)
-              continue
-
-            const column = (match.index || 0) + 1
-
-            issues.push({
-              filePath: context.filePath,
-              line: i + 1,
-              column,
-              ruleId: 'node/prefer-global/buffer',
-              message: 'Unexpected use of the global variable \'Buffer\'. Use \'require("buffer").Buffer\' instead',
-              severity: 'error',
-              help: 'Import Buffer explicitly: const { Buffer } = require("buffer")',
-            })
-          }
-        }
-      }
+      issues.push({
+        filePath: context.filePath,
+        line: i + 1,
+        column: match.index + 1,
+        ruleId: 'node/prefer-global/buffer',
+        message: 'Unexpected import of \'Buffer\'. Use the global \'Buffer\' instead',
+        severity: 'error',
+        help: '`Buffer` is a global in Node.js — remove the import and use it directly.',
+      })
     }
 
     return issues
