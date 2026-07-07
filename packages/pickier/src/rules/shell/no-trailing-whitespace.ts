@@ -1,4 +1,5 @@
 import type { RuleModule } from '../../types'
+import { heredocDelimiter } from './_shared'
 
 /**
  * Disallow trailing whitespace in shell scripts.
@@ -23,10 +24,10 @@ export const noTrailingWhitespaceRule: RuleModule = {
           inHeredoc = false
         continue
       }
-      const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-      if (heredocMatch) {
+      const delim = heredocDelimiter(line)
+      if (delim) {
         inHeredoc = true
-        heredocDelim = heredocMatch[1]
+        heredocDelim = delim
       }
 
       if (/[ \t]+$/.test(line)) {
@@ -44,6 +45,23 @@ export const noTrailingWhitespaceRule: RuleModule = {
     return issues
   },
   fix(content) {
-    return content.replace(/[ \t]+$/gm, '')
+    // Mirror check(): heredoc content keeps its trailing whitespace
+    const lines = content.split(/\r?\n/)
+    let inHeredoc = false
+    let heredocDelim = ''
+    const fixed = lines.map((line) => {
+      if (inHeredoc) {
+        if (line.trim() === heredocDelim)
+          inHeredoc = false
+        return line
+      }
+      const delim = heredocDelimiter(line)
+      if (delim) {
+        inHeredoc = true
+        heredocDelim = delim
+      }
+      return line.replace(/[ \t]+$/, '')
+    })
+    return fixed.join('\n')
   },
 }

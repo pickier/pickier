@@ -342,6 +342,47 @@ describe('shell/no-trailing-whitespace', () => {
       console.log = originalLog
     }
   })
+
+  it('still checks lines after a << inside a quoted string', async () => {
+    // "a << b" is not a heredoc — trailing whitespace after it must be flagged
+    const content = '#!/bin/bash\necho "a << b"\nls -la   \n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithShellRules({ 'shell/no-trailing-whitespace': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+
+    try {
+      const code = await runLint([tempPath], options)
+      expect(code).toBe(1)
+    }
+    finally {
+      console.log = originalLog
+    }
+  })
+
+  it('fix keeps trailing whitespace inside heredocs', async () => {
+    const content = '#!/bin/bash\ncat << \'EOF\'\nline with spaces   \nEOF\necho done  \n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithShellRules({ 'shell/no-trailing-whitespace': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath, fix: true }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+
+    try {
+      await runLint([tempPath], options)
+    }
+    finally {
+      console.log = originalLog
+    }
+    const fixed = readFileSync(tempPath, 'utf8')
+    expect(fixed).toContain('line with spaces   \n')
+    expect(fixed).toContain('echo done\n')
+  })
 })
 
 // ─── shell/keyword-spacing ────────────────────────────────────────────
