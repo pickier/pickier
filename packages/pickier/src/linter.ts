@@ -1466,7 +1466,12 @@ export function scanContentOptimized(
           else {
             // Check for string end
             if ((inString === 'double' && ch === '"') || (inString === 'single' && ch === '\'') || (inString === 'template' && ch === '`')) {
-              if (k === 0 || line[k - 1] !== '\\')
+              // Only an odd number of preceding backslashes escapes the quote
+              // ("test\\" ends the string — the backslash itself is escaped)
+              let backslashes = 0
+              for (let p = k - 1; p >= 0 && line[p] === '\\'; p--)
+                backslashes++
+              if (backslashes % 2 === 0)
                 inString = null
             }
             // If console.log is found inside a string, we just skip it (no action needed)

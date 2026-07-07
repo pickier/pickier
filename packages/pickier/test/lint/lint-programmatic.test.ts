@@ -24,6 +24,15 @@ describe('programmatic lintText', () => {
     expect(issues.some(i => i.ruleId === 'no-console')).toBe(true)
   })
 
+  it('reports console after a string ending in an escaped backslash', async () => {
+    // "test\\" ends the string — the closing quote is not escaped
+    const text = 'const s = "test\\\\"; console.log(s)\n'
+
+    const issues = await lintText(text, { ...defaultConfig }, 'file.ts')
+
+    expect(issues.some(i => i.ruleId === 'no-console')).toBe(true)
+  })
+
   it('supports cancellation via AbortSignal', async () => {
     const signal = makeAbortSignal(true)
     await expect(lintText('debugger\n', { ...defaultConfig }, 'a.ts', signal)).rejects.toThrow('AbortError')
