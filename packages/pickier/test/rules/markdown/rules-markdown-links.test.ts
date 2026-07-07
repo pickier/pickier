@@ -68,6 +68,15 @@ describe('MD011 - no-reversed-links', () => {
 })
 
 describe('MD034 - no-bare-urls', () => {
+  it('does not flag a URL inside a nested fenced block', async () => {
+    const { noBareUrlsRule } = await import('../../../src/rules/markdown/no-bare-urls')
+    const md = { filePath: 'a.md', config: {} as any }
+    // the ``` line is content of the ~~~ fence, so the URL is inside code
+    const doc = '~~~\n```\nhttp://example.com\n```\n~~~\n'
+    expect(noBareUrlsRule.check(doc, md)).toHaveLength(0)
+    expect(noBareUrlsRule.fix!(doc, md)).toBe(doc)
+  })
+
   it('should flag bare URLs', async () => {
     const content = `Check out http://example.com for more info.
 `

@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD034 - Bare URL used
@@ -10,18 +11,14 @@ export const noBareUrlsRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
     let inHtmlComment = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      // Skip fenced/indented code — a URL there is content
+      if (codeLines.has(i))
         continue
 
       // Track HTML comments (multi-line)
@@ -61,14 +58,10 @@ export const noBareUrlsRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    const codeLines = getCodeBlockLines(lines)
     let inHtmlComment = false
-    const fixedLines = lines.map((line) => {
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        return line
-      }
-      if (inFence)
+    const fixedLines = lines.map((line, i) => {
+      if (codeLines.has(i))
         return line
 
       if (line.includes('<!--'))
