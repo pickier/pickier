@@ -208,7 +208,11 @@ export const preferConstRule: RuleModule = {
       for (const { name, fixable } of decls) {
         if (!fixable)
           continue
-        issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'prefer-const', message: `'${name}' is never reassigned. Use 'const' instead`, severity: 'error', help: `Change 'let ${name}' to 'const ${name}' since the variable is never reassigned. This makes your code more predictable and prevents accidental mutations` })
+        // Word-boundary search — indexOf would match inside a longer
+        // identifier (`tot` inside `total`) and report the wrong column
+        const wordIdx = line.search(new RegExp(`\\b${name.replace(/\$/g, '\\$')}\\b`))
+        const nameIdx = wordIdx !== -1 ? wordIdx : line.indexOf(name)
+        issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, nameIdx + 1), ruleId: 'prefer-const', message: `'${name}' is never reassigned. Use 'const' instead`, severity: 'error', help: `Change 'let ${name}' to 'const ${name}' since the variable is never reassigned. This makes your code more predictable and prevents accidental mutations` })
       }
     }
     return issues

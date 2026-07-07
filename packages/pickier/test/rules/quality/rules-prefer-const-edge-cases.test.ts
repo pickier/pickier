@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runLint } from '../../../src/linter'
+import { preferConstRule } from '../../../src/rules/general/prefer-const'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-prefer-const-edge-'))
@@ -72,5 +73,14 @@ describe('prefer-const edge cases (regression tests)', () => {
     writeFileSync(join(dir, 'a.ts'), src, 'utf8')
     const code = await runLint([dir], { config: makeConfig(dir), reporter: 'json' })
     expect(code).toBe(1) // cc is never reassigned, should be const
+  })
+
+  it('reports the column of the declared name, not a substring of a longer identifier', () => {
+    const ctx = { filePath: 'a.ts', config: {} as any }
+    // `tot` appears first inside `total` — the column must point at the real `tot`
+    const issues = preferConstRule.check('let total = 1, tot = 2\ntotal = 3\n', ctx)
+    const totIssue = issues.find(i => i.message.includes('\'tot\''))
+    expect(totIssue).toBeDefined()
+    expect(totIssue!.column).toBe(16)
   })
 })
