@@ -307,6 +307,16 @@ describe('shell/heredoc-indent — exhaustive edge cases', () => {
     const { code } = await lintRule('', RULE)
     expect(code).toBe(0)
   })
+
+  it('does not flag << inside a quoted string', async () => {
+    const { code } = await lintRule('#!/bin/bash\nmy_func() {\n  echo "cat << EOF"\n}\n', RULE)
+    expect(code).toBe(0)
+  })
+
+  it('does not flag <<< here-strings', async () => {
+    const { code } = await lintRule('#!/bin/bash\nmy_func() {\n  grep -q foo <<< pattern\n}\n', RULE)
+    expect(code).toBe(0)
+  })
 })
 
 // ─── shell/consistent-case-terminators ──────────────────────────────
