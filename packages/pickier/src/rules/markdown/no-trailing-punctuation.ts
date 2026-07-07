@@ -71,7 +71,16 @@ export const noTrailingPunctuationRule: RuleModule = {
     const punctRegex = new RegExp(`[${punctuation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]+$`)
 
     const lines = text.split(/\r?\n/)
+    let inFence = false
     const fixedLines = lines.map((line, i) => {
+      // Lines inside fenced code blocks are code, not headings
+      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence)
+        return line
+
       // Check for ATX style headings
       const atxMatch = line.match(/^(#{1,6}\s+)(.+?)(\s*#+\s*)?$/)
       if (atxMatch) {

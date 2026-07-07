@@ -137,6 +137,29 @@ describe('Edge Cases: no-trailing-punctuation fixer', () => {
     expect(fixed).toBe(`# Heading
 `)
   })
+
+  it('should not strip punctuation from heading-like lines in fenced code', async () => {
+    const content = `# Real heading.
+
+\`\`\`bash
+# shell comment ends with a period.
+echo done
+\`\`\`
+`
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({ 'markdown/no-trailing-punctuation': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath, fix: true }
+
+    await runLint([tempPath], options)
+    const fixed = readFileSync(tempPath, 'utf8')
+    expect(fixed).toBe(`# Real heading
+
+\`\`\`bash
+# shell comment ends with a period.
+echo done
+\`\`\`
+`)
+  })
 })
 
 describe('Edge Cases: no-trailing-spaces fixer', () => {
