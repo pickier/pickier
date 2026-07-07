@@ -313,10 +313,16 @@ function maskDoubleQuoted(line: string, start: number, out: string[]): number {
  * matches a subsequent line's trimmed content.
  */
 export function heredocDelimiter(line: string): string | null {
-  // Only match heredoc on lines that aren't inside a string themselves.
+  // Locate the operator on the MASKED line so a `<<` inside a string never
+  // counts, but read the delimiter from the ORIGINAL line — masking blanks
+  // the interior of quoted delimiters (`<< 'EOF'` becomes `<< '   '`).
   const masked = maskShellStrings(line)
-  const m = masked.match(/<<-?\s*['"]?(\w+)['"]?/)
-  if (!m)
+  const m = masked.match(/<<-?/)
+  if (!m || m.index === undefined)
     return null
-  return m[1]
+  const after = line.slice(m.index + m[0].length)
+  const delim = after.match(/^\s*(['"]?)(\w+)\1/)
+  if (!delim)
+    return null
+  return delim[2]
 }
