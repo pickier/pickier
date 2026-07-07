@@ -161,6 +161,18 @@ describe('style/arrow-spacing', () => {
     const result = arrowSpacingRule.fix!('const fn = x =>{}\n', ctx)
     expect(result).toContain('=> {}')
   })
+
+  it('should not touch => inside a string literal', () => {
+    expect(arrowSpacingRule.fix!('const s = "a=>b"\n', ctx)).toBe('const s = "a=>b"\n')
+  })
+
+  it('should not touch => inside a line comment', () => {
+    expect(arrowSpacingRule.fix!('const x = 1 // a=>b\n', ctx)).toBe('const x = 1 // a=>b\n')
+  })
+
+  it('fixes real arrows while leaving a string arrow alone on the same style file', () => {
+    expect(arrowSpacingRule.fix!('foo((a)=>a, (b)=>b)\n', ctx)).toBe('foo((a) => a, (b) => b)\n')
+  })
 })
 
 // ---------------------------------------------------------------------------

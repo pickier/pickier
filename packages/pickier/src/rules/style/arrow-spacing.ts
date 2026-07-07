@@ -70,10 +70,36 @@ export const arrowSpacingRule: RuleModule = {
     return issues
   },
   fix(content: string): string {
-    // Add space before => if missing
-    let result = content.replace(/(\S)=>/g, '$1 =>')
-    // Add space after => if missing (but not at end of line)
-    result = result.replace(/=>(\S)/g, '=> $1')
-    return result
+    // Space `=>` only when it is a real arrow — never inside strings, comments,
+    // or regex literals (`const s = "a=>b"` must stay verbatim). Mirror the
+    // string/comment guard used by check() so fix and check agree.
+    const lines = content.split('\n')
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li]
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'))
+        continue
+      let out = ''
+      let last = 0
+      ARROW_RE.lastIndex = 0
+      let m: RegExpExecArray | null
+      while ((m = ARROW_RE.exec(line)) !== null) {
+        const idx = m.index
+        if (isInStringOrComment(line, idx))
+          continue
+        const before = line[idx - 1]
+        const after = line[idx + 2]
+        const needBefore = idx > 0 && before !== ' ' && before !== '\t'
+        const needAfter = after !== undefined && after !== ' ' && after !== '\t'
+        if (!needBefore && !needAfter)
+          continue
+        out += line.slice(last, idx)
+        out += `${needBefore ? ' ' : ''}=>${needAfter ? ' ' : ''}`
+        last = idx + 2
+      }
+      if (last > 0)
+        lines[li] = out + line.slice(last)
+    }
+    return lines.join('\n')
   },
 }
