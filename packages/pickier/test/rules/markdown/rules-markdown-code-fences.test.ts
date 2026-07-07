@@ -87,6 +87,23 @@ describe('MD048 - code-fence-style', () => {
     const fixed = codeFenceStyleRule.fix!('~~~js\ncode\n~~~\n\n```py\ncode\n```\n', { filePath: 'test.md', config: {} as any, options: { style: 'consistent' } })
     expect(fixed).not.toContain('```')
   })
+
+  it('does not flag or rewrite fence-like lines that are fence CONTENT', async () => {
+    // A tilde fence documenting a backtick fence — the ``` lines are content
+    const doc = '~~~\n```js\nconst x = 1\n```\n~~~\n'
+    const result = await lint(doc, { style: 'consistent' })
+    expect(result.issues).toHaveLength(0)
+
+    const { codeFenceStyleRule } = await import('../../../src/rules/markdown/code-fence-style')
+    const fixed = codeFenceStyleRule.fix!(doc, { filePath: 'test.md', config: {} as any, options: { style: 'consistent' } })
+    expect(fixed).toBe(doc)
+  })
+
+  it('fix preserves fence run length for 4+ char fences', async () => {
+    const { codeFenceStyleRule } = await import('../../../src/rules/markdown/code-fence-style')
+    const fixed = codeFenceStyleRule.fix!('~~~~\ncode\n~~~~\n', { filePath: 'test.md', config: {} as any, options: { style: 'backtick' } })
+    expect(fixed).toBe('````\ncode\n````\n')
+  })
 })
 
 // ─── heading-start-left ──────────────────────────────────────────────────────
