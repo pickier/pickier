@@ -1,6 +1,6 @@
 import type { LintIssue, LintOptions, PickierConfig, PickierPlugin, RuleContext, RulesConfigMap } from './types'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
@@ -87,7 +87,8 @@ export async function runLintProgrammatic(
   const isGlobbingOutsideProject = patterns.some((p) => {
     const base = p.replace(/\/?\*\*\/*\*\*$/, '')
     const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
-    return !absBase.startsWith(process.cwd())
+    const cwd = process.cwd()
+    return absBase !== cwd && !absBase.startsWith(cwd + sep)
   })
 
   const globIgnores = isGlobbingOutsideProject
@@ -1672,7 +1673,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
     const isGlobbingOutsideProject = patterns.some((p) => {
       const base = p.replace(/\/?\*\*\/*\*\*$/, '')
       const absBase = isAbsolute(base) ? base : resolve(process.cwd(), base)
-      return !absBase.startsWith(process.cwd())
+      const cwd = process.cwd()
+      return absBase !== cwd && !absBase.startsWith(cwd + sep)
     })
 
     const globIgnores = isGlobbingOutsideProject

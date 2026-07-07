@@ -159,6 +159,13 @@ describe('shouldIgnorePath', () => {
     expect(matcher(join(cwd, 'src/foo.test.ts'))).toBe(true)
     expect(matcher(join(cwd, 'src/foo.ts'))).toBe(false)
   })
+
+  it('treats sibling dirs sharing a name prefix as outside the project', () => {
+    // /project-data is NOT inside /project — project-specific ignores must not apply
+    const matcher = createIgnoreMatcher(['**/custom-dir/**'], '/home/user/project')
+    expect(matcher('/home/user/project/custom-dir/a.ts')).toBe(true)
+    expect(matcher('/home/user/project-data/custom-dir/a.ts')).toBe(false)
+  })
 })
 
 describe('getRuleSetting', () => {

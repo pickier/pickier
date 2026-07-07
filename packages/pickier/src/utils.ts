@@ -545,7 +545,10 @@ export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string 
   return (absPath: string): boolean => {
     const normalizedAbs = toPosixPath(absPath)
     const normalizedCwd = toPosixPath(cwd).replace(/\/$/, '')
-    const isOutsideProject = !normalizedAbs.startsWith(normalizedCwd)
+    // Require a separator after the root so siblings sharing a name prefix
+    // (/project vs /project-data) don't count as inside the project.
+    const isOutsideProject = normalizedAbs !== normalizedCwd
+      && !normalizedAbs.startsWith(`${normalizedCwd}/`)
     const rel = isOutsideProject
       ? normalizedAbs
       : normalizedAbs.slice(normalizedCwd.length)
