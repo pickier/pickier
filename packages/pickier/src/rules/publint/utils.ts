@@ -155,7 +155,7 @@ export function startsWithShebang(code: string): boolean {
  * Strip comments from JavaScript code for format detection.
  */
 function stripComments(code: string): string {
-  return code.replace(/\/\*(.|[\r\n])*?\*\//gm, '').replace(/\/\/.*/g, '')
+  return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
 }
 
 // Crawl exports/imports types
