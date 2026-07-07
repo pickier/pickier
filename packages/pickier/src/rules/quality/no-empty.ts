@@ -47,7 +47,7 @@ export const noEmptyRule: RuleModule = {
       const line = lines[i]
       const _nextLine = lines[i + 1]
 
-      // Check for { on one line and } on the next with nothing in between
+      // Check for { on one line and } on a later line with only blank lines between
       if (/\{\s*$/.test(line.trim())) {
         // Check if next non-empty line is just }
         for (let j = i + 1; j < lines.length; j++) {
@@ -60,7 +60,7 @@ export const noEmptyRule: RuleModule = {
             const isStatementBlock = /(?:if|else|for|while|do|try|catch|finally|function|\})\s*$/.test(beforeBlock)
             const isObjectLiteral = /[=:]$/.test(beforeBlock) || /return\s*$/.test(beforeBlock)
 
-            if (isStatementBlock && !isObjectLiteral && j === i + 1) { // Only if directly next line
+            if (isStatementBlock && !isObjectLiteral) {
               issues.push({
                 filePath: ctx.filePath,
                 line: i + 1,

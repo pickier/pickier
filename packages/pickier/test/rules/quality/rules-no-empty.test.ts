@@ -69,4 +69,20 @@ describe('eslint/no-empty', () => {
     const code = await runLint([dir], { config: cfg(dir), reporter: 'json' })
     expect(code).toBe(0)
   })
+
+  it('flags empty blocks containing only blank lines', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'e.ts'), [
+      'const x = 1',
+      'if (x > 0) {',
+      '  x.toFixed()',
+      '}',
+      'else {',
+      '',
+      '}',
+      '',
+    ].join('\n'), 'utf8')
+    const code = await runLint([dir], { config: cfg(dir), reporter: 'json' })
+    expect(code).toBe(1)
+  })
 })
