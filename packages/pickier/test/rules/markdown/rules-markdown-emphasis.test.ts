@@ -82,6 +82,30 @@ describe('MD049 - emphasis-style', () => {
       console.log = originalLog
     }
   })
+
+  it('should not flag underscores inside a fence containing fence-like content', async () => {
+    // The ```js line is CONTENT of the tilde fence — it must not flip
+    // fence tracking and expose _snake_case_ identifiers to the rule
+    const content = '~~~\n```js\nconst _internal_var_ = 1\n```\n~~~\n'
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({ 'markdown/emphasis-style': ['error', { style: 'asterisk' }] })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+
+    try {
+      await runLint([tempPath], options)
+      console.log = originalLog
+
+      const result = JSON.parse(output)
+      expect(result.issues).toHaveLength(0)
+    }
+    finally {
+      console.log = originalLog
+    }
+  })
 })
 
 describe('MD050 - strong-style', () => {

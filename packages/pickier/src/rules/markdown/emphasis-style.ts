@@ -21,21 +21,18 @@ export const emphasisStyleRule: RuleModule = {
     const style = options.style || 'consistent'
 
     let detectedStyle: 'asterisk' | 'underscore' | null = null
-    let inFence = false
+    // CommonMark-compliant tracking, same as fix() — the naive per-line
+    // toggle miscounts fence-looking CONTENT lines (```js inside ~~~)
+    const inCode = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      if (inCode.has(i))
         continue
 
-      // Strip inline code spans to avoid matching emphasis markers inside code
-      const stripped = line.replace(/``[^`]+``/g, '  ').replace(/`[^`]+`/g, ' ')
+      // Mask inline code spans (length-preserving, so columns stay valid)
+      const stripped = maskInlineCode(line)
 
       // Find single asterisk emphasis (not double **)
       const asteriskMatches = stripped.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)
