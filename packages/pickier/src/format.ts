@@ -1103,17 +1103,22 @@ function isRegexStart(input: string, slashIdx: number): boolean {
 function scanRegexEnd(input: string, start: number): number {
   let i = start + 1
   let inClass = false
+  let classStart = -1
   while (i < input.length) {
     const c = input[i]
     if (c === '\\') {
       i += 2
       continue
     }
-    if (c === '[') {
+    if (c === '[' && !inClass) {
       inClass = true
+      classStart = i
     }
-    else if (c === ']') {
-      inClass = false
+    else if (c === ']' && inClass) {
+      // `]` directly after `[` or `[^` is a literal, not the class end
+      const bodyStart = input[classStart + 1] === '^' ? classStart + 2 : classStart + 1
+      if (i !== bodyStart)
+        inClass = false
     }
     else if (c === '/' && !inClass) {
       i++

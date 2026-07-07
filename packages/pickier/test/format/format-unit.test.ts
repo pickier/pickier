@@ -301,6 +301,13 @@ describe('quote fixing', () => {
     expect(detectQuoteIssues('const a = 1 // it "quotes" here', 'single')).toEqual([])
   })
 
+  it('handles regex class with leading literal ] containing / and quotes', () => {
+    // /[]/']/ is a class matching ], / or ' — the first ] is literal, so the
+    // / inside it must not terminate the regex early
+    const input = 'const re = /[]/\']/; const a = \'b\'\n'
+    expect(fmt(input, 'test.ts', { quotes: 'double' })).toBe('const re = /[]/\']/; const a = "b"\n')
+  })
+
   it('does not modify quotes in non-code files', () => {
     const input = 'const x = "hello"\n'
     const result = fmt(input, 'readme.md')
