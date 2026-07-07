@@ -16,41 +16,64 @@ export const preferNullishCoalescingRule: RuleModule = {
     let inBlockComment = false
 
     for (let i = 0; i < lines.length; i++) {
-      let line = lines[i]
-      const originalLine = line
+      const originalLine = lines[i]
 
-      // Handle block comments
+      // Build a length-preserving cleaned line: string interiors and comments
+      // are blanked to spaces so an index into it maps directly to a column in
+      // the original line (no more guessing with indexOf).
+      const chars = originalLine.split('')
+      const n = chars.length
+      let k = 0
+
+      // Continuation of a block comment opened on a previous line
       if (inBlockComment) {
-        const endIdx = line.indexOf('*/')
-        if (endIdx >= 0) {
-          line = line.slice(endIdx + 2)
-          inBlockComment = false
-        }
-        else {
+        const endIdx = originalLine.indexOf('*/')
+        if (endIdx < 0)
+          continue // entire line is still inside the block comment
+        for (let p = 0; p <= endIdx + 1; p++) chars[p] = ' '
+        inBlockComment = false
+        k = endIdx + 2
+      }
+
+      let inStr: string | null = null
+      for (; k < n; k++) {
+        const ch = chars[k]
+        if (inStr) {
+          if (ch === '\\') {
+            chars[k] = ' '
+            if (k + 1 < n) {
+              chars[k + 1] = ' '
+              k++
+            }
+            continue
+          }
+          if (ch === inStr) {
+            inStr = null
+            continue
+          }
+          chars[k] = ' '
           continue
         }
-      }
-
-      const blockStart = line.indexOf('/*')
-      const lineComment = line.indexOf('//')
-
-      if (blockStart >= 0 && (lineComment === -1 || blockStart < lineComment)) {
-        const endIdx = line.indexOf('*/', blockStart + 2)
-        if (endIdx >= 0) {
-          line = line.slice(0, blockStart) + line.slice(endIdx + 2)
+        if (ch === '/' && chars[k + 1] === '/') {
+          for (let p = k; p < n; p++) chars[p] = ' '
+          break
         }
-        else {
-          inBlockComment = true
-          line = line.slice(0, blockStart)
+        if (ch === '/' && chars[k + 1] === '*') {
+          const endIdx = originalLine.indexOf('*/', k + 2)
+          if (endIdx < 0) {
+            for (let p = k; p < n; p++) chars[p] = ' '
+            inBlockComment = true
+            break
+          }
+          for (let p = k; p <= endIdx + 1; p++) chars[p] = ' '
+          k = endIdx + 1
+          continue
         }
+        if (ch === '"' || ch === '\'' || ch === '`')
+          inStr = ch
       }
 
-      if (lineComment >= 0) {
-        line = line.slice(0, lineComment)
-      }
-
-      // Remove strings to avoid false positives
-      const cleanedLine = line.replace(/(['"`])(?:(?!\1)[^\\]|\\.)*?\1/g, '""')
+      const cleanedLine = chars.join('')
 
       // Look for || operator
       const orPattern = /\|\|/g
@@ -206,11 +229,11 @@ export const preferNullishCoalescingRule: RuleModule = {
         )
 
         if (looksLikeDefaultValue && looksLikeNullableValue) {
-          const actualIdx = originalLine.indexOf('||', Math.max(0, idx - 5))
+          // cleanedLine is length-preserving, so idx is the original column
           issues.push({
             filePath: ctx.filePath,
             line: i + 1,
-            column: actualIdx >= 0 ? actualIdx + 1 : idx + 1,
+            column: idx + 1,
             ruleId: 'ts/prefer-nullish-coalescing',
             message: 'Prefer nullish coalescing operator (??) over logical OR (||)',
             severity: 'error',

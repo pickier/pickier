@@ -189,6 +189,17 @@ describe('ts/prefer-nullish-coalescing', () => {
     const fixed = preferNullishCoalescingRule.fix!(code, mockContext)
     expect(fixed).toContain('??')
   })
+
+  test('reports the correct column for a later || on the line', () => {
+    // `a || b || c`: first || at col 13, second at col 18
+    const issues = preferNullishCoalescingRule.check('const x = a || b || c', mockContext)
+    expect(issues.map(i => i.column)).toEqual([13, 18])
+  })
+
+  test('ignores || inside strings and comments when locating the operator', () => {
+    const issues = preferNullishCoalescingRule.check('const y = foo || bar // a || b', mockContext)
+    expect(issues.map(i => i.column)).toEqual([15])
+  })
 })
 
 describe('ts/prefer-optional-chain', () => {
