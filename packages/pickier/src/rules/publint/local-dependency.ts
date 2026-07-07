@@ -12,14 +12,21 @@ export const localDependency: RuleModule = {
     if (!pkg) return []
     const issues: LintIssue[] = []
 
-    if (pkg.dependencies && typeof pkg.dependencies === 'object') {
-      for (const depName of Object.keys(pkg.dependencies)) {
-        const depVersion = pkg.dependencies[depName]
+    // Consumers install dependencies, optionalDependencies, and
+    // peerDependencies — a file:/link: reference in any of them breaks for
+    // them. devDependencies are excluded (not installed by consumers).
+    const fields = ['dependencies', 'optionalDependencies', 'peerDependencies']
+    for (const field of fields) {
+      const deps = pkg[field]
+      if (!deps || typeof deps !== 'object')
+        continue
+      for (const depName of Object.keys(deps)) {
+        const depVersion = deps[depName]
         if (typeof depVersion === 'string' && (depVersion.startsWith('file:') || depVersion.startsWith('link:'))) {
           issues.push(createIssue(
             context.filePath,
             content,
-            ['dependencies', depName],
+            [field, depName],
             'publint/local-dependency',
             `The "${depName}" dependency references "${depVersion}" that will likely not work when installed by end-users.`,
             'error',

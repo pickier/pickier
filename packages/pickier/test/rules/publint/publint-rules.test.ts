@@ -119,6 +119,33 @@ describe('publint/local-dependency', () => {
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
     expect(code).toBe(0)
   })
+
+  it('flags file: in optionalDependencies and link: in peerDependencies', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'test-pkg',
+      version: '1.0.0',
+      type: 'module',
+      optionalDependencies: { 'opt-lib': 'file:../opt-lib' },
+      peerDependencies: { 'peer-lib': 'link:../peer-lib' },
+    }, null, 2) + '\n', 'utf8')
+    const cfgPath = writeConfig(dir, enableRule('publint/local-dependency'))
+    const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
+    expect(code).toBe(1)
+  })
+
+  it('ignores file: in devDependencies (not installed by consumers)', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'test-pkg',
+      version: '1.0.0',
+      type: 'module',
+      devDependencies: { 'dev-lib': 'file:../dev-lib' },
+    }, null, 2) + '\n', 'utf8')
+    const cfgPath = writeConfig(dir, enableRule('publint/local-dependency'))
+    const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
+    expect(code).toBe(0)
+  })
 })
 
 describe('publint/deprecated-field-jsnext', () => {
