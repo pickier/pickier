@@ -1,3 +1,62 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.37...v0.1.38)
+
+### 🚀 Features
+
+- **format**: report unformatted files in check mode ([1f20ba0](https://github.com/pickier/pickier/commit/1f20ba0)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **node**: make prefer-global/process match its name and docs ([b69e1c9](https://github.com/pickier/pickier/commit/b69e1c9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **node**: make prefer-global/buffer match its name and docs ([24cddf7](https://github.com/pickier/pickier/commit/24cddf7)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **publint**: flag local deps in optional and peer dependencies too ([bb73a2f](https://github.com/pickier/pickier/commit/bb73a2f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **ts**: report the correct column for later  ([660883f](https://github.com/pickier/pickier/commit/660883f)) _(by  < in prefer-nullish-coalescing>)_
+- **markdown**: use CommonMark fence tracking in no-bare-urls ([f9789b6](https://github.com/pickier/pickier/commit/f9789b6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: use CommonMark fence tracking in no-space-in-emphasis ([e124f02](https://github.com/pickier/pickier/commit/e124f02)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: use CommonMark fence tracking in no-space-in-code ([e8b74da](https://github.com/pickier/pickier/commit/e8b74da)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: use CommonMark fence tracking in ul-style ([ce7a79b](https://github.com/pickier/pickier/commit/ce7a79b)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **regexp**: recognize the ES2024 v flag in no-unused-capturing-group ([de0275f](https://github.com/pickier/pickier/commit/de0275f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **style**: stop arrow-spacing fixer corrupting => inside strings and comments ([b3066e5](https://github.com/pickier/pickier/commit/b3066e5)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: CommonMark fence tracking in emphasis-style check ([faad93b](https://github.com/pickier/pickier/commit/faad93b)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **shell**: heredoc-indent no longer matches << in strings or here-strings ([ae39d81](https://github.com/pickier/pickier/commit/ae39d81)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **shell**: string-aware heredoc tracking in quote-variables ([e736da4](https://github.com/pickier/pickier/commit/e736da4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **shell**: make no-broken-redirect string-aware ([2ade4b2](https://github.com/pickier/pickier/commit/2ade4b2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **shell**: no-trailing-whitespace heredoc handling in check and fix ([ecf30ad](https://github.com/pickier/pickier/commit/ecf30ad)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: stop << inside strings freezing shell formatting ([fb01d20](https://github.com/pickier/pickier/commit/fb01d20)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **shell**: recognize quoted heredoc delimiters in heredocDelimiter ([1d8f467](https://github.com/pickier/pickier/commit/1d8f467)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: stop code-fence-style treating fence content as fences ([c6e73cd](https://github.com/pickier/pickier/commit/c6e73cd)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: keep no-hard-tabs fixer out of fenced code ([15b84c0](https://github.com/pickier/pickier/commit/15b84c0)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **style**: stop dot-location rewriting multi-line template literals ([5f9740d](https://github.com/pickier/pickier/commit/5f9740d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **quality**: detect empty blocks that contain only blank lines ([da33995](https://github.com/pickier/pickier/commit/da33995)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **general**: report prefer-const column at the declared identifier ([222207a](https://github.com/pickier/pickier/commit/222207a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: report no-cond-assign at the condition paren ([56e8a0d](https://github.com/pickier/pickier/commit/56e8a0d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: handle escaped backslashes when tracking string state ([23646e9](https://github.com/pickier/pickier/commit/23646e9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: require a path separator in project-root prefix checks ([c9b373e](https://github.com/pickier/pickier/commit/c9b373e)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: keep no-trailing-punctuation fixer out of fenced code ([c642276](https://github.com/pickier/pickier/commit/c642276)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **spell**: honor minWordLength values below 3 ([8d2dd3f](https://github.com/pickier/pickier/commit/8d2dd3f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: treat leading ] in regex character class as literal ([384b824](https://github.com/pickier/pickier/commit/384b824)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: stop // inside strings from masking later quote issues ([7e6403d](https://github.com/pickier/pickier/commit/7e6403d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: never rewrite string contents when converting quote style ([29e98b5](https://github.com/pickier/pickier/commit/29e98b5)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### ⚡ Performance Improvements
+
+- **publint**: strip block comments with a linear character class ([918f117](https://github.com/pickier/pickier/commit/918f117)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.38 ([27fd2f9](https://github.com/pickier/pickier/commit/27fd2f9)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 📄 Miscellaneous
+
+-  ([guessed](https://github.com/pickier/pickier/commit/guessed)) _(by ', idx - 5), which returned the FIRST  <>)_
+-  ([line — ](https://github.com/pickier/pickier/commit/line — )) _(by  b  <>)_
+
+### Contributors
+
+- _ < in prefer-nullish-coalescing>_
+- _ b  <>_
+- _', idx - 5), which returned the FIRST  <>_
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.36...v0.1.37)
 
 ### 🐛 Bug Fixes
