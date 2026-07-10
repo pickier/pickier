@@ -45,16 +45,8 @@
 
 - release v0.1.38 ([27fd2f9](https://github.com/pickier/pickier/commit/27fd2f9)) _(by Chris <chrisbreuer93@gmail.com>)_
 
-### 📄 Miscellaneous
-
--  ([guessed](https://github.com/pickier/pickier/commit/guessed)) _(by ', idx - 5), which returned the FIRST  <>)_
--  ([line — ](https://github.com/pickier/pickier/commit/line — )) _(by  b  <>)_
-
 ### Contributors
 
-- _ < in prefer-nullish-coalescing>_
-- _ b  <>_
-- _', idx - 5), which returned the FIRST  <>_
 - _Chris <chrisbreuer93@gmail.com>_
 
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.36...v0.1.37)
