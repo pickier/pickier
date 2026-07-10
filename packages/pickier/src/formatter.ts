@@ -296,39 +296,41 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   })
   trace('filtered files', files.length)
 
-  let changed = 0
   let checked = 0
+  const unformatted: string[] = []
   for (const file of files) {
     trace('format start', relative(process.cwd(), file))
     const src = readFileSync(file, 'utf8')
     const fmt = formatCode(src, cfg, file)
-    if (options.check) {
-      if (fmt !== src) {
-        getLogger().debug(`${relative(process.cwd(), file)} needs formatting`)
-        changed++
-      }
-      checked++
-    }
-    else if (options.write) {
-      if (fmt !== src) {
+    const differs = fmt !== src
+    if (options.write) {
+      if (differs)
         writeFileSync(file, fmt, 'utf8')
-        changed++
-      }
-      checked++
     }
-    else {
-      // default to check mode when neither flag specified
-      if (fmt !== src) {
-        getLogger().debug(`${relative(process.cwd(), file)} needs formatting`)
-        changed++
-      }
-      checked++
-    }
+    // check mode (explicit `--check` or the default no-flag preview): record,
+    // don't touch. `--write` also records what it rewrote for the summary.
+    if (differs)
+      unformatted.push(relative(process.cwd(), file))
+    checked++
   }
 
-  const isVerbose = options.verbose !== undefined ? options.verbose : cfg.verbose
-  if (isVerbose) {
-    getLogger().debug(colors.gray(`Checked ${checked} files, ${changed} changed.`))
+  const changed = unformatted.length
+
+  // Surface which files need formatting. Previously this was logged only at
+  // `debug` level, so `--check` failed with a bare non-zero exit and no hint at
+  // what was wrong. Mirror the linter's visible summary instead.
+  if (changed > 0) {
+    for (const file of unformatted)
+      console.log(colors.gray(`  ${file}`))
+
+    console.log(options.write
+      ? colors.gray(`Formatted ${changed} of ${checked} file(s).`)
+      : colors.yellow(`${changed} of ${checked} file(s) need formatting. Run with --write to fix.`))
+  }
+  else {
+    const isVerbose = options.verbose !== undefined ? options.verbose : cfg.verbose
+    if (isVerbose)
+      console.log(colors.gray(`Checked ${checked} files, all formatted.`))
   }
 
   // In check mode, non-zero exit when changes are needed; otherwise 0
