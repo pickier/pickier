@@ -5,5 +5,7 @@ await Bun.build({
   entrypoints: ['src/index.ts', 'bin/cli.ts'],
   outdir: './dist',
   target: 'bun',
+  minify: true,
+  splitting: true,
   plugins: [dts()],
 })
