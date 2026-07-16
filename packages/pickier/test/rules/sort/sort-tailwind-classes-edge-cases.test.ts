@@ -228,3 +228,50 @@ describe('sort-tailwind-classes — idempotency of edge cases', () => {
     })
   }
 })
+
+// ---------------------------------------------------------------------------
+// Class attributes assembled by string concatenation
+//
+// The captured value straddles the quote boundary of the enclosing JS string,
+// so the surrounding quotes and `+` are source syntax, not classes. Sorting
+// them produces two adjacent string literals and a `+ +`, which no longer
+// parses — this shipped to a real page twice (stacks 8ab53dea2 / dc6fda64b).
+// ---------------------------------------------------------------------------
+
+describe('sort-tailwind-classes — concatenated class attributes', () => {
+  const concatenated = `'<span class="inline-flex px-2 py-0.5 font-medium text-xs rounded-full ' + statusClass(post.status) + '">'`
+
+  test('does not warn on a concatenated class attribute', () => {
+    expect(check(concatenated)).toHaveLength(0)
+  })
+
+  test('fix leaves a concatenated class attribute byte-for-byte unchanged', () => {
+    expect(fix(concatenated)).toBe(concatenated)
+  })
+
+  test('fix never emits adjacent string literals or a doubled +', () => {
+    const result = fix(concatenated)
+    expect(result).not.toContain(`' '`)
+    expect(result).not.toContain('+ +')
+  })
+
+  test('concatenation with a leading quote is skipped', () => {
+    const code = `'<div class="' + cls + ' flex px-4">'`
+    expect(check(code)).toHaveLength(0)
+    expect(fix(code)).toBe(code)
+  })
+
+  test('template-literal interpolation is skipped', () => {
+    const code = '`<div class="px-4 flex ${extra}">`'
+    expect(check(code)).toHaveLength(0)
+    expect(fix(code)).toBe(code)
+  })
+
+  test('quotes inside arbitrary values still sort', () => {
+    expect(classes(fix(`<div className="bg-[url('a.png')] flex">`))).toBe(`flex bg-[url('a.png')]`)
+  })
+
+  test('plain literal class attributes still sort', () => {
+    expect(classes(fix(`<div class="px-4 flex">`))).toBe('flex px-4')
+  })
+})

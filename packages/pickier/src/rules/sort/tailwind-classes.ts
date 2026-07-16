@@ -185,11 +185,19 @@ interface ClassMatch {
 
 function looksLikeJsExpression(value: string): boolean {
   // Strip bracket groups first — tailwind arbitrary values and properties
-  // like `[mask-type:alpha]`, `w-[calc(100%-1rem)]`, `bg-[url(image.png)]`
-  // legitimately contain `:`, `(`, `)`, and `=` inside `[...]`.
+  // like `[mask-type:alpha]`, `w-[calc(100%-1rem)]`, `bg-[url('a.png')]`
+  // legitimately contain `:`, `(`, `)`, `=`, and quotes inside `[...]`.
   const noBrackets = value.replace(/\[[^\]]*\]/g, '')
-  // Strip string literals so class names inside quotes don't contribute.
-  const noStrings = noBrackets.replace(/'[^']*'|"[^"]*"/g, '')
+  // A quote outside of `[...]` means the attribute is assembled by string
+  // concatenation and the captured value straddles the quote boundary, e.g.
+  //   '<span class="rounded-full ' + statusClass(s) + '">'
+  // captures `rounded-full ' + statusClass(s) + `. What the interpolated
+  // expression contributes is unknowable here, and the surrounding quotes and
+  // `+` are source syntax, not classes — sorting them destroys the file.
+  // Never strip these as string literals: doing so deletes the very JS markers
+  // checked for below and makes the concatenation look like a plain class list.
+  if (/['"`]/.test(noBrackets))
+    return true
   // Unambiguous JS markers:
   //   - `{` / `}`         object literal or template expression
   //   - `(` / `)`         function call or grouping
@@ -198,11 +206,11 @@ function looksLikeJsExpression(value: string): boolean {
   //   - `=`               assignment / comparison
   //   - reserved words    `true`, `false`, `null`, `undefined`, `function`,
   //                       `return`, `typeof`, `instanceof`
-  if (/[{}()=]/.test(noStrings))
+  if (/[{}()=]/.test(noBrackets))
     return true
-  if (/ \? | && | \|\| /.test(noStrings))
+  if (/ \? | && | \|\| /.test(noBrackets))
     return true
-  if (/\b(?:true|false|null|undefined|function|return|typeof|instanceof)\b/.test(noStrings))
+  if (/\b(?:true|false|null|undefined|function|return|typeof|instanceof)\b/.test(noBrackets))
     return true
   return false
 }
