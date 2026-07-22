@@ -720,7 +720,10 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // statement they continue — previously they were flattened (#1369)
     const continuationBump = RE_CONTINUATION_LINE.test(trimmed) ? 1 : 0
 
-    line = makeIndent(indentLevel + hangDepth + continuationBump, cfg) + trimmed
+    const establishedIndent = line.slice(0, wsEnd)
+    line = cfg.format.preserveCodeIndentation
+      ? establishedIndent + trimmed
+      : makeIndent(indentLevel + hangDepth + continuationBump, cfg) + trimmed
 
     if (RE_OPENING_BRACE.test(trimmed)) {
       indentLevel += 1

@@ -59,6 +59,22 @@ describe('line processing', () => {
     expect(fmt('const value =\n  source\n')).not.toMatch(/[ \t]+$/m)
   })
 
+  it('can preserve established indentation in complex code', () => {
+    const input = [
+      'function options() {',
+      '  return values',
+      '    .map(',
+      '      (value) =>',
+      '        render(value),',
+      '    )',
+      '    .join(\'\')',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(fmt(input, 'test.ts', { preserveCodeIndentation: true })).toBe(input)
+  })
+
   it('normalizes CRLF to LF', () => {
     expect(fmt('line1\r\nline2\r\nline3\r\n')).toBe('line1\nline2\nline3\n')
   })

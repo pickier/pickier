@@ -54,6 +54,7 @@ export const defaultConfig: PickierConfig = {
     finalNewline: 'one',
     indent: 2,
     indentStyle: 'spaces',
+    preserveCodeIndentation: false,
     quotes: 'single',
     semi: false,
   },
