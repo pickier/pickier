@@ -58,6 +58,10 @@
     "bun-plugin-dtsx": "^0.9.18",
     "typescript": "^7.0.2"
   },
+  "dependencies": {
+    "@stacksjs/clapp": "^0.2.3",
+    "@stacksjs/clarity": "^0.3.24"
+  },
   "git-hooks": {
     "pre-commit": {
       "staged-lint": {
