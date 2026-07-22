@@ -87,6 +87,11 @@ describe('template literal preservation (#1361)', () => {
     expect(fmt(input)).toBe(input)
   })
 
+  it('preserves indentation before a template that begins on its own line', () => {
+    const input = "function query() {\n  return call(\n    `SELECT * FROM projects\n     WHERE id = ?`,\n  )\n}\n"
+    expect(formatCode(input, cfg, 'query.ts')).toBe(input)
+  })
+
   it('still normalizes the code prefix of the opening line', () => {
     const input = 'const   t   =   `   \n  body\n`\n'
     const out = fmt(input)

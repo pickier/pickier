@@ -687,6 +687,7 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // trailing whitespace / internal spacing is never collapsed (issue #1361).
     let tmplTail = ''
     let prefixEndedWithSpace = false
+    let whitespaceOnlyTemplatePrefix = ''
     if (splitIdx >= 0) {
       tmplTail = line.slice(splitIdx)
       const prefix = line.slice(0, splitIdx)
@@ -695,6 +696,8 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
         continue
       }
       prefixEndedWithSpace = RE_TRAILING_WS.test(prefix)
+      if (prefix.trim().length === 0)
+        whitespaceOnlyTemplatePrefix = prefix
       line = prefix
     }
 
@@ -762,7 +765,9 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     if (splitIdx >= 0) {
       // Restore a single separating space the prefix may have had before the
       // backtick (e.g. `return \`…\``), then append the untouched template tail.
-      if (prefixEndedWithSpace && !RE_TRAILING_WS.test(line))
+      if (whitespaceOnlyTemplatePrefix)
+        line = whitespaceOnlyTemplatePrefix
+      else if (prefixEndedWithSpace && !RE_TRAILING_WS.test(line))
         line += ' '
       line += tmplTail
     }
