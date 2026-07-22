@@ -55,6 +55,10 @@ describe('line processing', () => {
     expect(fmt('hello \t \nworld\t \n')).toBe('hello\nworld\n')
   })
 
+  it('does not introduce trailing whitespace after a multiline assignment', () => {
+    expect(fmt('const value =\n  source\n')).not.toMatch(/[ \t]+$/m)
+  })
+
   it('normalizes CRLF to LF', () => {
     expect(fmt('line1\r\nline2\r\nline3\r\n')).toBe('line1\nline2\nline3\n')
   })

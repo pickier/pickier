@@ -749,6 +749,13 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
       }
     }
 
+    // Spacing normalization can introduce a trailing space when a line ends
+    // with an assignment operator. Run the configured whitespace guarantee
+    // after every code transformation; template text bypasses this pipeline,
+    // and an opening template's intentional separator is restored below.
+    if (cfg.format.trimTrailingWhitespace)
+      line = line.trimEnd()
+
     if (splitIdx >= 0) {
       // Restore a single separating space the prefix may have had before the
       // backtick (e.g. `return \`…\``), then append the untouched template tail.
