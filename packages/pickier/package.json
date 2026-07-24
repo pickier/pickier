@@ -77,13 +77,13 @@
     "test:watch": "PICKIER_NO_AUTO_CONFIG=1 bun test --watch"
   },
   "dependencies": {
-    "@stacksjs/clarity": "^0.3.24",
-    "@stacksjs/clapp": "^0.2.3"
+    "@stacksjs/clarity": "^0.3.31",
+    "@stacksjs/clapp": "^0.2.12"
   },
   "optionalDependencies": {
     "@stacksjs/ts-spell-check": "^0.1.0"
   },
   "devDependencies": {
-    "bunfig": "^0.15.13"
+    "bunfig": "^0.15.15"
   }
 }
