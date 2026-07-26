@@ -36,6 +36,11 @@ export const defaultConfig: PickierConfig = {
     // Generated/cache files should not be linted
     '**/.bunpress/**',
     '**/.vitepress/cache/**',
+    // Stacks keeps machine-local build state here: the stx bundle cache and
+    // route manifest, the migration lock, temp bundles. All of it is
+    // gitignored and rewritten on boot, and none of it is anybody's code.
+    '**/storage/framework/stx/**',
+    '**/storage/framework/runtime/**',
     // Lock files are auto-generated and should not be linted
     '**/*.lock',
     '**/package-lock.json',
