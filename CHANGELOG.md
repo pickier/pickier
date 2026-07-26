@@ -1,3 +1,28 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.40...v0.1.41)
+
+### 🚀 Features
+
+- **format**: preserve established code indentation ([fbbacce](https://github.com/pickier/pickier/commit/fbbacce)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **config**: ignore Stacks' machine-local build state ([99de5ea](https://github.com/pickier/pickier/commit/99de5ea)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **package**: declare cli runtime dependencies ([95de532](https://github.com/pickier/pickier/commit/95de532)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: retain indented template prefixes ([33557a5](https://github.com/pickier/pickier/commit/33557a5)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: trim transformed code lines ([5d03dd7](https://github.com/pickier/pickier/commit/5d03dd7)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 📚 Documentation
+
+- link the community as stacksjs.com/discord ([d583436](https://github.com/pickier/pickier/commit/d583436)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.41 ([afc68f4](https://github.com/pickier/pickier/commit/afc68f4)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.39...v0.1.40)
 
 ### 🐛 Bug Fixes
