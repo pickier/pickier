@@ -118,3 +118,18 @@ describe('lock extension removed from default lint extensions', () => {
     expect(defaultConfig.ignores).toContain('**/pnpm-lock.yaml')
   })
 })
+
+describe('machine-local stacks state is ignored', () => {
+  it('covers every storage path a build or a deploy rewrites', () => {
+    // These directories hold the stx bundle cache, the migration lock and the
+    // release bundles a deploy packs up. They are gitignored and regenerated,
+    // so a finding inside one is a finding nobody can act on — a vendored
+    // tarball's package.json is not the project's code.
+    // eslint-disable-next-line ts/no-require-imports
+    const { defaultConfig } = require('../../src/config')
+
+    expect(defaultConfig.ignores).toContain('**/storage/framework/stx/**')
+    expect(defaultConfig.ignores).toContain('**/storage/framework/runtime/**')
+    expect(defaultConfig.ignores).toContain('**/storage/cloud/**')
+  })
+})

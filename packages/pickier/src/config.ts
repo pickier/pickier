@@ -37,10 +37,13 @@ export const defaultConfig: PickierConfig = {
     '**/.bunpress/**',
     '**/.vitepress/cache/**',
     // Stacks keeps machine-local build state here: the stx bundle cache and
-    // route manifest, the migration lock, temp bundles. All of it is
-    // gitignored and rewritten on boot, and none of it is anybody's code.
+    // route manifest, the migration lock, temp bundles, and the release
+    // bundles a deploy packs up. All of it is gitignored and rewritten on
+    // boot, and none of it is anybody's code — a lint error inside a vendored
+    // release tarball's package.json is one nobody can act on.
     '**/storage/framework/stx/**',
     '**/storage/framework/runtime/**',
+    '**/storage/cloud/**',
     // Lock files are auto-generated and should not be linted
     '**/*.lock',
     '**/package-lock.json',
