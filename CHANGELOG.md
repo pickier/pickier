@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.42...v0.1.43)
+
+### 🐛 Bug Fixes
+
+- **fix**: never rewrite JavaScript syntax inside a template literal ([39a6c80](https://github.com/pickier/pickier/commit/39a6c80)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.43 ([ddebea6](https://github.com/pickier/pickier/commit/ddebea6)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.41...v0.1.42)
 
 ### 🐛 Bug Fixes
