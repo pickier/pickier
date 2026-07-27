@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.41...v0.1.42)
+
+### 🐛 Bug Fixes
+
+- **prefer-const**: stop rewriting code inside template literals ([47fa74b](https://github.com/pickier/pickier/commit/47fa74b)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.42 ([c8cf173](https://github.com/pickier/pickier/commit/c8cf173)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.40...v0.1.41)
 
 ### 🚀 Features
