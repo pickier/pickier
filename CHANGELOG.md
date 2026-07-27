@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.43...v0.1.44)
+
+### 🐛 Bug Fixes
+
+- **config**: ignore storage/cloud, the deploy's machine-local state ([5021d22](https://github.com/pickier/pickier/commit/5021d22)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.44 ([50f607d](https://github.com/pickier/pickier/commit/50f607d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.42...v0.1.43)
 
 ### 🐛 Bug Fixes
