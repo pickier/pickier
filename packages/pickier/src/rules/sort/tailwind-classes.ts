@@ -285,6 +285,9 @@ export const sortTailwindClassesRule: RuleModule = {
   meta: {
     docs: 'Enforce consistent Tailwind CSS class ordering (layout → spacing → typography → etc.).',
     recommended: true,
+    // Markup in a TS file lives inside template literals, so this rule has to
+    // reach in there. It reorders a class list and touches nothing else.
+    editsStringContent: true,
   },
 
   check: (content, ctx) => {

@@ -85,6 +85,11 @@ describe('prefer-const edge cases (regression tests)', () => {
   })
 })
 
+/** The minimal context a rule's fix() needs. */
+function ruleCtx(): any {
+  return { filePath: join(tmpdir(), 'sample.ts'), config: {} as any }
+}
+
 describe('prefer-const does not touch embedded code', () => {
   it('leaves a let inside a template literal alone', () => {
     // A template literal carrying a program for another runtime: shell,
@@ -101,14 +106,14 @@ describe('prefer-const does not touch embedded code', () => {
       '',
     ].join('\n')
 
-    expect(preferConstRule.fix?.(text)).toBe(text)
+    expect(preferConstRule.fix?.(text, ruleCtx())).toBe(text)
   })
 
   it('counts a reassignment later on the same line', () => {
     // One line, two statements. The reassignment is real, so the
     // declaration cannot become const.
     const text = 'let cur = {}\nlet other = 1; other = 2\n'
-    const fixed = preferConstRule.fix?.(text) ?? text
+    const fixed = preferConstRule.fix?.(text, ruleCtx()) ?? text
 
     expect(fixed).toContain('const cur = {}')
     expect(fixed).toContain('let other = 1; other = 2')

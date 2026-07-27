@@ -6,6 +6,7 @@ import { Logger } from '@stacksjs/clarity'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
+import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
 import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
@@ -804,6 +805,50 @@ export async function applyPlugins(filePath: string, content: string, cfg: Picki
   return issues
 }
 
+/** Files where a backtick means a template literal rather than a code fence. */
+const CODE_FILE_RE = /\.(?:[cm]?[jt]sx?|vue|svelte|stx)$/i
+
+/**
+ * Undo any part of a fix that landed inside a template-literal body.
+ *
+ * A template literal in a source file is frequently a program for something
+ * else: a shell script sent over SSH, an injected `<script>` blob, a snippet
+ * piped to another runtime. A fixer rewriting `let` to `const`, a `var`
+ * declaration, an "unnecessary" escape or a trailing space in there is not
+ * tidying code — it is editing a different language's source, and the result
+ * is a runtime error somewhere nobody is looking. (One such rewrite broke a
+ * mail server's forwarding rules and reported nothing.)
+ *
+ * `prefer-const` and `no-unused-vars` each grew their own guard for this;
+ * every other fixer had none. Doing it here covers all of them, including
+ * ones written later.
+ *
+ * Only whole lines are compared, and only when the fix kept the line count —
+ * a fixer that adds or removes lines cannot be mapped back safely, and those
+ * are formatting fixers that do not rewrite embedded code.
+ */
+function preserveTemplateBodies(before: string, after: string, filePath: string): string {
+  if (!CODE_FILE_RE.test(filePath) || !before.includes('`'))
+    return after
+
+  const beforeLines = before.split(/\r?\n/)
+  const afterLines = after.split(/\r?\n/)
+  if (beforeLines.length !== afterLines.length)
+    return after
+
+  const inTemplate = computeLineStartsInTemplate(before)
+  let restored = 0
+
+  for (let i = 0; i < afterLines.length; i++) {
+    if (inTemplate[i] && afterLines[i] !== beforeLines[i]) {
+      afterLines[i] = beforeLines[i]
+      restored++
+    }
+  }
+
+  return restored > 0 ? afterLines.join('\n') : after
+}
+
 function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
   const plan = getPluginPlan(cfg)
   const baseCtx: RuleContext = { filePath, config: cfg }
@@ -816,7 +861,12 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
       if (!shouldRunPlannedRule(planned, filePath, out))
         continue
       const ctx: RuleContext = { ...baseCtx, options: planned.options }
-      const next = planned.rule.fix(out, ctx)
+      const fixed = planned.rule.fix(out, ctx)
+      // Rules that edit string content (class lists, prose) mean to reach
+      // inside templates; rules that rewrite JS syntax do not.
+      const next = planned.rule.meta?.editsStringContent
+        ? fixed
+        : preserveTemplateBodies(out, fixed, filePath)
       if (next !== out) {
         out = next
         changed = true

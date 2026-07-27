@@ -98,6 +98,18 @@ export interface RuleMeta {
   docs?: string
   recommended?: boolean
   wip?: boolean
+  /**
+   * This rule edits string CONTENT rather than JavaScript syntax, so its
+   * fixes are welcome inside a template literal.
+   *
+   * A template literal in a source file is usually a program for something
+   * else — a shell script, an injected `<script>`, markup — and a fixer that
+   * rewrites JS syntax in there is editing another language's source behind
+   * the author's back. Fixes landing in template bodies are reverted by
+   * default for that reason; a rule that sorts class lists or tidies prose is
+   * doing exactly what the author wants there, and sets this to opt out.
+   */
+  editsStringContent?: boolean
 }
 
 export interface RuleContext {
