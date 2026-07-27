@@ -184,7 +184,16 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
     // misses these because in destructuring `name` is followed by `,`,
     // `]`, or `}`, not `=`.
     const destructReassigned = destructuringReassignsName(rest, name)
-    result.push({ name, fixable: !directAssign && !incDecChanged && !destructReassigned })
+
+    // A reassignment on the SAME line, after the initializer:
+    // `let x = {}; try { x = f() } catch {}` is one line, so searching only
+    // the following lines called it never reassigned — and const-ifying it
+    // produced code that throws on the assignment.
+    const initializerEnd = part.indexOf('=')
+    const afterInitializer = initializerEnd >= 0 ? part.slice(initializerEnd + 1) : ''
+    const sameLineReassigned = new RegExp(assignPattern).test(afterInitializer)
+
+    result.push({ name, fixable: !directAssign && !incDecChanged && !destructReassigned && !sameLineReassigned })
   }
   return result
 }
@@ -219,6 +228,12 @@ export const preferConstRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
+    // Same guard the check side has: a `let` inside a template literal is
+    // embedded code (an injected script, a shell heredoc, a snippet piped to
+    // another runtime), and this rule cannot reason about it. Rewriting it
+    // changed what that program does — in one case to something the target
+    // runtime refused to parse, silently, because the fixer reported nothing.
+    const inTemplateBody = computeLineStartsInTemplate(text)
 
     // Pre-compute which lines are suppressed by an
     // `// eslint-disable-next-line prefer-const` /
@@ -243,6 +258,8 @@ export const preferConstRule: RuleModule = {
       // Skip if a disable-next-line directive points at this line
       // (1-indexed, so i+1).
       if (disabledLines.has(i + 1))
+        continue
+      if (inTemplateBody[i])
         continue
       const line = lines[i]
       // Only auto-fix `let` declarations, not `var`.

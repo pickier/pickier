@@ -84,3 +84,33 @@ describe('prefer-const edge cases (regression tests)', () => {
     expect(totIssue!.column).toBe(16)
   })
 })
+
+describe('prefer-const does not touch embedded code', () => {
+  it('leaves a let inside a template literal alone', () => {
+    // A template literal carrying a program for another runtime: shell,
+    // an injected <script>, a snippet piped to `bun -e`. Rewriting the
+    // keyword changes what that program does, and in the case this test
+    // came from, produced code Bun refuses to parse.
+    const text = [
+      'const script = `',
+      '  bun -e \'',
+      '    let cur = {}; try { cur = JSON.parse(read(f)) } catch {}',
+      '    console.log(cur)',
+      '  \'',
+      '`',
+      '',
+    ].join('\n')
+
+    expect(preferConstRule.fix?.(text)).toBe(text)
+  })
+
+  it('counts a reassignment later on the same line', () => {
+    // One line, two statements. The reassignment is real, so the
+    // declaration cannot become const.
+    const text = 'let cur = {}\nlet other = 1; other = 2\n'
+    const fixed = preferConstRule.fix?.(text) ?? text
+
+    expect(fixed).toContain('const cur = {}')
+    expect(fixed).toContain('let other = 1; other = 2')
+  })
+})
