@@ -4,6 +4,10 @@
   "workspaces": {
     "": {
       "name": "pickier",
+      "dependencies": {
+        "@stacksjs/clapp": "^0.2.3",
+        "@stacksjs/clarity": "^0.3.24",
+      },
       "devDependencies": {
         "@stacksjs/bumpx": "^0.2.4",
         "@stacksjs/bunpress": "^0.1.0",
@@ -19,7 +23,7 @@
     },
     "packages/pickier": {
       "name": "pickier",
-      "version": "0.1.38",
+      "version": "0.1.44",
       "bin": {
         "pickier": "./dist/bin/cli.js",
       },
@@ -36,7 +40,7 @@
     },
     "packages/vscode": {
       "name": "pickier-vscode",
-      "version": "0.1.38",
+      "version": "0.1.44",
       "dependencies": {
         "pickier": "workspace:*",
       },
@@ -49,7 +53,7 @@
     },
     "packages/zig": {
       "name": "@pickier/zig",
-      "version": "0.1.38",
+      "version": "0.1.44",
     },
   },
   "overrides": {
