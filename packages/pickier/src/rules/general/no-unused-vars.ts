@@ -1,6 +1,13 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 import type { RuleModule } from '../../types'
 
+/**
+ * Characters that mean a `{` continues a type annotation rather than opening a
+ * function body: the members of a union or intersection, the start of an
+ * annotation, and a separator inside one.
+ */
+const TYPE_CONTINUATION = new Set(['|', '&', ':', ','])
+
 export const noUnusedVarsRule: RuleModule = {
   meta: { docs: 'Report variables and parameters that are declared/assigned but never used' },
   check: (text, ctx) => {
@@ -739,9 +746,21 @@ else {
                 // Track braces even inside angle brackets for return type annotations
                 if (bodyBraceDepth === 0) {
                   // Found a '{' at depth 0
-                  if (bodySawBracePair && bodyAngleDepth === 0) {
-                    // We've already seen a brace pair and we're outside angle brackets,
-                    // so this is the function body
+                  //
+                  // Having seen one brace pair is not enough to call this the
+                  // body: a union of object types has several, and the ones
+                  // after the first are still the return type. What separates
+                  // them is the character in front - a type operator continues
+                  // the annotation, anything else starts the body.
+                  //
+                  //   ): { ok: true, value: T } | { ok: false, error: string } {
+                  //                              ^ union, not the body        ^ body
+                  //
+                  // Taking the union's second object as the body made the whole
+                  // function read as empty, so every parameter looked unused -
+                  // and the autofix then renamed them to `_name` while leaving
+                  // the body referring to `name`, which does not compile.
+                  if (bodySawBracePair && bodyAngleDepth === 0 && !TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
                     foundIdx = i
                     break
                   }
@@ -755,6 +774,10 @@ else {
                   if (bodyBraceDepth === 0) {
                     // We've closed a brace pair (likely in return type annotation)
                     bodySawBracePair = true
+                    // Recorded because the tracker above skips braces, and
+                    // without this the character in front of the next candidate
+                    // is whatever preceded the pair - the union's `|`, forever.
+                    lastNonWhitespaceBeforeBrace = '}'
                   }
                 }
               }
