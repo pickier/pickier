@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.44...v0.1.45)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: find the body past a union of object return types ([8b73712](https://github.com/pickier/pickier/commit/8b73712)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.45 ([099c43c](https://github.com/pickier/pickier/commit/099c43c)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.43...v0.1.44)
 
 ### 🐛 Bug Fixes
