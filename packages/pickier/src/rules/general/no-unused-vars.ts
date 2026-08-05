@@ -4,9 +4,10 @@ import type { RuleModule } from '../../types'
 /**
  * Characters that mean a `{` continues a type annotation rather than opening a
  * function body: the members of a union or intersection, the start of an
- * annotation, and a separator inside one.
+ * annotation, a separator inside one, and the opening of a generic's argument
+ * list.
  */
-const TYPE_CONTINUATION = new Set(['|', '&', ':', ','])
+const TYPE_CONTINUATION = new Set(['|', '&', ':', ',', '<'])
 
 /**
  * Blank out the prose inside comments, keeping every offset where it was.
@@ -880,8 +881,15 @@ else {
           // - If inside a brace pair AND the '{' directly followed ':' (object return type), continue to next line
           // - Otherwise, use the first '{' on this line (common case: no return type)
           if (foundIdx === -1) {
-            if (bodyBraceDepth > 0 && lastNonWhitespaceBeforeBrace === ':') {
-              // The '{' directly followed ':', indicating a multi-line object return type like ): {\n...\n}
+            if (bodyBraceDepth > 0 && TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
+              // An open brace that began the return type, still unclosed when
+              // the line ended: a multi-line object type. Keep reading.
+              //
+              // The test used to be `=== ':'` alone, which covered `): {` and
+              // missed `): Promise<{`. Falling through on that one took the
+              // generic's own brace for the body, so the body read as the
+              // annotation, every parameter looked unused, and `--fix` renamed
+              // them out from under the code that used them.
               continue
             }
             // No brace pair in progress, find the first '{' (common case: no return type annotation)

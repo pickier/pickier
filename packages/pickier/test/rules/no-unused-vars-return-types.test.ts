@@ -109,6 +109,52 @@ describe('no-unused-vars and brace-carrying return types', () => {
     expect(await lint(source)).toBe(0)
   })
 
+  /**
+   * The same scan, when the annotation runs past the end of the line.
+   *
+   * `): {` on its own was handled; `): Promise<{` was not, and the difference
+   * is one character. The generic's brace was taken for the body, so the body
+   * read as the annotation and every parameter in it looked unused.
+   */
+  it('finds the body after a multi-line generic return type', async () => {
+    const source = [
+      'export async function paged(raw: unknown): Promise<{',
+      '  items: string[]',
+      '}> {',
+      '  return { items: [String(raw)] }',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+
+  it('finds the body after a multi-line object return type', async () => {
+    const source = [
+      'export function paged(raw: unknown): {',
+      '  items: string[]',
+      '} {',
+      '  return { items: [String(raw)] }',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+
+  it('still reports an unused parameter under a multi-line generic return type', async () => {
+    const source = [
+      'export async function paged(raw: unknown): Promise<{',
+      '  items: string[]',
+      '}> {',
+      '  return { items: [] }',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(1)
+  })
+
   /** The rule still has to work, or the fix above is just switching it off. */
   it('still reports a parameter that genuinely is unused', async () => {
     const source = [
