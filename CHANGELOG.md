@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.47...v0.1.48)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: a type predicate is a return type, not a parameter ([571c55f](https://github.com/pickier/pickier/commit/571c55f)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.48 ([efb4ee7](https://github.com/pickier/pickier/commit/efb4ee7)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.46...v0.1.47)
 
 ### 🐛 Bug Fixes
