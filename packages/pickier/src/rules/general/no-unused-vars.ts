@@ -493,10 +493,15 @@ else {
         for (const name of names) {
           if (varIgnoreRe.test(name))
             continue
-          const restStartIdx = full.indexOf(line)
-          const rest = full.slice(restStartIdx + line.length)
+          // The whole file except this line, not just what follows it.
+          //
+          // It used to look forwards only, so a `const` declared at the bottom
+          // of a module and used by a function above it read as unused - which
+          // is a perfectly ordinary way to write a file, and the autofix for it
+          // renames the declaration and leaves the use pointing at nothing.
+          const elsewhere = `${lines.slice(0, i).join('\n')}\n${lines.slice(i + 1).join('\n')}`
           const refRe = new RegExp(`\\b${name}\\b`, 'g')
-          if (!refRe.test(rest)) {
+          if (!refRe.test(elsewhere)) {
             issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is assigned a value but never used. Allowed unused vars must match pattern: ${varsIgnorePattern}`, severity: 'error', help: `Either use this variable in your code, remove it, or prefix it with an underscore (_${name}) to mark it as intentionally unused` })
           }
         }

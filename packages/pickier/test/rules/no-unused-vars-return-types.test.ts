@@ -184,3 +184,38 @@ describe('no-unused-vars and brace-carrying return types', () => {
     expect(renamed && stillUsesOriginal).toBe(false)
   })
 })
+
+/**
+ * A constant declared below the function that uses it.
+ *
+ * The scan looked forwards from the declaration only, so a `const` at the
+ * bottom of a module read as unused - and the autofix for "unused" renames it
+ * to `_name` while the use above still says `name`, which does not compile.
+ */
+describe('a declaration used above itself', () => {
+  it('does not report a constant used earlier in the file', async () => {
+    const source = [
+      'export function take(list: string[]): string[] {',
+      '  return list.slice(0, LIMIT)',
+      '}',
+      '',
+      'const LIMIT = 50',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+
+  it('still reports one that is genuinely used nowhere', async () => {
+    const source = [
+      'export function take(list: string[]): string[] {',
+      '  return list.slice(0, 10)',
+      '}',
+      '',
+      'const LIMIT = 50',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(1)
+  })
+})
