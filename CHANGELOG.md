@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.46...v0.1.47)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: a declaration can be used above where it is written ([5c504c3](https://github.com/pickier/pickier/commit/5c504c3)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.47 ([068da62](https://github.com/pickier/pickier/commit/068da62)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.45...v0.1.46)
 
 ### 🐛 Bug Fixes
