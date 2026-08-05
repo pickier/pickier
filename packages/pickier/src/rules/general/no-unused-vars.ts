@@ -8,6 +8,87 @@ import type { RuleModule } from '../../types'
  */
 const TYPE_CONTINUATION = new Set(['|', '&', ':', ','])
 
+/**
+ * Blank out the prose inside comments, keeping every offset where it was.
+ *
+ * This rule finds declarations and their uses with a dozen small hand-written
+ * scanners, and each one tracks whether it is inside a string by watching for
+ * a quote character. None of them knew about comments, so an apostrophe in
+ * English prose opened a string that nothing ever closed:
+ *
+ *     const markup = createWriter()
+ *     \/** The document's raw HTML. *\/
+ *     const prose = (c) => markup.write(c, t => linkify(t, context))
+ *
+ * Everything after `document'` read as string content, the uses of `context`
+ * and of the parameters below it were never seen, and the rule reported them
+ * as unused - on a file that compiles and runs. Worse, the autofix then offers
+ * to rename them to `_name` while the body still says `name`.
+ *
+ * Only the *contents* are blanked, and only with spaces. The `/*`, `*\/` and
+ * `//` delimiters stay, so the scanners that look for them still work; the
+ * length and the line breaks are unchanged, so every reported column still
+ * points where it did; and a name that appears only in a comment is now
+ * correctly not a use, which is what the rule meant all along.
+ */
+export function maskCommentText(text: string): string {
+  const out = text.split('')
+  let index = 0
+  let inString: '\'' | '"' | '`' | null = null
+  let escaped = false
+
+  const blank = (from: number, to: number): void => {
+    for (let at = from; at < to && at < out.length; at += 1) {
+      if (out[at] !== '\n' && out[at] !== '\r')
+        out[at] = ' '
+    }
+  }
+
+  while (index < text.length) {
+    const character = text[index]!
+
+    if (inString) {
+      if (escaped)
+        escaped = false
+      else if (character === '\\')
+        escaped = true
+      else if (character === inString)
+        inString = null
+      // A newline ends a quoted string whatever else is happening: an
+      // apostrophe in prose must not swallow the rest of the file here either.
+      else if (character === '\n' && inString !== '`')
+        inString = null
+
+      index += 1
+      continue
+    }
+
+    if (character === '\'' || character === '"' || character === '`') {
+      inString = character
+      index += 1
+      continue
+    }
+
+    if (character === '/' && text[index + 1] === '/') {
+      const end = text.indexOf('\n', index)
+      blank(index + 2, end < 0 ? text.length : end)
+      index = end < 0 ? text.length : end
+      continue
+    }
+
+    if (character === '/' && text[index + 1] === '*') {
+      const end = text.indexOf('*/', index + 2)
+      blank(index + 2, end < 0 ? text.length : end)
+      index = end < 0 ? text.length : end + 2
+      continue
+    }
+
+    index += 1
+  }
+
+  return out.join('')
+}
+
 export const noUnusedVarsRule: RuleModule = {
   meta: { docs: 'Report variables and parameters that are declared/assigned but never used' },
   check: (text, ctx) => {
@@ -30,8 +111,13 @@ export const noUnusedVarsRule: RuleModule = {
     const varIgnoreRe = new RegExp(varsIgnorePattern, 'u')
     const argIgnoreRe = new RegExp(argsIgnorePattern, 'u')
 
-    const lines = text.split(/\r?\n/)
-    const full = text
+    // Comments are blanked before anything reads the file. Every scanner below
+    // tracks strings by watching for a quote, and an apostrophe in English
+    // prose is a quote - see `maskCommentText`. Offsets and line breaks are
+    // preserved, so reported positions are unaffected.
+    const code = maskCommentText(text)
+    const lines = code.split(/\r?\n/)
+    const full = code
 
     // Pre-compute which lines start inside a multi-line template literal body.
     // Used to skip analysis of generated code inside template content in both loops.
