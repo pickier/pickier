@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.45...v0.1.46)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: a multi-line generic return type is still the return type ([fb87c7a](https://github.com/pickier/pickier/commit/fb87c7a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **no-unused-vars**: an apostrophe in a comment is prose, not a quote ([93faded](https://github.com/pickier/pickier/commit/93faded)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.46 ([256a2ad](https://github.com/pickier/pickier/commit/256a2ad)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.44...v0.1.45)
 
 ### 🐛 Bug Fixes
