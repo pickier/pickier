@@ -1595,6 +1595,13 @@ else {
           if (/\)\s*:$/.test(beforeMatch) || /\)\s*:\s*$/.test(beforeMatch)) {
             continue
           }
+          // A type predicate is a return type too: `(entry): entry is Thing =>`
+          // put `Thing` immediately before the arrow, and it was read as a
+          // bare-identifier parameter and reported unused. The check above only
+          // knew the `): Type =>` form.
+          if (/\)\s*:\s*[$A-Z_][\w$]*\s+is$/i.test(beforeMatch)) {
+            continue
+          }
           // Also skip if the matched name is a TypeScript keyword used as type
           if (/^(?:string|number|boolean|void|never|any|unknown|object|bigint|symbol|undefined|null)$/.test(name)) {
             continue

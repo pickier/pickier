@@ -219,3 +219,30 @@ describe('a declaration used above itself', () => {
     expect(await lint(source)).toBe(1)
   })
 })
+
+/**
+ * A type predicate is a return type, not a parameter.
+ *
+ * `(entry): entry is Thing => ...` puts `Thing` immediately before the arrow,
+ * which is exactly where a bare-identifier parameter sits. The rule reported
+ * the *type* as an unused parameter, and `--fix` would have renamed it to
+ * `_Thing`, which does not compile.
+ */
+describe('a type predicate', () => {
+  it('is not read as a parameter', async () => {
+    const source = [
+      'interface Thing { a: number }',
+      '',
+      'export function keep(list: unknown[], base: Thing[]): Thing[] {',
+      '  const out: Thing[] = [',
+      '    ...base,',
+      '    ...list.map(entry => entry as Thing | null).filter((entry): entry is Thing => entry != null),',
+      '  ]',
+      '  return out',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+})
