@@ -2,6 +2,7 @@
 import type { LintOptions } from '../../../src/types'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { runLint } from '../../../src/linter'
+import { strongStyleRule } from '../../../src/rules/markdown/strong-style'
 import { cleanupTempFiles, createConfigWithMarkdownRules, createTempFile } from './test-helpers'
 
 afterEach(() => cleanupTempFiles())
@@ -275,6 +276,41 @@ describe('MD050 - strong-style', () => {
   it('allows asterisk when asterisk required', async () => {
     const result = await lint('This is **bold** text.\n', { style: 'asterisk' })
     expect(result.issues).toHaveLength(0)
+  })
+
+  /**
+   * A code span is code, not markup.
+   *
+   * Two double underscores inside backticks are an identifier written twice,
+   * not strong emphasis, and reading them as markup made a document written
+   * entirely in asterisks report itself as inconsistent on every `**bold**`
+   * after the span. The real case was a TypeScript guard:
+   * `typeof __ctx === 'undefined' ? undefined : __ctx`.
+   *
+   * The twin rule `emphasis-style` already masked inline code; this one did
+   * not.
+   */
+  it('does not read two identifiers in one code span as strong', async () => {
+    const result = await lint(
+      'A doc with **strong** in it.\n\nAnd `typeof __a === undefined ? undefined : __a` inline.\n',
+    )
+
+    expect(result.issues).toHaveLength(0)
+  })
+
+  /**
+   * And the fixer is the half that actually mattered.
+   *
+   * A false warning is noise. Rewriting the inside of a code span changes what
+   * the code says - `**a === undefined ? undefined : **a` - which is a
+   * formatter corrupting the thing it was asked to leave alone.
+   */
+  it('leaves a code span alone when converting the document to asterisks', () => {
+    const source = 'A doc with __strong__ in it.\n\nAnd `typeof __a === undefined ? undefined : __a` inline.\n'
+    const fixed = strongStyleRule.fix!(source, { filePath: 'test.md', config: {} as any, options: { style: 'asterisk' } })
+
+    expect(fixed).toContain('`typeof __a === undefined ? undefined : __a`')
+    expect(fixed).toContain('**strong**')
   })
 
   it('consistent: flags mixed strong styles', async () => {

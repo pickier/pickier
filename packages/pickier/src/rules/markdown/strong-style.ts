@@ -1,8 +1,19 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { getCodeBlockLines } from './_fence-tracking'
+import { getCodeBlockLines, maskInlineCode, replaceOutsideInlineCode } from './_fence-tracking'
 
 /**
  * MD050 - Strong style
+ *
+ * Inline code spans are masked before anything is matched, the way its twin
+ * `emphasis-style` already did. Without it a code span holding two double
+ * underscores - `typeof __ctx === 'undefined' ? undefined : __ctx` is the real
+ * case - reads as underscore-strong, so a document written entirely in
+ * asterisks is reported as inconsistent on every `**bold**` after it.
+ *
+ * The warning was the harmless half. The fixer rewrote the same span into
+ * `**ctx === 'undefined' ? undefined : **ctx`, which changes what the code
+ * says - a formatter corrupting code it was asked to leave alone is a much
+ * worse failure than a false positive.
  */
 export const strongStyleRule: RuleModule = {
   meta: {
@@ -21,7 +32,10 @@ export const strongStyleRule: RuleModule = {
     for (let i = 0; i < lines.length; i++) {
       if (inCode.has(i))
         continue
-      const line = lines[i]
+
+      // Masked rather than stripped, so the columns reported stay the columns
+      // the reader would count.
+      const line = maskInlineCode(lines[i])
 
       // Find double asterisk strong
       const asteriskMatches = line.matchAll(/\*\*([^*]+)\*\*/g)
@@ -115,13 +129,14 @@ export const strongStyleRule: RuleModule = {
       for (let i = 0; i < lines.length; i++) {
         if (inCode.has(i))
           continue
+        const stripped = maskInlineCode(lines[i])
         if (firstAsterisk === null) {
-          const m = lines[i].match(/\*\*([^*]+)\*\*/)
+          const m = stripped.match(/\*\*([^*]+)\*\*/)
           if (m)
             firstAsterisk = { line: i, col: m.index! }
         }
         if (firstUnderscore === null) {
-          const m = lines[i].match(/__([^_]+)__/)
+          const m = stripped.match(/__([^_]+)__/)
           if (m)
             firstUnderscore = { line: i, col: m.index! }
         }
@@ -137,16 +152,19 @@ export const strongStyleRule: RuleModule = {
     }
 
     // Apply the rewrite line-by-line so we can leave code-block lines
-    // untouched. Replacing across the full text would corrupt any literal
-    // `**`/`__` markers inside fenced examples.
+    // untouched, and inside each line leave inline code spans alone too.
+    // Replacing across the full text would corrupt any literal `**`/`__`
+    // markers inside fenced examples, and replacing across a whole line would
+    // corrupt the ones inside backticks.
     let changed = false
     for (let i = 0; i < lines.length; i++) {
       if (inCode.has(i))
         continue
       const before = lines[i]
-      const after = targetStyle === 'asterisk'
-        ? before.replace(/__([^_]+)__/g, '**$1**')
-        : before.replace(/\*\*([^*]+)\*\*/g, '__$1__')
+      const after = replaceOutsideInlineCode(before, seg =>
+        targetStyle === 'asterisk'
+          ? seg.replace(/__([^_]+)__/g, '**$1**')
+          : seg.replace(/\*\*([^*]+)\*\*/g, '__$1__'))
       if (after !== before) {
         lines[i] = after
         changed = true
