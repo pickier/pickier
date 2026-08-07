@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.48...v0.1.49)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: a regex literal is not a comment ([445361e](https://github.com/pickier/pickier/commit/445361e)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: strong-style read inside inline code spans ([f541260](https://github.com/pickier/pickier/commit/f541260)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.49 ([4292d54](https://github.com/pickier/pickier/commit/4292d54)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.47...v0.1.48)
 
 ### 🐛 Bug Fixes
