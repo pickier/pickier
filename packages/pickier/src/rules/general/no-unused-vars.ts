@@ -31,7 +31,67 @@ const TYPE_CONTINUATION = new Set(['|', '&', ':', ',', '<'])
  * length and the line breaks are unchanged, so every reported column still
  * points where it did; and a name that appears only in a comment is now
  * correctly not a use, which is what the rule meant all along.
+ *
+ * Regex literals are tracked for the same reason strings are. A pattern that
+ * ends in an escaped slash closes with `\/` immediately followed by the real
+ * delimiter, and a scanner that does not know it is inside a regex reads that
+ * pair as the start of a line comment:
+ *
+ *     return /^https?:\/\//.test(baseUrl) ? baseUrl : `https://${baseUrl}`
+ *
+ * Everything from `//` onwards was blanked, all three uses of `baseUrl`
+ * disappeared, and the rule called a working parameter unused — then the
+ * autofix renamed it to `_baseUrl` and left the body referencing `baseUrl`,
+ * turning a false positive into a runtime error.
  */
+/**
+ * Tokens after which a `/` opens a regex literal rather than dividing.
+ *
+ * Division only follows a value: an identifier, a literal, or a closing
+ * bracket. Everything else is an expression position, so `/` starts a pattern.
+ */
+const REGEX_PRECEDING = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '<', '>', '~', '^'])
+
+/** Keywords a regex may directly follow, where the previous char is a letter. */
+const REGEX_KEYWORDS = ['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'case', 'do', 'else', 'yield', 'await']
+
+/**
+ * Whether the `/` at `at` begins a regex literal.
+ *
+ * Looks back past whitespace to the last significant character. A letter or
+ * digit there usually means division, unless it terminates one of the keywords
+ * above.
+ */
+function startsRegex(text: string, at: number): boolean {
+  let back = at - 1
+  while (back >= 0 && /\s/.test(text[back]!))
+    back -= 1
+
+  if (back < 0)
+    return true
+
+  const previous = text[back]!
+  if (REGEX_PRECEDING.has(previous))
+    return true
+
+  if (/[\w$)\]]/.test(previous)) {
+    // `)`/`]`/identifier/number is a value, so `/` divides — except after a
+    // keyword, where it opens a pattern.
+    if (/[\w$]/.test(previous)) {
+      let start = back
+      while (start >= 0 && /[\w$]/.test(text[start]!))
+        start -= 1
+
+      const word = text.slice(start + 1, back + 1)
+      return REGEX_KEYWORDS.includes(word)
+    }
+
+    return false
+  }
+
+  return true
+}
+
 export function maskCommentText(text: string): string {
   const out = text.split('')
   let index = 0
@@ -67,6 +127,40 @@ export function maskCommentText(text: string): string {
     if (character === '\'' || character === '"' || character === '`') {
       inString = character
       index += 1
+      continue
+    }
+
+    // A regex literal is skipped whole, so an escaped slash inside it can
+    // never be mistaken for a comment delimiter. Nothing is blanked: the
+    // pattern is code, and a name inside it is not a use anyway.
+    if (character === '/' && text[index + 1] !== '/' && text[index + 1] !== '*' && startsRegex(text, index)) {
+      let at = index + 1
+      let inClass = false
+      let regexEscaped = false
+
+      while (at < text.length) {
+        const current = text[at]!
+
+        if (regexEscaped)
+          regexEscaped = false
+        else if (current === '\\')
+          regexEscaped = true
+        else if (current === '[')
+          inClass = true
+        else if (current === ']')
+          inClass = false
+        // An unterminated pattern must not swallow the rest of the file.
+        else if (current === '\n')
+          break
+        else if (current === '/' && !inClass) {
+          at += 1
+          break
+        }
+
+        at += 1
+      }
+
+      index = at
       continue
     }
 
