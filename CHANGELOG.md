@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.49...v0.1.50)
+
+### 🐛 Bug Fixes
+
+- **markdown**: match GitHub's slug when punctuation leaves double spaces ([abc6348](https://github.com/pickier/pickier/commit/abc6348)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.50 ([e942511](https://github.com/pickier/pickier/commit/e942511)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.48...v0.1.49)
 
 ### 🐛 Bug Fixes
