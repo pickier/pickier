@@ -2,6 +2,24 @@ import type { LintIssue, RuleModule } from '../../types'
 import { getCodeBlockLines } from './_fence-tracking'
 
 /**
+ * GitHub's heading slug, which is the one the links have to match.
+ *
+ * Each whitespace character becomes its own hyphen. Collapsing runs with
+ * `\s+` looks equivalent and is not: punctuation is stripped *before* this
+ * step, so `fixes — at` loses the em-dash and leaves two spaces, which GitHub
+ * turns into `fixes--at`. Collapsing produced `fixes-at`, so every heading
+ * containing a dash or slash between words was reported as a broken anchor
+ * while the link worked perfectly on GitHub -- the rule was wrong about
+ * correct documents, which is the worst way for a linter to be wrong.
+ */
+function slug(headingText: string): string {
+  return headingText
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s/g, '-')
+}
+
+/**
  * MD051 - Link fragments should be valid
  */
 export const linkFragmentsRule: RuleModule = {
@@ -24,8 +42,7 @@ export const linkFragmentsRule: RuleModule = {
       const atxMatch = line.match(/^#{1,6}\s+(.+?)(?:\s*#+\s*)?$/)
       if (atxMatch) {
         const headingText = atxMatch[1].trim()
-        const id = headingText.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')
-        headingIds.add(id)
+        headingIds.add(slug(headingText))
       }
     }
 
