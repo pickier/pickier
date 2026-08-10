@@ -120,6 +120,66 @@ describe('MD049 emphasis-style — code spans & cross-line pairing', () => {
       .toBe('*real* but `keep_this`')
   })
 
+  it('does not read a code span that wraps a line as emphasis', () => {
+    /*
+     * An inline code span may legally span a line break inside a paragraph, and
+     * prose wrapped at eighty columns produces it constantly. Masked per line,
+     * neither half has a balanced pair of backticks - so nothing is masked and
+     * the underscores in the command leak out as underscore emphasis, reported
+     * as inconsistent with the asterisks everywhere else.
+     *
+     * Invisible to whoever reads the source, because it renders correctly.
+     */
+    const input = 'A note. **Bold.** `REVIEWOS_GPG_TESTS=1 bun\ntest tests/e2e/git.test.ts` is 8 passing\n'
+
+    expect(emphasisStyleRule.check!(input, ctx({ style: 'consistent' }))).toEqual([])
+  })
+
+  it('and still sees real emphasis after the span closes', () => {
+    // The masking must stop at the closing backtick, or everything after a
+    // wrapped span would be invisible to the rule for the rest of the file.
+    const input = 'A note `wrapped_span\ncontinues_here` then *real* and _mixed_ emphasis\n'
+    const issues = emphasisStyleRule.check!(input, ctx({ style: 'consistent' }))
+
+    expect(issues.length).toBeGreaterThan(0)
+  })
+
+  it('a blank line ends a dangling span rather than masking the rest of the file', () => {
+    /*
+     * An unterminated backtick is far more common than a multi-line span - a
+     * stray tick in prose - and carrying it to the end of the file would mask
+     * the whole document and silence every rule that reads the masked text.
+     */
+    const input = 'A stray ` tick\n\nlater _emphasis_ and *more*\n'
+    const issues = emphasisStyleRule.check!(input, ctx({ style: 'consistent' }))
+
+    expect(issues.length).toBeGreaterThan(0)
+  })
+
+  it('does not read snake_case identifiers in prose as emphasis', () => {
+    /*
+     * The most common false positive this rule can produce, because technical
+     * writing is full of identifiers and most of them are not in code spans - a
+     * sentence naming a column or an enum value writes it bare.
+     *
+     * CommonMark agrees: `_` cannot open emphasis after an alphanumeric or
+     * close one before one, which is exactly what makes `snake_case` text. Read
+     * naively, this line is one emphasised span from the first underscore to
+     * the last.
+     */
+    const input = 'Reasons: review_requested, mentioned, watching, team_mention.\n'
+
+    expect(emphasisStyleRule.check!(input, ctx({ style: 'consistent' }))).toEqual([])
+    expect(emphasisStyleRule.fix!(input, ctx({ style: 'asterisk' }))).toBe(input)
+  })
+
+  it('and still converts real underscore emphasis beside one', () => {
+    // The exclusion must be about position, not about the word - or it would
+    // silence the rule on any line that also mentions an identifier.
+    expect(emphasisStyleRule.fix!('the team_mention reason is _important_\n', ctx({ style: 'asterisk' })))
+      .toBe('the team_mention reason is *important*\n')
+  })
+
   it('does not touch markers inside fenced code blocks', () => {
     const input = '```ts\nconst _x = 1\n```\nand _real_ here\n'
     expect(emphasisStyleRule.fix!(input, ctx({ style: 'asterisk' })))

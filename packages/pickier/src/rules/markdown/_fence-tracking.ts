@@ -204,3 +204,90 @@ export function maskInlineCode(line: string): string {
   eachInlineSegment(line, (seg) => { out += seg }, (seg) => { out += ' '.repeat(seg.length) })
   return out
 }
+
+/**
+ * Mask inline code across a whole document, including spans that wrap a line.
+ *
+ * `maskInlineCode` works one line at a time, which is right for a fixer that
+ * rewrites a line in place and wrong for a detector. A code span may legally
+ * span a line break inside a paragraph:
+ *
+ * ```md
+ * `REVIEWOS_GPG_TESTS=1 bun
+ * test tests/e2e/git-signature.test.ts` is 8 passing
+ * ```
+ *
+ * Per line, neither half has a balanced pair of backticks, so nothing is masked
+ * and the underscores in `REVIEWOS_GPG_TESTS` read as emphasis - which is
+ * exactly the false positive this exists to stop. Prose wrapped at eighty
+ * columns produces this constantly, and it is invisible to anybody reading the
+ * source because it renders correctly.
+ *
+ * A span is only carried across the break while a paragraph continues: a blank
+ * line ends it, because an unterminated backtick is far more common than a
+ * multi-line span, and carrying it to the end of the file would mask the whole
+ * document on one stray tick.
+ */
+export function maskInlineCodeAcrossLines(lines: string[]): string[] {
+  const inCode = getCodeBlockLines(lines)
+  const out: string[] = []
+
+  // The run of backticks that opened a span still looking for its partner.
+  let open = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+
+    if (inCode.has(i) || line.trim() === '') {
+      open = 0
+      out.push(line)
+      continue
+    }
+
+    if (open === 0) {
+      const masked = maskInlineCode(line)
+
+      // What is left over: a run of backticks with no partner on this line,
+      // which is a span continuing onto the next. Everything from it to the end
+      // of the line is code.
+      const dangling = danglingRun(masked)
+
+      if (!dangling) {
+        out.push(masked)
+
+        continue
+      }
+
+      open = dangling.length
+      out.push(masked.slice(0, dangling.index) + ' '.repeat(masked.length - dangling.index))
+
+      continue
+    }
+
+    // Inside a span that began earlier. It ends at the first run of the same
+    // length; everything up to and including that run is code.
+    const close = new RegExp(`(?<!\`)\`{${open}}(?!\`)`).exec(line)
+
+    if (!close) {
+      out.push(' '.repeat(line.length))
+
+      continue
+    }
+
+    const end = close.index + close[0].length
+
+    open = 0
+    out.push(' '.repeat(end) + maskInlineCode(line.slice(end)))
+  }
+
+  return out
+}
+
+/** A trailing unmatched backtick run - where it starts and how long it is. */
+function danglingRun(masked: string): { index: number, length: number } | null {
+  // The lookahead is what makes it *trailing*: no further backtick before the
+  // end of the line, so this run has nothing on this line to close against.
+  const match = /(?<!`)(`+)(?!`)(?=[^`]*$)/.exec(masked)
+
+  return match ? { index: match.index, length: match[1]!.length } : null
+}

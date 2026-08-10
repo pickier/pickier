@@ -1,10 +1,27 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { getCodeBlockLines, maskInlineCode, replaceOutsideInlineCode } from './_fence-tracking'
+import { getCodeBlockLines, maskInlineCode, maskInlineCodeAcrossLines, replaceOutsideInlineCode } from './_fence-tracking'
 
 // Single-marker emphasis (not the double `**`/`__` of strong), matched only
 // outside code. `[^*]`/`[^_]` keeps a match from spanning across a `**`/`__`.
 const ASTERISK_EMPHASIS = /(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/
-const UNDERSCORE_EMPHASIS = /(?<!_)_(?!_)([^_]+)_(?!_)/
+
+/**
+ * Underscore emphasis, excluding the intraword case CommonMark excludes.
+ *
+ * `_` cannot open emphasis when it follows an alphanumeric, and cannot close
+ * one when an alphanumeric follows it - which is the rule that makes
+ * `snake_case_names` ordinary text rather than emphasis. Without the
+ * lookarounds, a line of prose listing
+ * `review_requested, mentioned, watching, team_mention` reads as one
+ * underscore-emphasised span from the first `_` to the last, and gets reported
+ * as inconsistent with the asterisks everywhere else.
+ *
+ * That is the single most common false positive this rule can produce, because
+ * technical writing is full of identifiers and most of them are not in code
+ * spans - a sentence naming a column or an enum value writes it bare.
+ */
+const UNDERSCORE_EMPHASIS_SOURCE = '(?<![A-Za-z0-9_])_(?!_)([^_]+)_(?![A-Za-z0-9_])'
+const UNDERSCORE_EMPHASIS = new RegExp(UNDERSCORE_EMPHASIS_SOURCE)
 
 /**
  * MD049 - Emphasis style
@@ -25,14 +42,27 @@ export const emphasisStyleRule: RuleModule = {
     // toggle miscounts fence-looking CONTENT lines (```js inside ~~~)
     const inCode = getCodeBlockLines(lines)
 
+    /*
+     * Masked across the whole document rather than line by line.
+     *
+     * An inline code span may legally wrap a line inside a paragraph, and per
+     * line neither half has a balanced pair of backticks - so nothing was
+     * masked and the underscores in something like
+     * `` `REVIEWOS_GPG_TESTS=1 bun\ntest ...` `` read as underscore emphasis,
+     * reported as inconsistent with the asterisks everywhere else. Prose
+     * wrapped at eighty columns produces this constantly, and it is invisible
+     * to whoever reads the source because it renders correctly.
+     */
+    const masked = maskInlineCodeAcrossLines(lines)
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
       if (inCode.has(i))
         continue
 
-      // Mask inline code spans (length-preserving, so columns stay valid)
-      const stripped = maskInlineCode(line)
+      // Length-preserving, so columns stay valid.
+      const stripped = masked[i] ?? maskInlineCode(line)
 
       // Find single asterisk emphasis (not double **)
       const asteriskMatches = stripped.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)
@@ -66,7 +96,7 @@ export const emphasisStyleRule: RuleModule = {
       }
 
       // Find single underscore emphasis (not double __)
-      const underscoreMatches = stripped.matchAll(/(?<!_)_(?!_)([^_]+)_(?!_)/g)
+      const underscoreMatches = stripped.matchAll(new RegExp(UNDERSCORE_EMPHASIS_SOURCE, 'g'))
 
       for (const match of underscoreMatches) {
         if (style === 'asterisk') {
@@ -152,7 +182,7 @@ export const emphasisStyleRule: RuleModule = {
         continue
       const after = replaceOutsideInlineCode(lines[i], seg =>
         targetStyle === 'asterisk'
-          ? seg.replace(/(?<!_)_(?!_)([^_]+)_(?!_)/g, '*$1*')
+          ? seg.replace(new RegExp(UNDERSCORE_EMPHASIS_SOURCE, 'g'), '*$1*')
           : seg.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '_$1_'))
       if (after !== lines[i]) {
         lines[i] = after

@@ -140,6 +140,44 @@ describe('MD039 - no-space-in-links', () => {
     const result = await lint('[link with spaces](http://example.com)\n')
     expect(result.issues).toHaveLength(0)
   })
+
+  it('does not pair a task list checkbox with a later link', async () => {
+    /*
+     * The regression this rule shipped with. Link text was `.*?`, which can run
+     * past its own closing bracket - so the `[ ]` of a task item matched all
+     * the way to a real link's `](url)` further along the line, read the whole
+     * line as link text beginning with a space, and reported an error on
+     * ordinary markdown.
+     *
+     * Every task list item with a link on the same line was a false positive,
+     * which in a roadmap written as task lists is most of the file.
+     */
+    const result = await lint('- [ ] Something, see ([phase 13](./13-mirroring.md))\n')
+
+    expect(result.issues).toHaveLength(0)
+  })
+
+  it('still catches a real one on a line that also has a checkbox', async () => {
+    // The fix must not turn the rule off for those lines, only stop it
+    // hallucinating - so the genuine case on the same shape still reports.
+    const result = await lint('- [ ] Something, see [ phase 13](./13-mirroring.md)\n')
+
+    expect(result.issues.length).toBeGreaterThan(0)
+  })
+
+  it('flags a link whose text is only a space', async () => {
+    const result = await lint('[ ](http://example.com)\n')
+
+    expect(result.issues.length).toBeGreaterThan(0)
+  })
+
+  it('does not flag two links on one line', async () => {
+    // `.*?` could also span from the first link's `[` to the second link's
+    // `](url)`, which is the same bug wearing different clothes.
+    const result = await lint('See [one](http://a.example) and [two](http://b.example)\n')
+
+    expect(result.issues).toHaveLength(0)
+  })
 })
 
 // ─── no-multiple-blanks ──────────────────────────────────────────────────────

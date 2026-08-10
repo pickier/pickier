@@ -18,12 +18,25 @@ export const noSpaceInLinksRule: RuleModule = {
         continue
       const line = lines[i]
 
-      // Check for spaces inside link text [  text  ](url)
-      const matches = line.matchAll(/\[(\s+(?:\S.*?|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF])|\s*(?:\S.*?|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF])\s+)\]\([^)]+\)/g)
+      /*
+       * Link text is everything between the brackets that is not a bracket.
+       *
+       * `[^\][]` rather than `.` matters more than it looks. With `.` the text
+       * could run past its own closing bracket and pair with a *different*
+       * link later in the line - so `- [ ] some prose ([phase 13](./x.md))`
+       * matched from the task-list checkbox all the way to the real link's
+       * `](url)`, read the whole line as link text beginning with a space, and
+       * reported an error on ordinary markdown. Every task list item followed
+       * by a link on the same line was a false positive.
+       */
+      const matches = line.matchAll(/\[([^\][]*)\]\([^)]*\)/g)
 
       for (const match of matches) {
         const linkText = match[1]
-        if (linkText.startsWith(' ') || linkText.endsWith(' ')) {
+
+        // Leading or trailing whitespace of any kind, which is what MD039 is
+        // about - a space *within* the text is ordinary prose.
+        if (/^\s/.test(linkText) || /\s$/.test(linkText)) {
           const column = match.index! + 1
           issues.push({
             filePath: ctx.filePath,
