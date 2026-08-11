@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.50...v0.1.51)
+
+### 🐛 Bug Fixes
+
+- **no-unused-vars**: a regex may follow an arrow ([8a0b9dd](https://github.com/pickier/pickier/commit/8a0b9dd)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: three false positives that fire on ordinary prose ([a223bef](https://github.com/pickier/pickier/commit/a223bef)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.51 ([426a7ed](https://github.com/pickier/pickier/commit/426a7ed)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.49...v0.1.50)
 
 ### 🐛 Bug Fixes
