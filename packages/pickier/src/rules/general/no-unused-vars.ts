@@ -92,6 +92,35 @@ function startsRegex(text: string, at: number): boolean {
   return true
 }
 
+/**
+ * Whether a `/` at `at` in `text` can open a regex, for the line scanners below.
+ *
+ * Looser than {@link startsRegex}, and deliberately kept that way: these
+ * scanners are string-and-brace counters rather than parsers, and widening what
+ * they treat as a pattern makes them misread ordinary code (a `/` after a
+ * backtick is a closing delimiter, not an opening one). This adds the single
+ * position they all missed — after an arrow.
+ *
+ * `line => /^…/.test(line)` is the commonest place a regex appears in this
+ * codebase, and none of them recognised it. A pattern left unstripped is read
+ * as code, so a quote inside a character class (`/["']/`) opened a string that
+ * ran to the end of the line and swallowed every identifier after it: the rule
+ * then called a used parameter unused, and `--fix` renamed it, turning the
+ * false positive into a runtime error.
+ */
+function scannerStartsRegex(text: string, at: number): boolean {
+  // A comment can follow anything a regex can, so it is ruled out first.
+  if (text[at + 1] === '/' || text[at + 1] === '*')
+    return false
+
+  const before = text.slice(0, at).trimEnd()
+
+  return !before
+    || /[=([{,:;!&|?]$/.test(before)
+    || before.endsWith('=>')
+    || before.endsWith('return')
+}
+
 export function maskCommentText(text: string): string {
   const out = text.split('')
   let index = 0
@@ -845,9 +874,7 @@ else {
                 inString = 'template'
               }
               else if (ch === '/') {
-                const before = i > 0 ? str.slice(0, i).trimEnd() : ''
-                const regexPrecedeRe = new RegExp('[=([{,:' + ';' + '!&|?]$')
-                if (!before || regexPrecedeRe.test(before) || before.endsWith('return')) {
+                if (scannerStartsRegex(str, i)) {
                   // This is a regex - skip it
                   i++ // skip opening /
                   while (i < str.length) {
@@ -1054,9 +1081,7 @@ else {
 
           if (inTmplExpr) {
             if (ch === '/') {
-              const before = lineToProcess.slice(0, k).trimEnd()
-              const regexPrecedeRe = /[=([{,:;!&|?]$/
-              if (!before || regexPrecedeRe.test(before) || before.endsWith('return')) {
+              if (scannerStartsRegex(lineToProcess, k)) {
                 k++
                 while (k < lineToProcess.length) {
                   if (lineToProcess[k] === '\\') {
@@ -1225,10 +1250,7 @@ else {
           else if (ch === '/') {
             // Check if this is a regex or a comment
             // Regex can appear after: = ( [ { , : ; ! & | ? or at start of line
-            const prevChar = line[idx - 1] || ''
-            const prev2Chars = idx >= 2 ? line.slice(idx - 2, idx) : ''
-            const regexPrecedeCharRe = new RegExp('[=([{,:' + ';' + '!?]')
-            if (regexPrecedeCharRe.test(prevChar) || prev2Chars === '&&' || prev2Chars === '||' || /^\s*$/.test(line.slice(0, idx))) {
+            if (scannerStartsRegex(line, idx)) {
               inRegex = true
             }
             else if (next === '/') {
@@ -1256,9 +1278,7 @@ else {
         let i = 0
         while (i < str.length) {
           if (str[i] === '/') {
-            const before = i > 0 ? str.slice(0, i).trimEnd() : ''
-            const regPrecede = new RegExp('[=([{,:' + ';' + '!&|?]$')
-            if (!before || regPrecede.test(before) || before.endsWith('return')) {
+            if (scannerStartsRegex(str, i)) {
               i++ // skip opening /
               while (i < str.length) {
                 if (str[i] === '\\') {
