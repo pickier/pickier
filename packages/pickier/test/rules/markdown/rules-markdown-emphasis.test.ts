@@ -141,3 +141,43 @@ describe('MD050 - strong-style', () => {
     }
   })
 })
+
+describe('MD049 - emphasis-style flanking', () => {
+  async function issuesFor(content: string): Promise<Array<{ ruleId: string }>> {
+    const tempPath = createTempFile(content)
+    const configPath = createConfigWithMarkdownRules({ 'markdown/emphasis-style': 'error' })
+    const options: LintOptions = { reporter: 'json', config: configPath }
+
+    const originalLog = console.log
+    let output = ''
+    console.log = (msg: string) => { output += msg }
+    try {
+      await runLint([tempPath], options)
+    }
+    finally {
+      console.log = originalLog
+    }
+    return JSON.parse(output).issues
+  }
+
+  it('does not read whitespace-flanked asterisks as emphasis', async () => {
+    // Two globs on one line are not an emphasised span between them. Reading
+    // them as one made the document "asterisk style", so its real underscore
+    // emphasis was then reported as inconsistent.
+    const issues = await issuesFor('- rebrand VP* design-system class prefix to BP* _(by Chris)_\n')
+
+    expect(issues.filter(issue => issue.ruleId === 'markdown/emphasis-style')).toEqual([])
+  })
+
+  it('still reports genuinely mixed emphasis styles', async () => {
+    const issues = await issuesFor('This has *real emphasis* and _underscore emphasis_ mixed.\n')
+
+    expect(issues.some(issue => issue.ruleId === 'markdown/emphasis-style')).toBe(true)
+  })
+
+  it('still recognises ordinary asterisk emphasis', async () => {
+    const issues = await issuesFor('A line with *emphasis* and another *span here*.\n\nAnd _underscore_ after.\n')
+
+    expect(issues.some(issue => issue.ruleId === 'markdown/emphasis-style')).toBe(true)
+  })
+})

@@ -3,7 +3,23 @@ import { getCodeBlockLines, maskInlineCode, maskInlineCodeAcrossLines, replaceOu
 
 // Single-marker emphasis (not the double `**`/`__` of strong), matched only
 // outside code. `[^*]`/`[^_]` keeps a match from spanning across a `**`/`__`.
-const ASTERISK_EMPHASIS = /(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/
+
+/**
+ * Asterisk emphasis, excluding the whitespace-flanked case CommonMark excludes.
+ *
+ * A `*` cannot open emphasis when whitespace follows it, and cannot close one
+ * when whitespace precedes it. Without that, a line mentioning two globs or
+ * wildcards - `rebrand VP* design-system class prefix to BP*` - reads as one
+ * asterisk-emphasised span running between them. The document is then judged
+ * to use asterisk style, and its genuine `_..._` emphasis is reported as
+ * inconsistent: a warning about the one thing on the line that was correct.
+ *
+ * This is the asterisk counterpart of the intraword rule below, and the same
+ * kind of writing produces it - prose naming a pattern, a version glob or a
+ * class prefix without wrapping it in a code span.
+ */
+const ASTERISK_EMPHASIS_SOURCE = '(?<!\\*)\\*(?!\\*)(?!\\s)([^*]*[^*\\s])\\*(?!\\*)'
+const ASTERISK_EMPHASIS = new RegExp(ASTERISK_EMPHASIS_SOURCE)
 
 /**
  * Underscore emphasis, excluding the intraword case CommonMark excludes.
@@ -65,7 +81,7 @@ export const emphasisStyleRule: RuleModule = {
       const stripped = masked[i] ?? maskInlineCode(line)
 
       // Find single asterisk emphasis (not double **)
-      const asteriskMatches = stripped.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)
+      const asteriskMatches = stripped.matchAll(new RegExp(ASTERISK_EMPHASIS_SOURCE, 'g'))
 
       for (const match of asteriskMatches) {
         if (style === 'underscore') {
@@ -183,7 +199,7 @@ export const emphasisStyleRule: RuleModule = {
       const after = replaceOutsideInlineCode(lines[i], seg =>
         targetStyle === 'asterisk'
           ? seg.replace(new RegExp(UNDERSCORE_EMPHASIS_SOURCE, 'g'), '*$1*')
-          : seg.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '_$1_'))
+          : seg.replace(new RegExp(ASTERISK_EMPHASIS_SOURCE, 'g'), '_$1_'))
       if (after !== lines[i]) {
         lines[i] = after
         changed = true
