@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.55...v0.1.56)
+
+## 🐛 Bug Fixes
+
+- **lint**: gate --fix rewrites on the same conditions as the scan (#1372, #1373) ([ffbd0e1](https://github.com/pickier/pickier/commit/ffbd0e1)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1372](https://github.com/pickier/pickier/issues/1372), [#1373](https://github.com/pickier/pickier/issues/1373), [#1372](https://github.com/pickier/pickier/issues/1372), [#1373](https://github.com/pickier/pickier/issues/1373), [#1372](https://github.com/pickier/pickier/issues/1372), [#1373](https://github.com/pickier/pickier/issues/1373))
+
+## 🧹 Chores
+
+- release v0.1.56 ([e3b801c](https://github.com/pickier/pickier/commit/e3b801c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+## Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.54...v0.1.55)
 
 ## 🧹 Chores
