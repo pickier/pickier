@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.51...v0.1.52)
+
+### 🐛 Bug Fixes
+
+- never lint node_modules, whatever the config says ([b20b466](https://github.com/pickier/pickier/commit/b20b466)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.52 ([6e3b7e6](https://github.com/pickier/pickier/commit/6e3b7e6)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.50...v0.1.51)
 
 ### 🐛 Bug Fixes
