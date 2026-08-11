@@ -1,7 +1,6 @@
 import type { PickierConfig, PickierOptions, RulesConfigMap } from './types'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, isAbsolute, join, resolve } from 'node:path'
-import process from 'node:process'
 import { defaultConfig } from './config'
 
 /**

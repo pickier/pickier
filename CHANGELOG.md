@@ -234,7 +234,7 @@
 - **node**: make prefer-global/process match its name and docs ([b69e1c9](https://github.com/pickier/pickier/commit/b69e1c9)) _(by Chris <chrisbreuer93@gmail.com>)_
 - **node**: make prefer-global/buffer match its name and docs ([24cddf7](https://github.com/pickier/pickier/commit/24cddf7)) _(by Chris <chrisbreuer93@gmail.com>)_
 - **publint**: flag local deps in optional and peer dependencies too ([bb73a2f](https://github.com/pickier/pickier/commit/bb73a2f)) _(by Chris <chrisbreuer93@gmail.com>)_
-- **ts**: report the correct column for later  ([660883f](https://github.com/pickier/pickier/commit/660883f)) _(by  < in prefer-nullish-coalescing>)_
+- **ts**: report the correct column for later || in prefer-nullish-coalescing ([660883f](https://github.com/pickier/pickier/commit/660883f)) _(by Chris)_
 - **markdown**: use CommonMark fence tracking in no-bare-urls ([f9789b6](https://github.com/pickier/pickier/commit/f9789b6)) _(by Chris <chrisbreuer93@gmail.com>)_
 - **markdown**: use CommonMark fence tracking in no-space-in-emphasis ([e124f02](https://github.com/pickier/pickier/commit/e124f02)) _(by Chris <chrisbreuer93@gmail.com>)_
 - **markdown**: use CommonMark fence tracking in no-space-in-code ([e8b74da](https://github.com/pickier/pickier/commit/e8b74da)) _(by Chris <chrisbreuer93@gmail.com>)_

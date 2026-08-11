@@ -53,16 +53,28 @@ export function computeLineStartsInTemplate(text: string): boolean[] {
         escaped = true
         continue
       }
-      if (inSingle) { if (ch === '\'') inSingle = false; continue }
-      if (inDouble) { if (ch === '"') inDouble = false; continue }
+      if (inSingle) {
+        if (ch === '\'') inSingle = false
+        continue
+      }
+      if (inDouble) {
+        if (ch === '"') inDouble = false
+        continue
+      }
       if (inRegex) {
         if (ch === '[') {
           let depth = 1
           let kk = k + 1
           while (kk < s.length) {
             const cc = s[kk]
-            if (cc === '\\') { kk += 2; continue }
-            if (cc === ']') { depth--; if (depth === 0) break }
+            if (cc === '\\') {
+              kk += 2
+              continue
+            }
+            if (cc === ']') {
+              depth--
+              if (depth === 0) break
+            }
             kk++
           }
           k = kk
@@ -93,10 +105,22 @@ export function computeLineStartsInTemplate(text: string): boolean[] {
         continue
       }
       if (inExpr) {
-        if (ch === '`') { tmplStack.push(-1); prevSig = '' }
-        else if (ch === '\'') { inSingle = true; prevSig = '\'' }
-        else if (ch === '"') { inDouble = true; prevSig = '"' }
-        else if (ch === '{') { tmplStack[tmplStack.length - 1]++; prevSig = '{' }
+        if (ch === '`') {
+          tmplStack.push(-1)
+          prevSig = ''
+        }
+        else if (ch === '\'') {
+          inSingle = true
+          prevSig = '\''
+        }
+        else if (ch === '"') {
+          inDouble = true
+          prevSig = '"'
+        }
+        else if (ch === '{') {
+          tmplStack[tmplStack.length - 1]++
+          prevSig = '{'
+        }
         else if (ch === '}') {
           const cur = tmplStack[tmplStack.length - 1]
           if (cur > 0) tmplStack[tmplStack.length - 1] = cur - 1
@@ -108,9 +132,18 @@ export function computeLineStartsInTemplate(text: string): boolean[] {
         continue
       }
       // Outside template (top-level code)
-      if (ch === '`') { tmplStack.push(-1); prevSig = '' }
-      else if (ch === '\'') { inSingle = true; prevSig = '\'' }
-      else if (ch === '"') { inDouble = true; prevSig = '"' }
+      if (ch === '`') {
+        tmplStack.push(-1)
+        prevSig = ''
+      }
+      else if (ch === '\'') {
+        inSingle = true
+        prevSig = '\''
+      }
+      else if (ch === '"') {
+        inDouble = true
+        prevSig = '"'
+      }
       else if (ch === '/' && isRegexStart()) inRegex = true
       else if (!/\s/.test(ch)) prevSig = ch
     }
@@ -136,8 +169,14 @@ export function backtickRangesOnLine(line: string): Array<[number, number]> {
   let openTick = -1
   for (let k = 0; k < line.length; k++) {
     const ch = line[k]
-    if (esc) { esc = false; continue }
-    if (ch === '\\' && (inS || inD || openTick >= 0)) { esc = true; continue }
+    if (esc) {
+      esc = false
+      continue
+    }
+    if (ch === '\\' && (inS || inD || openTick >= 0)) {
+      esc = true
+      continue
+    }
     if (openTick >= 0) {
       if (ch === '`') {
         out.push([openTick, k])
@@ -145,8 +184,14 @@ export function backtickRangesOnLine(line: string): Array<[number, number]> {
       }
       continue
     }
-    if (inS) { if (ch === '\'') inS = false; continue }
-    if (inD) { if (ch === '"') inD = false; continue }
+    if (inS) {
+      if (ch === '\'') inS = false
+      continue
+    }
+    if (inD) {
+      if (ch === '"') inD = false
+      continue
+    }
     if (ch === '`') openTick = k
     else if (ch === '\'') inS = true
     else if (ch === '"') inD = true

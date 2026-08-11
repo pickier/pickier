@@ -33,7 +33,10 @@ export const linkImageStyleRule: RuleModule = {
           continue
         const line = lines[i]
         if (line.includes('<!--')) inHtmlCommentScan = true
-        if (line.includes('-->')) { inHtmlCommentScan = false; continue }
+        if (line.includes('-->')) {
+          inHtmlCommentScan = false
+          continue
+        }
         if (inHtmlCommentScan)
           continue
         if (/^\s*\[(?:[^\]]+)\]:\s*\S+/.test(line))

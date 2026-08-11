@@ -1,7 +1,6 @@
 import type { FormatOptions, LintOptions } from './types'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
-import process from 'node:process'
 import { formatCode } from './format'
 import { loadConfigFromPath } from './utils'
 

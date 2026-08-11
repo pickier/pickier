@@ -1,7 +1,6 @@
 import type { LintIssue, LintOptions, PickierConfig, PickierPlugin, RuleContext, RulesConfigMap } from './types'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'

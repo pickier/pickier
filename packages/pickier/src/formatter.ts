@@ -1,7 +1,6 @@
 import type { FormatOptions, LintIssue, PickierConfig, PickierPlugin, RulesConfigMap } from './types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
-import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
@@ -321,8 +320,10 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   // what was wrong. Mirror the linter's visible summary instead.
   if (changed > 0) {
     for (const file of unformatted)
+      // eslint-disable-next-line no-console
       console.log(colors.gray(`  ${file}`))
 
+    // eslint-disable-next-line no-console
     console.log(options.write
       ? colors.gray(`Formatted ${changed} of ${checked} file(s).`)
       : colors.yellow(`${changed} of ${checked} file(s) need formatting. Run with --write to fix.`))
@@ -330,6 +331,7 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   else {
     const isVerbose = options.verbose !== undefined ? options.verbose : cfg.verbose
     if (isVerbose)
+      // eslint-disable-next-line no-console
       console.log(colors.gray(`Checked ${checked} files, all formatted.`))
   }
 

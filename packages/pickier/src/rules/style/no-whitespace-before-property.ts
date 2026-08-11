@@ -36,7 +36,6 @@ export const noWhitespaceBeforePropertyRule: RuleModule = {
       SPACE_BEFORE_DOT_RE.lastIndex = 0
 
       while ((match = SPACE_BEFORE_DOT_RE.exec(line)) !== null) {
-        const charBefore = match[1]
         const dotIdx = match.index + match[0].indexOf('.')
 
         if (isInStringOrComment(line, match.index))

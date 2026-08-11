@@ -81,6 +81,7 @@ export const preferTemplate: RuleModule = {
           ruleId: 'general/prefer-template',
           message: 'Unexpected string concatenation. Use template literals instead',
           severity: 'warning',
+          // eslint-disable-next-line no-template-curly-in-string -- the example in this help text is the rule's own subject
           help: 'Use template literals (backticks) instead of string concatenation. Example: `hello ${name}!` instead of \'hello \' + name + \'!\'',
         })
       }

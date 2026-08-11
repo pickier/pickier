@@ -303,8 +303,14 @@ export const noUnusedVarsRule: RuleModule = {
               let kk = k + 1
               while (kk < s.length) {
                 const cc = s[kk]
-                if (cc === '\\') { kk += 2; continue }
-                if (cc === ']') { depth--; if (depth === 0) break }
+                if (cc === '\\') {
+                  kk += 2
+                  continue
+                }
+                if (cc === ']') {
+                  depth--
+                  if (depth === 0) break
+                }
                 kk++
               }
               k = kk
@@ -1844,8 +1850,14 @@ else {
       let openTick = -1
       for (let k = 0; k < line.length; k++) {
         const ch = line[k]
-        if (esc) { esc = false; continue }
-        if (ch === '\\' && (inS || inD || openTick >= 0)) { esc = true; continue }
+        if (esc) {
+          esc = false
+          continue
+        }
+        if (ch === '\\' && (inS || inD || openTick >= 0)) {
+          esc = true
+          continue
+        }
         if (openTick >= 0) {
           if (ch === '`') {
             out.push([openTick, k])
@@ -1853,8 +1865,14 @@ else {
           }
           continue
         }
-        if (inS) { if (ch === '\'') inS = false; continue }
-        if (inD) { if (ch === '"') inD = false; continue }
+        if (inS) {
+          if (ch === '\'') inS = false
+          continue
+        }
+        if (inD) {
+          if (ch === '"') inD = false
+          continue
+        }
         if (ch === '`') openTick = k
         else if (ch === '\'') inS = true
         else if (ch === '"') inD = true

@@ -23,7 +23,6 @@ export const noConstantConditionRule: RuleModule = {
         let match
         while ((match = pattern.exec(line)) !== null) {
           const keyword = match[1]
-          const value = match[2]
 
           // Skip if in comment
           if (line.substring(0, match.index).includes('//'))

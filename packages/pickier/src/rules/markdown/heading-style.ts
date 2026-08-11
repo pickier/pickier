@@ -105,7 +105,10 @@ export const headingStyleRule: RuleModule = {
           continue
         const line = lines[i]
         const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
-        if (/^#{1,6}\s/.test(line)) { target = 'atx'; break }
+        if (/^#{1,6}\s/.test(line)) {
+          target = 'atx'
+          break
+        }
         if (/^(?:=+|-+)\s*$/.test(nextLine) && line.trim().length > 0 && !inCode.has(i + 1)) {
           target = 'setext'
           break

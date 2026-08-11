@@ -66,8 +66,16 @@ function destructuringReassignsName(text: string, name: string): boolean {
   let escaped = false
   while (i < text.length) {
     const c = text[i]
-    if (escaped) { escaped = false; i++; continue }
-    if (c === '\\' && inStr) { escaped = true; i++; continue }
+    if (escaped) {
+      escaped = false
+      i++
+      continue
+    }
+    if (c === '\\' && inStr) {
+      escaped = true
+      i++
+      continue
+    }
     if (inStr) {
       if ((inStr === 'single' && c === '\'')
         || (inStr === 'double' && c === '"')
@@ -76,9 +84,21 @@ function destructuringReassignsName(text: string, name: string): boolean {
       i++
       continue
     }
-    if (c === '\'') { inStr = 'single'; i++; continue }
-    if (c === '"') { inStr = 'double'; i++; continue }
-    if (c === '`') { inStr = 'template'; i++; continue }
+    if (c === '\'') {
+      inStr = 'single'
+      i++
+      continue
+    }
+    if (c === '"') {
+      inStr = 'double'
+      i++
+      continue
+    }
+    if (c === '`') {
+      inStr = 'template'
+      i++
+      continue
+    }
     if (c === '[' || c === '{') {
       const open = c
       const close = c === '[' ? ']' : '}'
@@ -86,7 +106,10 @@ function destructuringReassignsName(text: string, name: string): boolean {
       let j = i + 1
       while (j < text.length && depth > 0) {
         const cj = text[j]
-        if (cj === '\\') { j += 2; continue }
+        if (cj === '\\') {
+          j += 2
+          continue
+        }
         if (cj === open) depth++
         else if (cj === close) depth--
         if (depth === 0) break

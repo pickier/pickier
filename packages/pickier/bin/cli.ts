@@ -1,7 +1,5 @@
 #!/usr/bin/env bun
 
-import process from 'node:process'
-
 // ---------------------------------------------------------------------------
 // Fast-path argv parsing for format / auto commands
 //
