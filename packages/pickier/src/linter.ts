@@ -228,19 +228,8 @@ export async function runLintProgrammatic(
     }
 
     if (options.fix) {
-      const dbgLine = /^\s*debugger\b/
-      let fixed = src
-      const dbgEnabled = cfg.rules.noDebugger === 'error' || cfg.rules.noDebugger === 'warn'
-      if (dbgEnabled) {
-        const parts = fixed.split(/\r?\n/)
-        const next: string[] = []
-        for (const ln of parts) {
-          if (dbgLine.test(ln))
-            continue
-          next.push(ln)
-        }
-        fixed = next.join('\n')
-      }
+      // Built-in fixer: remove debugger statement lines (same gates as the scan)
+      let fixed = removeDebuggerLines(file, src, cfg, suppress, commentLines)
       fixed = applyPluginFixes(file, fixed, cfg)
 
       // If content changed, re-scan the fixed version
@@ -876,7 +865,93 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
 }
 
 /**
+ * Remove `debugger` statement lines — the --fix half of the built-in
+ * `no-debugger` rule.
+ *
+ * Line-for-line mirror of the scan's gates, for the same reason
+ * `indentRuleApplies` exists (#1372): the fixer previously deleted any line
+ * matching /^\s*debugger\b/ in ANY file — yaml keys (`debugger: true`),
+ * markdown code examples, template-literal string content, block-comment
+ * text, and lines suppressed via disable directives — none of which the
+ * scan reports.
+ */
+function removeDebuggerLines(filePath: string, content: string, cfg: PickierConfig, suppress: DisableDirectives, commentLines: Set<number>): string {
+  const wantDebugger = cfg.rules.noDebugger === 'error' || cfg.rules.noDebugger === 'warn'
+  if (!wantDebugger || !content.includes('debugger'))
+    return content
+  // Same file gate as the scan's `skipCodeRules`.
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  const isShellFile = ext === 'sh' || ext === 'bash' || ext === 'zsh' || ext === 'ksh' || ext === 'dash'
+    || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)
+  if (ext === 'md' || ext === 'yaml' || ext === 'yml' || ext === 'json' || ext === 'jsonc' || isShellFile)
+    return content
+  const dbgLine = /^\s*debugger\b/
+  const linesInTemplate = templateLiteralLines(content)
+  const parts = content.split(/\r?\n/)
+  const next: string[] = []
+  let changed = false
+  for (let i = 0; i < parts.length; i++) {
+    const ln = parts[i]
+    const lineNo = i + 1
+    if (dbgLine.test(ln) && !commentLines.has(lineNo) && !linesInTemplate.has(lineNo) && !isSuppressed('no-debugger', lineNo, suppress)) {
+      changed = true
+      continue
+    }
+    next.push(ln)
+  }
+  return changed ? next.join('\n') : content
+}
+
+/**
+ * Whether the built-in `indent` rule applies to a file at all.
+ *
+ * Single gate shared by the scan (`scanContentOptimized`) and the `--fix`
+ * rewrite (`fixIndentLineLocal` call site). Keeping one predicate is the
+ * point: when the two sites carried separate hand-maintained conditions,
+ * `--fix` rewrote template files no diagnostic ever mentioned, left yaml
+ * warnings it advertised as fixable, and ignored `rules.indent: 'off'` (#1372).
+ *
+ * Exclusions:
+ *  - explicit opt-out via rules.indent / pluginRules.indent /
+ *    pluginRules['style/indent']
+ *  - markdown: lists, blockquotes, and continuation lines legitimately use
+ *    3-space and other non-multiple-of-indentSize widths per CommonMark
+ *  - templates (.stx/.html/.htm/.vue): markup and embedded scripts mix
+ *    indentation conventions, same reasoning as the quotes-rule skip
+ *  - yaml: indentation is semantic — rounding a line down to the nearest
+ *    stop would silently reparent keys
+ *  - shell: the shell plugin owns indentation (`shell/indent`) with a
+ *    structure-aware fixer; the line-local rounding here would fight it
+ */
+function indentRuleApplies(filePath: string, content: string, cfg: PickierConfig): boolean {
+  const setting
+    = (cfg.rules as any)?.indent
+      ?? (cfg.pluginRules as any)?.indent
+      ?? (cfg.pluginRules as any)?.['style/indent']
+  if (setting === 'off')
+    return false
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'md')
+    return false
+  if (ext === 'stx' || ext === 'html' || ext === 'htm' || ext === 'vue')
+    return false
+  if (ext === 'yaml' || ext === 'yml')
+    return false
+  if (ext === 'sh' || ext === 'bash' || ext === 'zsh' || ext === 'ksh' || ext === 'dash'
+    || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content))
+    return false
+  return true
+}
+
+/**
  * Line-local indent normalization that pairs with `hasIndentIssue`.
+ *
+ * Callers must gate on `indentRuleApplies` — this function is file-type
+ * agnostic and would happily rewrite yaml or markdown handed to it.
+ *
+ * Line gates mirror the scan (#1372): comment-only lines, template-literal
+ * content (string data — rewriting it changes runtime values), and lines
+ * suppressed via disable directives are left untouched.
  *
  * For each line whose leading whitespace would be flagged, rewrite just that
  * leading whitespace — never touch the rest of the line, never re-derive the
@@ -894,15 +969,17 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
  * past a valid stop, so the nearest valid stop ≤ current depth is the
  * least-surprising answer.
  */
-function fixIndentLineLocal(content: string, cfg: PickierConfig): string {
+function fixIndentLineLocal(content: string, cfg: PickierConfig, suppress: DisableDirectives, commentLines: Set<number>): string {
   const indentSize = cfg.format.indent
   const indentStyle = cfg.format.indentStyle
-  // Match the same fenced-code-block exclusion `scanContentOptimized` uses
-  // for markdown; non-md files don't have fences so this set stays empty.
+  const linesInTemplate = templateLiteralLines(content)
   const lines = content.split(/\r?\n/)
   let changed = false
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    const lineNo = i + 1
+    if (commentLines.has(lineNo) || linesInTemplate.has(lineNo) || isSuppressed('indent', lineNo, suppress))
+      continue
     let wsEnd = 0
     while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
       wsEnd++
@@ -1571,13 +1648,7 @@ export function scanContentOptimized(
     || filePath.endsWith('bun.lock')
   // Skip code-level rules for non-code files (markdown, yaml, etc.)
   const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc' || isShell
-  const indentRuleSetting
-    = (cfg.rules as any)?.indent
-      ?? (cfg.pluginRules as any)?.indent
-      ?? (cfg.pluginRules as any)?.['style/indent']
-  const indentDisabled = indentRuleSetting === 'off'
-  const isTemplate = fileExt === 'stx' || fileExt === 'html' || fileExt === 'htm' || fileExt === 'vue'
-  const shouldCheckIndent = !indentDisabled && !isMd && !isTemplate
+  const shouldCheckIndent = indentRuleApplies(filePath, content, cfg)
   let quotesReported = false
   const sevMap = (s: 'warn' | 'error' | 'off' | undefined): 'warning' | 'error' | undefined =>
     s === 'warn' ? 'warning' : s === 'error' ? 'error' : undefined
@@ -1602,7 +1673,7 @@ export function scanContentOptimized(
     }
   }
 
-  // Build a set of line numbers that are inside multi-line template literals
+  // Line numbers inside multi-line template literals (shared with --fix gates)
   const linesInTemplate = templateLiteralLines(content)
 
   for (let i = 0; i < lines.length; i++) {
@@ -1626,25 +1697,22 @@ export function scanContentOptimized(
         quotesReported = true
       }
     }
-    // indentation check: pass leading whitespace and line content for context
-    // Skip lines inside fenced code blocks in markdown (indentation is content, not style)
-    // Skip entirely for markdown — lists, blockquotes, and continuation lines
-    // legitimately use 3-space (ordered-list continuation) and other
-    // non-multiple-of-indentSize widths per CommonMark.
-    // Also skip template languages (.stx/.html/.vue) where mixed indentation
-    // between markup and embedded scripts is normal, and skip when the user
-    // has explicitly opted out via rules.indent / pluginRules.indent.
+    // indentation check: pass leading whitespace and line content for context.
+    // File-type and opt-out gating lives in indentRuleApplies (shared with the
+    // --fix path); fenced code blocks in markdown are content, not style.
     let wsEnd = 0
     while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
       wsEnd++
     const leading = wsEnd > 0 ? line.slice(0, wsEnd) : ''
-    if (shouldCheckIndent && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
+    if (shouldCheckIndent && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && !linesInTemplate.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }
 
-    // built-in lint rules (skip for non-code files like markdown, yaml, json)
-    if (!skipCodeRules && wantDebugger && debuggerStmt.test(line)) {
+    // built-in lint rules (skip for non-code files like markdown, yaml, json).
+    // Lines inside template literals are string content, not statements —
+    // reporting one would invite the fixer to change the string's value.
+    if (!skipCodeRules && wantDebugger && !linesInTemplate.has(lineNo) && debuggerStmt.test(line)) {
       if (!isSuppressed('no-debugger', lineNo, suppress))
         issues.push({ filePath, line: lineNo, column: 1, ruleId: 'no-debugger', message: 'Unexpected debugger statement', severity: wantDebugger, help: 'Remove debugger statements before committing code. Use breakpoints in your IDE instead, or run with --fix to auto-remove' })
     }
@@ -2133,20 +2201,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       }
 
       if (options.fix) {
-        // Built-in simple fixer: remove lines that are actual debugger statements (not in strings/comments)
-        const dbgLine = /^\s*debugger\b/
-        let fixed = src
-        const dbgEnabled = cfg.rules.noDebugger === 'error' || cfg.rules.noDebugger === 'warn'
-        if (dbgEnabled) {
-          const parts = fixed.split(/\r?\n/)
-          const next: string[] = []
-          for (const ln of parts) {
-            if (dbgLine.test(ln))
-              continue
-            next.push(ln)
-          }
-          fixed = next.join('\n')
-        }
+        // Built-in fixer: remove debugger statement lines (same gates as the scan)
+        let fixed = removeDebuggerLines(file, src, cfg, suppress, commentLines)
         // Apply plugin rule fixers
         fixed = applyPluginFixes(file, fixed, cfg)
         // Normalize leading whitespace on lines `hasIndentIssue` would flag.
@@ -2154,12 +2210,12 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
         // we don't try to re-derive indent levels from bracket counting (the
         // formatCode path does that and miscompiles JSDoc comments and
         // multi-line signatures), we just round each flagged line's leading
-        // whitespace to a value the linter would accept.
-        const fileExtForIndent = file.split('.').pop()?.toLowerCase() ?? ''
-        const isMdForIndent = fileExtForIndent === 'md'
-        const isShellForIndent = fileExtForIndent === 'sh' || fileExtForIndent === 'bash' || fileExtForIndent === 'zsh' || fileExtForIndent === 'ksh' || fileExtForIndent === 'dash'
-        if (!isMdForIndent && !isShellForIndent && fileExtForIndent !== 'yaml' && fileExtForIndent !== 'yml')
-          fixed = fixIndentLineLocal(fixed, cfg)
+        // whitespace to a value the linter would accept. Gated by the same
+        // predicate as the check, so --fix only rewrites what a plain lint
+        // run reports (#1372). Directives and comment lines are recomputed on
+        // the current content because plugin fixers may have shifted lines.
+        if (indentRuleApplies(file, fixed, cfg))
+          fixed = fixIndentLineLocal(fixed, cfg, parseDisableDirectives(fixed), getCommentLines(fixed))
 
         // If content changed, re-scan the fixed version
         if (fixed !== src) {
