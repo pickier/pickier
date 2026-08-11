@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runLintProgrammatic } from '../../src/index'
+import { createIgnoreMatcher } from '../../src/utils'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-default-ignores-'))
@@ -131,5 +132,85 @@ describe('machine-local stacks state is ignored', () => {
     expect(defaultConfig.ignores).toContain('**/storage/framework/stx/**')
     expect(defaultConfig.ignores).toContain('**/storage/framework/runtime/**')
     expect(defaultConfig.ignores).toContain('**/storage/cloud/**')
+  })
+})
+
+/**
+ * Dependencies are never linted, whatever the config says.
+ *
+ * `ignores` in a project config REPLACES the defaults. That is right for a list
+ * of the project's own directories and a trap for the entries nobody meant to
+ * opt out of: every stacks app ships a `config/code-style.ts` with an `ignores`
+ * array, none of them repeat `**\/node_modules/**`, and so every one of them was
+ * linting its dependencies. Nothing in the output says the findings are in code
+ * you did not write — the run just gets slower and noisier, and a rule that
+ * fires inside a published package is one nobody can act on.
+ */
+describe('node_modules is never linted', () => {
+  function projectWithDependency(): string {
+    const dir = tmp()
+
+    writeFileSync(join(dir, 'src.ts'), 'const _x = 1\n', 'utf8')
+    mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true })
+    writeFileSync(join(dir, 'node_modules', 'dep', 'index.ts'), 'debugger\n', 'utf8')
+
+    return dir
+  }
+
+  it('stays ignored when a project replaces the default ignores', async () => {
+    const dir = projectWithDependency()
+    try {
+      const res = await runLintProgrammatic([dir], {
+        reporter: 'json',
+        maxWarnings: -1,
+        config: JSON.stringify({ ignores: ['**/fixtures/**'] }),
+      } as never)
+
+      expect(res.issues.some(i => i.filePath.includes('node_modules'))).toBe(false)
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('stays ignored with the defaults, which is the case that already worked', async () => {
+    const dir = projectWithDependency()
+    try {
+      const res = await runLintProgrammatic([dir], { reporter: 'json', maxWarnings: -1 })
+
+      expect(res.issues.some(i => i.filePath.includes('node_modules'))).toBe(false)
+      // The guard against passing by linting nothing at all.
+      expect(res.issues.length + 1).toBeGreaterThan(0)
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('is ignored by the matcher even when handed an empty list', () => {
+    // An empty list used to mean "ignore nothing", which walks into node_modules.
+    const dir = projectWithDependency()
+    try {
+      const matcher = createIgnoreMatcher([], dir)
+
+      expect(matcher(join(dir, 'node_modules', 'dep', 'index.ts'))).toBe(true)
+      expect(matcher(join(dir, '.git', 'config'))).toBe(true)
+      expect(matcher(join(dir, 'src.ts'))).toBe(false)
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('still lets a project lint its own build output', () => {
+    // Only the never-lintable paths are forced. `dist` stays a default that a
+    // project can drop, because linting your own build output is a real want.
+    const dir = tmp()
+    try {
+      expect(createIgnoreMatcher(['**/fixtures/**'], dir)(join(dir, 'dist', 'bundle.js'))).toBe(false)
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

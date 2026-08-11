@@ -257,6 +257,29 @@ export const ENV: EnvConfig = {
 }
 
 /**
+ * Paths that are never anybody's source, and are therefore ignored no matter
+ * what a project's config says.
+ *
+ * A project that sets `ignores` REPLACES the defaults — which is what you want
+ * for a list of the project's own directories, and a trap for the two entries
+ * nobody meant to opt out of. Every stacks app ships a `config/code-style.ts`
+ * with an `ignores` array, so every stacks app was linting its dependencies:
+ * `node_modules` was in the defaults, the project list did not repeat it, and
+ * the defaults were gone. Nothing in the output says "these 40,000 findings are
+ * in code you did not write" — it just gets slower and noisier, and a rule that
+ * fires inside a published package is one nobody can act on.
+ *
+ * Deliberately just these. `dist`, `coverage`, `.github` and the rest stay
+ * overridable, because linting your own build output or your workflows is a
+ * reasonable thing to want. Nothing reasonable wants to lint `node_modules` or
+ * the object database in `.git`.
+ */
+export const ALWAYS_IGNORES: readonly string[] = [
+  '**/node_modules/**',
+  '**/.git/**',
+]
+
+/**
  * Universal ignore patterns that should apply everywhere.
  * These are always excluded regardless of project-specific config.
  */
@@ -526,6 +549,15 @@ function compileIgnoreGlobs(ignoreGlobs: readonly string[]): CompiledIgnorePatte
 }
 
 /**
+ * A project's ignore list, with the never-lintable paths guaranteed to be in
+ * it. See {@link ALWAYS_IGNORES}: a project that sets `ignores` replaces the
+ * defaults, and the two entries nobody meant to opt out of went with them.
+ */
+export function withAlwaysIgnores(ignores: readonly string[]): string[] {
+  return [...new Set([...ALWAYS_IGNORES, ...ignores])]
+}
+
+/**
  * Build a reusable matcher for ignore checks.
  *
  * File discovery may check the same ignore list tens of thousands of times, so
@@ -533,14 +565,16 @@ function compileIgnoreGlobs(ignoreGlobs: readonly string[]): CompiledIgnorePatte
  * glob strings for every path.
  */
 export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string = process.cwd()): IgnoreMatcher {
-  if (ignoreGlobs.length === 0)
-    return () => false
-
-  const compiled = compileIgnoreGlobs(ignoreGlobs)
+  // ALWAYS_IGNORES first, and not conditional on the caller passing anything:
+  // an empty list used to mean "ignore nothing", which walked straight into
+  // node_modules.
+  const compiled = compileIgnoreGlobs([...ALWAYS_IGNORES, ...ignoreGlobs])
   if (compiled.length === 0)
     return () => false
 
-  const universalRaw = new Set<string>(UNIVERSAL_IGNORES)
+  // Patterns that survive an outside-the-project scan, where a project's own
+  // `docs/**` or test globs must not be applied to arbitrary external paths.
+  const universalRaw = new Set<string>([...UNIVERSAL_IGNORES, ...ALWAYS_IGNORES])
 
   return (absPath: string): boolean => {
     const normalizedAbs = toPosixPath(absPath)

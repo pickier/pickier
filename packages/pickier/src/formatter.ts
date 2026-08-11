@@ -5,7 +5,7 @@ import process from 'node:process'
 import { Logger } from '@stacksjs/clarity'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
-import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
 let _logger: Logger | null = null
 function getLogger(): Logger {
@@ -238,8 +238,8 @@ export async function runFormat(globs: string[], options: FormatOptions): Promis
   })
 
   const globIgnores = isGlobbingOutsideProject
-    ? [...UNIVERSAL_IGNORES]
-    : cfg.ignores
+    ? withAlwaysIgnores(UNIVERSAL_IGNORES)
+    : withAlwaysIgnores(cfg.ignores)
   const ignoreMatcher = createIgnoreMatcher(globIgnores)
 
   let entries: string[] = []

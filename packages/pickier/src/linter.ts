@@ -7,7 +7,7 @@ import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
 import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
-import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
 let _logger: Logger | null = null
@@ -93,8 +93,8 @@ export async function runLintProgrammatic(
   })
 
   const globIgnores = isGlobbingOutsideProject
-    ? [...UNIVERSAL_IGNORES] // Use ALL universal ignores when outside project
-    : cfg.ignores
+    ? withAlwaysIgnores(UNIVERSAL_IGNORES) // Use ALL universal ignores when outside project
+    : withAlwaysIgnores(cfg.ignores)
   const ignoreMatcher = createIgnoreMatcher(globIgnores)
 
   let entries: string[] = []
@@ -1741,8 +1741,8 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
     })
 
     const globIgnores = isGlobbingOutsideProject
-      ? [...UNIVERSAL_IGNORES] // Use ALL universal ignores when outside project
-      : cfg.ignores
+      ? withAlwaysIgnores(UNIVERSAL_IGNORES) // Use ALL universal ignores when outside project
+      : withAlwaysIgnores(cfg.ignores)
     const ignoreMatcher = createIgnoreMatcher(globIgnores)
     if (enableDiagnostics) {
       getLogger().info(`[pickier:diagnostics] Globbing outside project: ${isGlobbingOutsideProject}, ignore patterns: ${globIgnores.length}`)
