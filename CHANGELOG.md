@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.53...v0.1.54)
+
+### 🐛 Bug Fixes
+
+- **markdown**: exclude whitespace-flanked asterisks from emphasis-style ([e85679a](https://github.com/pickier/pickier/commit/e85679a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.54 ([14fc58e](https://github.com/pickier/pickier/commit/14fc58e)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.52...v0.1.53)
 
 ### 🐛 Bug Fixes
