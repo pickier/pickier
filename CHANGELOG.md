@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.52...v0.1.53)
+
+### 🐛 Bug Fixes
+
+- **lint**: respect regex and template literal boundaries ([c5564ad](https://github.com/pickier/pickier/commit/c5564ad)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.1.53 ([03629ce](https://github.com/pickier/pickier/commit/03629ce)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.51...v0.1.52)
 
 ### 🐛 Bug Fixes
