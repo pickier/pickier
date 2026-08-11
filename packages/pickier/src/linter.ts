@@ -946,26 +946,226 @@ function fixIndentLineLocal(content: string, cfg: PickierConfig): string {
   return changed ? lines.join('\n') : content
 }
 
+/**
+ * Line numbers that fall inside a multi-line template literal.
+ *
+ * This has to lex, not count: a backtick inside a string, a comment or a regex
+ * is not a template delimiter. Counting them meant a single regex such as
+ * /`([^`]+)`/g — three backticks — inverted the answer for every line after it
+ * in the file, and quote checking then ran over template bodies.
+ */
+function templateLiteralLines(content: string): Set<number> {
+  const inside = new Set<number>()
+  if (!content.includes('`'))
+    return inside
+
+  // Each open template pushes a frame; `${` inside one pushes an interpolation
+  // frame, whose contents are code again and may open templates of their own.
+  const stack: Array<'template' | 'interpolation'> = []
+  let state: 'code' | 'single' | 'double' | 'line-comment' | 'block-comment' | 'regex' | 'regex-class' = 'code'
+  let line = 1
+  let lastSignificant = ''
+  let lineStart = 0
+
+  const inTemplate = (): boolean => stack[stack.length - 1] === 'template'
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i]
+    const next = content[i + 1]
+
+    if (ch === '\n') {
+      if (state === 'line-comment')
+        state = 'code'
+      line++
+      lineStart = i + 1
+      lastSignificant = ''
+      continue
+    }
+
+    if (inTemplate() && state === 'code')
+      inside.add(line)
+
+    switch (state) {
+      case 'single':
+      case 'double':
+        if (ch === '\\')
+          i++
+        else if ((state === 'single' && ch === '\'') || (state === 'double' && ch === '"'))
+          state = 'code'
+        continue
+
+      case 'line-comment':
+        continue
+
+      case 'block-comment':
+        if (ch === '*' && next === '/') {
+          i++
+          state = 'code'
+        }
+        continue
+
+      case 'regex':
+        if (ch === '\\')
+          i++
+        else if (ch === '[')
+          state = 'regex-class'
+        else if (ch === '/')
+          state = 'code'
+        continue
+
+      case 'regex-class':
+        if (ch === '\\')
+          i++
+        else if (ch === ']')
+          state = 'regex'
+        continue
+    }
+
+    // state === 'code', which is also the inside of a template literal body.
+    if (inTemplate()) {
+      if (ch === '\\') {
+        i++
+        continue
+      }
+      if (ch === '`') {
+        stack.pop()
+        continue
+      }
+      if (ch === '$' && next === '{') {
+        stack.push('interpolation')
+        i++
+        continue
+      }
+      continue
+    }
+
+    if (ch === '`') {
+      stack.push('template')
+      inside.add(line)
+      continue
+    }
+    if (ch === '\'') {
+      state = 'single'
+      continue
+    }
+    if (ch === '"') {
+      state = 'double'
+      continue
+    }
+    if (ch === '/' && next === '/') {
+      state = 'line-comment'
+      i++
+      continue
+    }
+    if (ch === '/' && next === '*') {
+      state = 'block-comment'
+      i++
+      continue
+    }
+    if (ch === '/' && isRegexStart(lastSignificant, content.slice(lineStart, i + 1), i - lineStart)) {
+      state = 'regex'
+      continue
+    }
+    if (ch === '}' && stack[stack.length - 1] === 'interpolation') {
+      stack.pop()
+      continue
+    }
+
+    if (!/\s/.test(ch))
+      lastSignificant = ch
+  }
+
+  return inside
+}
+
+/**
+ * The text inside the parentheses following `keyword`, respecting nesting.
+ *
+ * A `[^)]*` capture stops at the first `)`, which for
+ * `while ((m = re.exec(s)) !== null)` yields `(m = re.exec(s` — an assignment
+ * with no closing paren, and no way to tell it was parenthesised.
+ */
+function conditionText(line: string, keyword: RegExp): string | null {
+  const match = line.match(keyword)
+  if (!match || match.index === undefined)
+    return null
+
+  const open = match.index + match[0].length - 1
+  let depth = 0
+  for (let i = open; i < line.length; i++) {
+    if (line[i] === '(') {
+      depth++
+    }
+    else if (line[i] === ')') {
+      depth--
+      if (depth === 0)
+        return line.slice(open + 1, i)
+    }
+  }
+  return null
+}
+
+/**
+ * Drop parenthesised sub-expressions, keeping only what sits at the top level
+ * of the condition.
+ *
+ * This is what makes the rule's own advice true: an assignment wrapped in its
+ * own parentheses — `while ((m = re.exec(s)) !== null)`, the idiomatic exec
+ * loop — is deliberate and allowed, matching ESLint's `except-parens` default.
+ */
+function topLevelOnly(condition: string): string {
+  let result = ''
+  let depth = 0
+  for (const ch of condition) {
+    if (ch === '(') {
+      depth++
+      continue
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    if (depth === 0)
+      result += ch
+  }
+  return result
+}
+
 // Helper function to remove regex literals from a line
 function stripRegexLiterals(line: string): string {
   let result = ''
   let i = 0
   while (i < line.length) {
     // Check if we're at the start of a regex literal
-    if (line[i] === '/' && i > 0) {
-      // Look back to see if this could be a regex (after =, (, [, {, :, etc.)
+    if (line[i] === '/') {
+      // A comment is not a regex. Leave the rest of the line for stripComments,
+      // which knows how to keep string contents intact.
+      if (line[i + 1] === '/' || line[i + 1] === '*')
+        return result + line.slice(i)
+
+      // isRegexStart is the canonical test, and it accepts a regex that opens
+      // the line — an argument on its own line in a multi-line call. The
+      // lookbehind this replaced required a preceding operator, so it missed
+      // exactly that shape and left the regex body to be read as code.
       const before = line.slice(0, i).trimEnd()
-      // eslint-disable-next-line max-statements-per-line
-      const isRegexContext = /[=([{,:!&|?]$/.test(before) || /;$/.test(before) || before.endsWith('return')
-      if (isRegexContext) {
+      if (isRegexStart(before[before.length - 1] ?? '', line, i)) {
         // This looks like a regex literal, skip to the closing /
         i++ // skip opening /
+        // A `/` inside a character class is a literal slash, not the end of
+        // the regex — /[^/]+/ would otherwise terminate at the wrong place.
+        let inClass = false
         while (i < line.length) {
           if (line[i] === '\\') {
             i += 2 // skip escape sequence
             continue
           }
-          if (line[i] === '/') {
+          if (line[i] === '[') {
+            inClass = true
+          }
+          else if (line[i] === ']') {
+            inClass = false
+          }
+          else if (line[i] === '/' && !inClass) {
             i++ // skip closing /
             // skip any regex flags (g, i, m, etc.)
             while (i < line.length && /[gimsuvy]/.test(line[i])) {
@@ -1404,40 +1604,7 @@ export function scanContentOptimized(
   }
 
   // Build a set of line numbers that are inside multi-line template literals
-  const linesInTemplate = new Set<number>()
-  if (content.includes('`')) {
-    let inTemplate = false
-    let escaped = false
-    let currentLine = 1
-    for (let i = 0; i < content.length; i++) {
-      const ch = content[i]
-
-      if (escaped) {
-        escaped = false
-        if (ch === '\n')
-          currentLine++
-        continue
-      }
-
-      if (ch === '\\') {
-        escaped = true
-        continue
-      }
-
-      if (ch === '\n') {
-        currentLine++
-        continue
-      }
-
-      if (ch === '`') {
-        inTemplate = !inTemplate
-        continue
-      }
-
-      if (inTemplate)
-        linesInTemplate.add(currentLine)
-    }
-  }
+  const linesInTemplate = templateLiteralLines(content)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -1621,9 +1788,9 @@ export function scanContentOptimized(
           return km.index + km[0].length
         return Math.max(1, line.indexOf('(') + 1)
       }
-      const m1 = conditionLine.match(/\b(?:if|while)\s*\(([^)]*)\)/)
+      const m1 = conditionText(conditionLine, /\b(?:if|while)\s*\(/)
       if (m1) {
-        const cond = m1[1]
+        const cond = topLevelOnly(m1)
         if (checkCond(cond)) {
           if (!isSuppressed('no-cond-assign', lineNo, suppress)) {
             issues.push({
@@ -1638,12 +1805,11 @@ export function scanContentOptimized(
           }
         }
       }
-      const mFor = conditionLine.match(/\bfor\s*\(([^)]*)\)/)
+      const mFor = conditionText(conditionLine, /\bfor\s*\(/)
       if (mFor) {
-        const inside = mFor[1]
-        const parts = inside.split(';')
+        const parts = mFor.split(';')
         if (parts.length >= 2) {
-          const cond = parts[1]
+          const cond = topLevelOnly(parts[1])
           if (checkCond(cond)) {
             if (!isSuppressed('no-cond-assign', lineNo, suppress)) {
               issues.push({

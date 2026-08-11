@@ -57,6 +57,53 @@ describe('no-cond-assign', () => {
     expect(code).toBe(0)
   })
 
+  it('allows an assignment wrapped in its own parentheses', async () => {
+    const dir = tmp()
+    // The idiomatic regex-exec loop. The rule's own help text tells you to
+    // wrap intentional assignments in extra parentheses, so it has to honour
+    // that — ESLint's `except-parens` default.
+    const src = [
+      'let m: RegExpExecArray | null',
+      'const re = /a/g',
+      'while ((m = re.exec(\'aa\')) !== null) { break }',
+      'if ((m = re.exec(\'aa\'))) { }',
+      '',
+    ].join('\n')
+    writeFileSync(join(dir, 'parens.ts'), src, 'utf8')
+
+    const cfgPath = join(dir, 'pickier.config.json')
+    writeFileSync(cfgPath, JSON.stringify({
+      verbose: false,
+      ignores: [],
+      lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+      format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+      rules: { noDebugger: 'off', noConsole: 'off', noCondAssign: 'error' },
+    }, null, 2), 'utf8')
+
+    expect(await runLint([dir], { config: cfgPath, reporter: 'json' })).toBe(0)
+  })
+
+  it('still flags a bare assignment in a for condition', async () => {
+    const dir = tmp()
+    const src = [
+      'let j = 0',
+      'for (let i = 0; j = i; i++) { void i }',
+      '',
+    ].join('\n')
+    writeFileSync(join(dir, 'for.ts'), src, 'utf8')
+
+    const cfgPath = join(dir, 'pickier.config.json')
+    writeFileSync(cfgPath, JSON.stringify({
+      verbose: false,
+      ignores: [],
+      lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+      format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+      rules: { noDebugger: 'off', noConsole: 'off', noCondAssign: 'error' },
+    }, null, 2), 'utf8')
+
+    expect(await runLint([dir], { config: cfgPath, reporter: 'json' })).toBe(1)
+  })
+
   it('reports the column of the condition paren, not an earlier paren', () => {
     const src = 'foo(); if (x = 1) { }\n'
     const cfg = {
