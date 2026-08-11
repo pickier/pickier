@@ -1,3 +1,14 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.54...v0.1.55)
+
+## 🧹 Chores
+
+- release v0.1.55 ([98322dc](https://github.com/pickier/pickier/commit/98322dc)) _(by Chris <chrisbreuer93@gmail.com>)_
+- clear the repository's own lint findings ([1a1d0da](https://github.com/pickier/pickier/commit/1a1d0da)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.53...v0.1.54)
 
 ### 🐛 Bug Fixes
