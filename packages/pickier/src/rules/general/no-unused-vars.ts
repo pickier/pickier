@@ -1013,6 +1013,27 @@ else {
           // - If inside a brace pair AND the '{' directly followed ':' (object return type), continue to next line
           // - Otherwise, use the first '{' on this line (common case: no return type)
           if (foundIdx === -1) {
+            /*
+             * An unclosed `<` means the return type is still open, whatever
+             * else this line contained.
+             *
+             * A union written across lines inside a generic closes each of its
+             * object types on the line it opens:
+             *
+             *     ): Promise<
+             *       | { ok: true, value: T }
+             *       | { ok: false, reason: string }
+             *     > {
+             *
+             * so by the end of the second line the brace depth is back to zero
+             * and the fallback below took that line's `{` for the body. The
+             * body then read as one union member, every parameter looked
+             * unused, and `--fix` renamed them while the real body still used
+             * them.
+             */
+            if (bodyAngleDepth > 0)
+              continue
+
             if (bodyBraceDepth > 0 && TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
               // An open brace that began the return type, still unclosed when
               // the line ended: a multi-line object type. Keep reading.

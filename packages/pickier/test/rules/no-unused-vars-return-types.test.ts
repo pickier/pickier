@@ -142,6 +142,30 @@ describe('no-unused-vars and brace-carrying return types', () => {
     expect(await lint(source)).toBe(0)
   })
 
+  it('finds the body after a generic wrapping a union written across lines', async () => {
+    /*
+     * The shape a discriminated result takes once it has more than two fields:
+     * the members go on their own lines with a leading `|`, inside the
+     * `Promise<...>`. Every brace pair inside is complete before the body's
+     * `{`, and the scanner stopped at the first one - so the body read as
+     * empty and the parameter, used three times below, was reported unused.
+     */
+    const source = [
+      'export async function decide(input: { a: number }): Promise<',
+      '  | { ok: true, value: number }',
+      '  | { ok: false, reason: string }',
+      '> {',
+      '  if (input.a > 0)',
+      '    return { ok: true, value: input.a }',
+      '',
+      '  return { ok: false, reason: \'no\' }',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+
   it('still reports an unused parameter under a multi-line generic return type', async () => {
     const source = [
       'export async function paged(raw: unknown): Promise<{',
