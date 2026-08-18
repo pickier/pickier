@@ -1667,13 +1667,27 @@ else {
                   angleDepthBack--
                   continue
                 }
-                if (parenDepthBack === 0) {
+                if (parenDepthBack <= 0) {
                   isTypeSignature = true
                   break
                 }
                 continue
               }
-              if (ch === ':' && angleDepthBack === 0 && parenDepthBack === 0) {
+              /*
+               * `<= 0` rather than `=== 0`, and the difference is a whole shape
+               * of TypeScript: `header?: ((name: string) => string) | undefined`.
+               * Walking back from that inner `(` crosses the wrapping `(` first,
+               * which takes the depth to -1, and the colon that proves this is a
+               * type annotation is on the other side of it. Requiring depth 0
+               * meant the colon was never seen, the function type read as a
+               * value arrow, and its parameter - a name that is documentation in
+               * a type position and cannot be "used" by anything - was reported
+               * as unused. Negative depth means we are outside an enclosing
+               * paren, which is exactly where the annotation lives; positive
+               * depth means we are inside a balanced inner group, where a colon
+               * could belong to a ternary instead.
+               */
+              if (ch === ':' && angleDepthBack === 0 && parenDepthBack <= 0) {
                 isTypeSignature = true
                 break
               }

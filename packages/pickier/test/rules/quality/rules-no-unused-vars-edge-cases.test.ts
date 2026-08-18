@@ -233,4 +233,37 @@ describe('no-unused-vars edge cases (regression tests)', () => {
       expect(code).toBe(1) // unused should be flagged
     })
   })
+  describe('function types in a type position', () => {
+    /*
+     * A parameter name in a type is documentation. Nothing can use it, so
+     * "declared but never used" is a sentence that cannot be true about it - and
+     * a rule that reports it pushes people to rename their types' parameters to
+     * `_name`, which is worse than the code they started with.
+     */
+    it('does not flag a parameter of a parenthesized function type', async () => {
+      const dir = tmp()
+      const src = [
+        'export interface Requestish {',
+        '  headers?: { get?: ((name: string) => string | null) | undefined } | null',
+        '  header?: ((name: string) => string | null | undefined) | undefined',
+        '}',
+        '',
+      ].join('\n')
+      writeFileSync(join(dir, 'a.ts'), src, 'utf8')
+      const code = await runLint([dir], { config: makeConfig(dir), reporter: 'json' })
+      expect(code).toBe(0)
+    })
+
+    it('still flags a real arrow whose parameter is unused', async () => {
+      const dir = tmp()
+      const src = [
+        'const shout = (name: string) => "hello"',
+        'export const said = shout("world")',
+        '',
+      ].join('\n')
+      writeFileSync(join(dir, 'a.ts'), src, 'utf8')
+      const code = await runLint([dir], { config: makeConfig(dir), reporter: 'json' })
+      expect(code).toBe(1)
+    })
+  })
 })
