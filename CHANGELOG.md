@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.57...v0.1.58)
+
+## 🐛 Bug Fixes
+
+- **no-unused-vars**: a function type wrapped in its own parentheses ([424a736](https://github.com/pickier/pickier/commit/424a736)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.58 ([b4b5072](https://github.com/pickier/pickier/commit/b4b5072)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.56...v0.1.57)
 
 ## 🐛 Bug Fixes
