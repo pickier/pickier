@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.56...v0.1.57)
+
+## 🐛 Bug Fixes
+
+- **no-unused-vars**: a template literal nested inside another one ([c88d61b](https://github.com/pickier/pickier/commit/c88d61b)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **no-unused-vars**: a union written across lines inside a generic ([f58840d](https://github.com/pickier/pickier/commit/f58840d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.57 ([567454a](https://github.com/pickier/pickier/commit/567454a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.55...v0.1.56)
 
 ## 🐛 Bug Fixes
