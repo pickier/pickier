@@ -124,8 +124,31 @@ function scannerStartsRegex(text: string, at: number): boolean {
 export function maskCommentText(text: string): string {
   const out = text.split('')
   let index = 0
-  let inString: '\'' | '"' | '`' | null = null
+  let inString: '\'' | '"' | null = null
   let escaped = false
+
+  /*
+   * Template literals nest, and nothing else here does.
+   *
+   * ``  `'${value.replace(/'/g, `'\\''`)}'`  `` is one template inside
+   * another template's `${}`, which is ordinary in any code that quotes
+   * quotes - a shell-quoting helper is where it turns up first. Tracked with a
+   * single "am I in a string" flag, the inner backtick closes the *outer*
+   * template, every quote after it flips the state the wrong way, and the
+   * desync runs to the end of the file: a `//` inside a later template gets
+   * blanked as a comment, and the identifiers on that line disappear. The rule
+   * then calls a used parameter unused, and `--fix` renames it while the body
+   * keeps saying the old name.
+   *
+   * So a stack: `-1` is a template body, and a number is a `${}` expression
+   * holding its own brace depth. Inside a body only the backtick and `${`
+   * matter - a quote, a slash, a `//` are all literal text. Inside an
+   * expression everything behaves as it does at the top level, including
+   * another template.
+   */
+  const frames: number[] = []
+  const body = (): boolean => frames.length > 0 && frames[frames.length - 1] === -1
+  const expression = (): boolean => frames.length > 0 && frames[frames.length - 1]! >= 0
 
   const blank = (from: number, to: number): void => {
     for (let at = from; at < to && at < out.length; at += 1) {
@@ -146,14 +169,61 @@ export function maskCommentText(text: string): string {
         inString = null
       // A newline ends a quoted string whatever else is happening: an
       // apostrophe in prose must not swallow the rest of the file here either.
-      else if (character === '\n' && inString !== '`')
+      else if (character === '\n')
         inString = null
 
       index += 1
       continue
     }
 
-    if (character === '\'' || character === '"' || character === '`') {
+    if (body()) {
+      if (escaped) {
+        escaped = false
+      }
+      else if (character === '\\') {
+        escaped = true
+      }
+      else if (character === '`') {
+        frames.pop()
+      }
+      else if (character === '$' && text[index + 1] === '{') {
+        // A new frame rather than a flag on this one: the body underneath has
+        // to survive, or the closing brace pops out of the template entirely.
+        frames.push(0)
+        index += 1
+      }
+
+      index += 1
+      continue
+    }
+
+    if (character === '`') {
+      frames.push(-1)
+      index += 1
+      continue
+    }
+
+    if (expression()) {
+      if (character === '{') {
+        frames[frames.length - 1]! += 1
+        index += 1
+        continue
+      }
+
+      if (character === '}') {
+        const depth = frames[frames.length - 1]!
+
+        if (depth > 0)
+          frames[frames.length - 1] = depth - 1
+        else
+          frames.pop()
+
+        index += 1
+        continue
+      }
+    }
+
+    if (character === '\'' || character === '"') {
       inString = character
       index += 1
       continue
