@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.61...v0.1.62)
+
+## 🧪 Tests
+
+- stop the suite loading the repo's own pickier config ([3a1d091](https://github.com/pickier/pickier/commit/3a1d091)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.62 ([f80d5b1](https://github.com/pickier/pickier/commit/f80d5b1)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.60...v0.1.61)
 
 ## 🐛 Bug Fixes
