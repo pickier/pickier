@@ -1,10 +1,10 @@
-import type { FormatOptions, LintIssue, PickierConfig, PickierPlugin, RulesConfigMap } from './types'
+import type { FormatOptions, LintIssue, PickierConfig, PickierPlugin } from './types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { Logger } from '@stacksjs/clarity'
 import { formatCode } from './format'
 import { getAllPlugins } from './plugins'
-import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, isRuleOff, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
 let _logger: Logger | null = null
 function getLogger(): Logger {
@@ -38,8 +38,11 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 export function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
   const pluginDefs: Array<PickierPlugin> = getAllPlugins()
 
-  const rulesConfig: RulesConfigMap = (cfg.pluginRules || {}) as RulesConfigMap
-  const isRuleEnabled = (ruleId: string) => (rulesConfig as any)[ruleId] !== 'off'
+  // Fixers here run unless explicitly switched off, but the opt-out itself has
+  // to be found wherever the user wrote it — `rules` or `pluginRules`, under
+  // the qualified id or the bare rule name.
+  const isRuleEnabled = (pluginName: string, ruleName: string) =>
+    !isRuleOff(cfg, `${pluginName}/${ruleName}`) && !isRuleOff(cfg, ruleName)
 
   let current = content
   let changed = true
@@ -50,8 +53,7 @@ export function applyPluginFixes(filePath: string, content: string, cfg: Pickier
     passes++
     for (const plugin of pluginDefs) {
       for (const ruleName in plugin.rules) {
-        const fullRuleId = `${plugin.name}/${ruleName}`
-        if (!isRuleEnabled(fullRuleId))
+        if (!isRuleEnabled(plugin.name, ruleName))
           continue
         const rule = plugin.rules[ruleName]!
         if (!rule.fix)
@@ -76,7 +78,7 @@ export function applyFixes(filePath: string, content: string, cfg: PickierConfig
   const kept: string[] = []
   const debuggerStmt = /^\s*debugger\b/
   for (const line of lines) {
-    if (cfg.rules.noDebugger !== 'off' && debuggerStmt.test(line))
+    if (!isRuleOff(cfg, 'no-debugger') && !isRuleOff(cfg, 'noDebugger') && debuggerStmt.test(line))
       continue
     kept.push(line)
   }

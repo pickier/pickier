@@ -1,4 +1,4 @@
-import type { PickierConfig, PickierOptions, RulesConfigMap } from './types'
+import type { PickierConfig, PickierOptions, RuleSeverity, RulesConfigMap } from './types'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, isAbsolute, join, resolve } from 'node:path'
 import { defaultConfig } from './config'
@@ -356,6 +356,72 @@ export function getRuleSetting(rulesConfig: RulesConfigMap, ruleId: string): { e
     opts = raw[1]
   }
   return { enabled: !!sev, severity: sev, options: opts }
+}
+
+/**
+ * Normalize a raw rule config value into a severity.
+ *
+ * Accepts both the string form (`'error'`) and the array form
+ * (`['warn', options]`). Returns `'off'` for an explicit opt-out and
+ * `undefined` when the rule is not configured at all — the two are different
+ * answers, and only the caller knows what an unconfigured rule should default
+ * to (plugin rules default to disabled, built-in rules do not).
+ */
+export function normalizeRuleSeverity(raw: unknown): 'off' | 'warning' | 'error' | undefined {
+  const s = Array.isArray(raw) ? raw[0] : raw
+  if (typeof s !== 'string')
+    return undefined
+  if (s === 'off')
+    return 'off'
+  if (s === 'error')
+    return 'error'
+  if (s === 'warn' || s === 'warning')
+    return 'warning'
+  return undefined
+}
+
+/**
+ * The single severity gate every rule passes through before it runs.
+ *
+ * A rule is configurable from either config map — `rules` and `pluginRules`
+ * are both user-facing and people reasonably reach for whichever they saw
+ * first — and under any of its aliases: the id it reports as (`no-console`),
+ * the plugin-qualified id (`style/quotes`), or the legacy camelCase key the
+ * built-in scan was originally written against (`noConsole`). Pass the
+ * reported id first and aliases in descending priority; the first configured
+ * one wins, so an explicit `'no-console': 'off'` beats an inherited
+ * `noConsole: 'warn'`.
+ *
+ * Returns the severity issues should be reported at, or `undefined` when the
+ * rule is off — callers must not run a rule that resolves to `undefined`.
+ */
+export function resolveRuleSeverity(
+  cfg: Pick<PickierConfig, 'rules' | 'pluginRules'>,
+  ruleId: string,
+  aliases: string[] = [],
+  fallback?: RuleSeverity,
+): 'warning' | 'error' | undefined {
+  for (const id of [ruleId, ...aliases]) {
+    const configured
+      = normalizeRuleSeverity((cfg.rules as any)?.[id])
+        ?? normalizeRuleSeverity((cfg.pluginRules as any)?.[id])
+    if (configured)
+      return configured === 'off' ? undefined : configured
+  }
+  const def = normalizeRuleSeverity(fallback)
+  return def === 'off' ? undefined : def
+}
+
+/**
+ * True when a rule is explicitly switched off in either config map.
+ *
+ * Distinct from `resolveRuleSeverity`: this answers "did the user opt out?"
+ * for call sites whose default is enabled, where an unconfigured rule must
+ * keep running.
+ */
+export function isRuleOff(cfg: Pick<PickierConfig, 'rules' | 'pluginRules'>, ruleId: string): boolean {
+  return normalizeRuleSeverity((cfg.rules as any)?.[ruleId]) === 'off'
+    || normalizeRuleSeverity((cfg.pluginRules as any)?.[ruleId]) === 'off'
 }
 
 /**

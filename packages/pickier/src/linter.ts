@@ -6,7 +6,7 @@ import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
 import { getAllPlugins } from './plugins'
 import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
-import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
+import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, resolveRuleSeverity, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
 // Deferred logger — avoids constructor work on startup for format-only path
 let _logger: Logger | null = null
@@ -610,7 +610,14 @@ function getPluginDefinitions(cfg: PickierConfig): PickierPlugin[] {
 }
 
 function getRulesConfig(cfg: PickierConfig, pluginDefs: PickierPlugin[]): RulesConfigMap {
-  const rulesConfig: RulesConfigMap = { ...(cfg.pluginRules || {}) as RulesConfigMap }
+  // `rules` and `pluginRules` are both user-facing severity maps, and people
+  // reach for whichever they saw first. Only `pluginRules` ships defaults, so
+  // any plugin rule id appearing in `rules` was written by the user on
+  // purpose and outranks the default it is overriding (#1409).
+  const rulesConfig: RulesConfigMap = {
+    ...(cfg.pluginRules || {}) as RulesConfigMap,
+    ...(cfg.rules || {}) as unknown as RulesConfigMap,
+  }
   if (cfg.rules?.noUnusedCapturingGroup)
     rulesConfig['regexp/no-unused-capturing-group'] = cfg.rules.noUnusedCapturingGroup
 
@@ -625,11 +632,15 @@ function getRulesConfig(cfg: PickierConfig, pluginDefs: PickierPlugin[]): RulesC
       rulesConfig[target as keyof RulesConfigMap] = rulesConfig[alias as keyof RulesConfigMap]
   }
 
-  for (const key of Object.keys(cfg.pluginRules || {})) {
-    if (!key.includes('/')) {
+  // Bare rule names (`'prefer-const': 'off'`) apply to every plugin that
+  // owns a rule by that name, from either map.
+  for (const source of [cfg.pluginRules, cfg.rules]) {
+    for (const key of Object.keys(source || {})) {
+      if (key.includes('/'))
+        continue
       for (const p of pluginDefs) {
         if (p.rules && Object.prototype.hasOwnProperty.call(p.rules, key))
-          (rulesConfig as any)[`${p.name}/${key}`] = (cfg.pluginRules as any)[key]
+          (rulesConfig as any)[`${p.name}/${key}`] = (source as any)[key]
       }
     }
   }
@@ -869,14 +880,14 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
  * `no-debugger` rule.
  *
  * Line-for-line mirror of the scan's gates, for the same reason
- * `indentRuleApplies` exists (#1372): the fixer previously deleted any line
+ * `indentRuleSeverity` exists (#1372): the fixer previously deleted any line
  * matching /^\s*debugger\b/ in ANY file — yaml keys (`debugger: true`),
  * markdown code examples, template-literal string content, block-comment
  * text, and lines suppressed via disable directives — none of which the
  * scan reports.
  */
 function removeDebuggerLines(filePath: string, content: string, cfg: PickierConfig, suppress: DisableDirectives, commentLines: Set<number>): string {
-  const wantDebugger = cfg.rules.noDebugger === 'error' || cfg.rules.noDebugger === 'warn'
+  const wantDebugger = resolveRuleSeverity(cfg, 'no-debugger', ['noDebugger'])
   if (!wantDebugger || !content.includes('debugger'))
     return content
   // Same file gate as the scan's `skipCodeRules`.
@@ -923,30 +934,27 @@ function removeDebuggerLines(filePath: string, content: string, cfg: PickierConf
  *  - shell: the shell plugin owns indentation (`shell/indent`) with a
  *    structure-aware fixer; the line-local rounding here would fight it
  */
-function indentRuleApplies(filePath: string, content: string, cfg: PickierConfig): boolean {
-  const setting
-    = (cfg.rules as any)?.indent
-      ?? (cfg.pluginRules as any)?.indent
-      ?? (cfg.pluginRules as any)?.['style/indent']
-  if (setting === 'off')
-    return false
+function indentRuleSeverity(filePath: string, content: string, cfg: PickierConfig): 'warning' | 'error' | undefined {
+  const severity = resolveRuleSeverity(cfg, 'indent', ['style/indent'], 'warn')
+  if (!severity)
+    return undefined
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   if (ext === 'md')
-    return false
+    return undefined
   if (ext === 'stx' || ext === 'html' || ext === 'htm' || ext === 'vue')
-    return false
+    return undefined
   if (ext === 'yaml' || ext === 'yml')
-    return false
+    return undefined
   if (ext === 'sh' || ext === 'bash' || ext === 'zsh' || ext === 'ksh' || ext === 'dash'
     || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content))
-    return false
-  return true
+    return undefined
+  return severity
 }
 
 /**
  * Line-local indent normalization that pairs with `hasIndentIssue`.
  *
- * Callers must gate on `indentRuleApplies` — this function is file-type
+ * Callers must gate on `indentRuleSeverity` — this function is file-type
  * agnostic and would happily rewrite yaml or markdown handed to it.
  *
  * Line gates mirror the scan (#1372): comment-only lines, template-literal
@@ -1632,13 +1640,8 @@ export function scanContentOptimized(
   const isShell = fileExt === 'sh' || fileExt === 'bash' || fileExt === 'zsh'
     || fileExt === 'ksh' || fileExt === 'dash'
     || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)
-  // Honor explicit config opt-out: rules.quotes / pluginRules.quotes / pluginRules['style/quotes']
-  const quotesRuleSetting
-    = (cfg.rules as any)?.quotes
-      ?? (cfg.pluginRules as any)?.quotes
-      ?? (cfg.pluginRules as any)?.['style/quotes']
-  const quotesDisabled = quotesRuleSetting === 'off'
-  const skipQuotesCheck = quotesDisabled
+  const quotesSeverity = resolveRuleSeverity(cfg, 'quotes', ['style/quotes'], 'warn')
+  const skipQuotesCheck = !quotesSeverity
     || fileExt === 'json' || fileExt === 'jsonc' || fileExt === 'lock'
     || isMd || fileExt === 'yaml' || fileExt === 'yml'
     // .stx templates legitimately mix HTML attribute quotes (double) with JS
@@ -1648,14 +1651,16 @@ export function scanContentOptimized(
     || filePath.endsWith('bun.lock')
   // Skip code-level rules for non-code files (markdown, yaml, etc.)
   const skipCodeRules = isMd || fileExt === 'yaml' || fileExt === 'yml' || fileExt === 'json' || fileExt === 'jsonc' || isShell
-  const shouldCheckIndent = indentRuleApplies(filePath, content, cfg)
+  const indentSeverity = indentRuleSeverity(filePath, content, cfg)
   let quotesReported = false
-  const sevMap = (s: 'warn' | 'error' | 'off' | undefined): 'warning' | 'error' | undefined =>
-    s === 'warn' ? 'warning' : s === 'error' ? 'error' : undefined
-  const wantDebugger = sevMap(cfg.rules.noDebugger)
-  const wantConsole = sevMap(cfg.rules.noConsole)
-  const wantNoTemplateCurly = sevMap((cfg.rules as any).noTemplateCurlyInString)
-  const wantNoCondAssign = sevMap((cfg.rules as any).noCondAssign)
+  // Every built-in rule resolves its severity the same way plugin rules do:
+  // by reported id first, then the legacy camelCase key it used to read
+  // directly. `undefined` means off, so each gate below doubles as the
+  // opt-out check.
+  const wantDebugger = resolveRuleSeverity(cfg, 'no-debugger', ['noDebugger'])
+  const wantConsole = resolveRuleSeverity(cfg, 'no-console', ['noConsole'])
+  const wantNoTemplateCurly = resolveRuleSeverity(cfg, 'no-template-curly-in-string', ['noTemplateCurlyInString'])
+  const wantNoCondAssign = resolveRuleSeverity(cfg, 'no-cond-assign', ['noCondAssign'])
   const consoleCall = /\bconsole\.log\s*\(/
   const debuggerStmt = /^\s*debugger\b/
 
@@ -1692,21 +1697,21 @@ export function scanContentOptimized(
       const indices = detectQuoteIssues(strippedLine, preferredQuotes)
       if (indices.length > 0 && !quotesReported) {
         if (!isSuppressed('quotes', lineNo, suppress)) {
-          issues.push({ filePath, line: lineNo, column: (indices[0] || 0) + 1, ruleId: 'quotes', message: 'Inconsistent quote style', severity: 'warning', help: `Use ${preferredQuotes} quotes consistently throughout your code. You can change the preferred quote style in your config with format.quotes: '${preferredQuotes === 'single' ? 'double' : 'single'}'` })
+          issues.push({ filePath, line: lineNo, column: (indices[0] || 0) + 1, ruleId: 'quotes', message: 'Inconsistent quote style', severity: quotesSeverity, help: `Use ${preferredQuotes} quotes consistently throughout your code. You can change the preferred quote style in your config with format.quotes: '${preferredQuotes === 'single' ? 'double' : 'single'}'` })
         }
         quotesReported = true
       }
     }
     // indentation check: pass leading whitespace and line content for context.
-    // File-type and opt-out gating lives in indentRuleApplies (shared with the
+    // File-type and opt-out gating lives in indentRuleSeverity (shared with the
     // --fix path); fenced code blocks in markdown are content, not style.
     let wsEnd = 0
     while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
       wsEnd++
     const leading = wsEnd > 0 ? line.slice(0, wsEnd) : ''
-    if (shouldCheckIndent && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && !linesInTemplate.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
+    if (indentSeverity && leading.length > 0 && !linesInFencedCodeBlock.has(lineNo) && !linesInTemplate.has(lineNo) && hasIndentIssue(leading, cfg.format.indent, cfg.format.indentStyle, line)) {
       if (!isSuppressed('indent', lineNo, suppress))
-        issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: 'warning', help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
+        issues.push({ filePath, line: lineNo, column: 1, ruleId: 'indent', message: 'Incorrect indentation detected', severity: indentSeverity, help: `Use ${cfg.format.indentStyle === 'spaces' ? `${cfg.format.indent} spaces` : 'tabs'} for indentation. Configure with format.indent and format.indentStyle in your config` })
     }
 
     // built-in lint rules (skip for non-code files like markdown, yaml, json).
@@ -2214,7 +2219,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
         // predicate as the check, so --fix only rewrites what a plain lint
         // run reports (#1372). Directives and comment lines are recomputed on
         // the current content because plugin fixers may have shifted lines.
-        if (indentRuleApplies(file, fixed, cfg))
+        if (indentRuleSeverity(file, fixed, cfg))
           fixed = fixIndentLineLocal(fixed, cfg, parseDisableDirectives(fixed), getCommentLines(fixed))
 
         // If content changed, re-scan the fixed version
