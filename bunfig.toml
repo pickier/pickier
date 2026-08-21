@@ -6,3 +6,7 @@ linker = "hoisted"
 # Specify root directory for test discovery
 # When running `bun test` from root, only look in pickier package
 root = "./packages/pickier"
+# Keeps the suite off the repo's own .config/pickier.ts — see the preload for
+# why, and packages/pickier/bunfig.toml for the same wiring when `bun test`
+# is run from inside the package.
+preload = ["./packages/pickier/test/preload.ts"]

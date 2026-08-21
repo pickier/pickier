@@ -135,7 +135,7 @@ Tests are organized by functionality:
 - `test/plugin/`: Plugin system tests
 - `test/fixtures/`: Sample files for testing
 
-All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-loading config during tests.
+All tests use Bun's test runner. `PICKIER_NO_AUTO_CONFIG=1` is set for you by `packages/pickier/test/preload.ts` (wired up in both `bunfig.toml` files), so the suite never picks up the repo's own `.config/pickier.ts` — that config narrows `lint.extensions` and re-tunes severities, and a test that loaded it would fail for reasons unrelated to the code under test. Both `bun test` and `bun run test` work, from the repo root or from `packages/pickier`.
 
 ### Environment Variables
 
@@ -180,7 +180,7 @@ All tests use Bun's test runner. Set `PICKIER_NO_AUTO_CONFIG=1`to disable auto-l
 - The CLI supports `pickier run --mode auto`, `pickier run --mode lint`, or `pickier run --mode format` as well as `pickier lint` and `pickier format` as shorthand commands
 - When adding new rules, implement both `check` and `fix` (if applicable) in the appropriate plugin
 - Rule IDs follow `plugin/rule-name` convention but config also supports bare rule names for convenience
-- Tests must set `PICKIER_NO_AUTO_CONFIG=1` to avoid loading project config
+- Tests run with `PICKIER_NO_AUTO_CONFIG=1` (set automatically by the test preload) so the project config is never loaded
 
 ---
 
