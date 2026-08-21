@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.60...v0.1.61)
+
+## 🐛 Bug Fixes
+
+- **config**: a rule turned off in `rules` was never actually turned off ([897e0a5](https://github.com/pickier/pickier/commit/897e0a5)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.61 ([3851ac7](https://github.com/pickier/pickier/commit/3851ac7)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.59...v0.1.60)
 
 ## 🐛 Bug Fixes
