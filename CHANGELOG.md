@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.59...v0.1.60)
+
+## 🐛 Bug Fixes
+
+- **prefer-const**: `??=` reassigns, and --fix was breaking code that did ([0c2dee1](https://github.com/pickier/pickier/commit/0c2dee1)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.60 ([58e8ac2](https://github.com/pickier/pickier/commit/58e8ac2)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.58...v0.1.59)
 
 ## 🐛 Bug Fixes
