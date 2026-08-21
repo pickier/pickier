@@ -67,8 +67,25 @@ export const noSuperLinearBacktrackingRule: RuleModule = {
         continue
       }
       // Check 3: Nested unlimited quantifiers like (.+)+ or (?:...)+
-      // Only strip escaped parens (\( and \)) to avoid false positives, but keep other escapes
-      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(flat.replace(/\\[()]/g, '_'))) {
+      //
+      // Two normalizations happen first, and both exist to stop the pattern
+      // below from reading characters as syntax that the author wrote as text.
+      //
+      // Escapes go first. `\*`, `\+` and `\?` are literal characters, not
+      // quantifiers, and `\(`/`\)` are literal parens; collapsing every escape
+      // pair to one placeholder settles all of them together. Previously only
+      // `\(` and `\)` were collapsed, so a group opening on a literal asterisk
+      // — `/(\* @version `)[^`]*\(/`, a perfectly linear pattern — counted that
+      // asterisk as an unlimited quantifier inside the group and was reported.
+      //
+      // Then character classes collapse to a single atom, keeping whatever
+      // quantifier follows them. Working from `patt` rather than `flat` is the
+      // point: `flat` had already dropped the brackets and left the quantifier
+      // stranded against the preceding token, manufacturing a `)*` that appears
+      // nowhere in the source. Keeping the quantifier attached to the atom is
+      // what lets a genuinely nested `([a-z]+)+` still be caught.
+      const atoms = patt.replace(/\\./g, '_').replace(/\[[^\]]*\]/g, '_')
+      if (/\((?:\?:)?[^)]*?[+*][^)]*\)\s*[+*]/.test(atoms)) {
         mark(idx, literal.length, 'Nested unlimited quantifiers detected (e.g., (.+)+) which can cause catastrophic backtracking')
         continue
       }
