@@ -197,7 +197,13 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
     }
     const restStartIdx = text.indexOf(line)
     const rest = text.slice(restStartIdx + line.length)
-    const assignOps = ['=', '+=', '-=', '*=', '/=', '%=', '**=', '<<=', '>>=', '>>>=', '&=', '^=', '|=']
+    // Longest first, so an operator that is a prefix of another cannot claim
+    // the match: `&=` would otherwise shadow `&&=`. The three logical
+    // assignments were missing entirely, and this rule is auto-fixable — so
+    // `let cache: T | null = null` followed by `cache ??= build()` was reported
+    // as never reassigned and `--fix` rewrote it to `const`, turning working
+    // code into a TypeError on the next call.
+    const assignOps = ['>>>=', '**=', '<<=', '>>=', '??=', '||=', '&&=', '+=', '-=', '*=', '/=', '%=', '&=', '^=', '|=', '=']
     const assignPattern = `\\b${name}\\s*(?:${assignOps.map(op => op.replace(/[|\\^$*+?.(){}[\]]/g, r => `\\${r}`)).join('|')})`
     const directAssign = new RegExp(assignPattern).test(rest)
     // eslint-disable-next-line no-useless-escape
