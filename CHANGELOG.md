@@ -1,3 +1,20 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.58...v0.1.59)
+
+## 🐛 Bug Fixes
+
+- **regexp**: an escaped asterisk is a character, not a quantifier ([d0b24e8](https://github.com/pickier/pickier/commit/d0b24e8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **pkg**: point types at the declaration the build emits ([9ccb29a](https://github.com/pickier/pickier/commit/9ccb29a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.59 ([99f33c8](https://github.com/pickier/pickier/commit/99f33c8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **deps**: dtsx 0.11.10 ([eb86671](https://github.com/pickier/pickier/commit/eb86671)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **deps**: dtsx 0.11.8, for declarations that parse ([3458e8f](https://github.com/pickier/pickier/commit/3458e8f)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.57...v0.1.58)
 
 ## 🐛 Bug Fixes
