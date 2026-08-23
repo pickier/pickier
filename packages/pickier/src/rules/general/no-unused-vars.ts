@@ -852,6 +852,49 @@ else {
       const cleaned = stripTypes(withoutDefaults)
       return cleaned.split(/[^$\w]+/).filter(name => name && name !== 'undefined')
     }
+    /*
+     * Whether a signature that ends here has no body - a TypeScript overload
+     * declaration, or an ambient/interface method.
+     *
+     * `findBodyRange` scans forward for the next `{`, and an overload has none
+     * of its own, so it used to find the IMPLEMENTATION's body and check the
+     * overload's parameters against it. An overload's parameter names do not
+     * have to match the implementation's - that is the whole point of an
+     * overload - so any name that differed was reported as unused, on a
+     * signature that has no body to use anything in. TypeScript never reports
+     * these, and neither should this.
+     *
+     * The signal is what comes between the closing paren and that `{`: if a new
+     * declaration starts first, the `{` belongs to it and not to us.
+     */
+    const signatureHasNoBody = (closeLine: number, closeCol: number): boolean => {
+      const startsDeclaration = /^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\b|class\b|const\b|let\b|var\b|interface\b|type\b)/
+
+      for (let ln = closeLine; ln < lines.length; ln++) {
+        const text = ln === closeLine ? lines[ln].slice(closeCol + 1) : lines[ln]
+        const code = text.replace(/\/\/.*$/, '')
+
+        /*
+         * The next declaration beginning, checked BEFORE the brace, because
+         * that line usually contains one - the implementation's own body, or
+         * even a default like `p: Opts = {}` in its parameter list. Reading
+         * that brace as "our body opened" is what let the overload through.
+         * A line that starts a declaration cannot be a continuation of our
+         * return type, so reaching one means our signature ended unterminated.
+         */
+        if (ln !== closeLine && startsDeclaration.test(code))
+          return true
+        // Our own body opened: there IS one.
+        if (code.includes('{'))
+          return false
+        // An explicit terminator: there is not.
+        if (code.includes(';'))
+          return true
+      }
+
+      return true
+    }
+
     const findBodyRange = (startLine: number, startColFrom?: number): { from: number, to: number } | null => {
       let openFound = false
       let depth = 0
@@ -1573,6 +1616,11 @@ else {
         }
 
         if (closeParenIdx === -1)
+          continue
+
+        // An overload declaration has no body of its own, so there is nothing
+        // its parameters could be used in. See `signatureHasNoBody`.
+        if (signatureHasNoBody(closeParenLine, closeParenIdx))
           continue
 
         // Extract parameters from the collected parameter string
