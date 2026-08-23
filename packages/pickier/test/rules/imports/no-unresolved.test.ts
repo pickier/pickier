@@ -16,7 +16,7 @@ function cfg(dir: string) {
     lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
     format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
     rules: { noDebugger: 'off', noConsole: 'off' },
-    pluginRules: { 'pickier/import-no-unresolved': 'error', 'pickier/no-unused-vars': 'off' },
+    pluginRules: { 'pickier/no-unused-imports': 'off', 'pickier/import-no-unresolved': 'error', 'pickier/no-unused-vars': 'off' },
   }, null, 2), 'utf8')
   return cfgPath
 }

@@ -15,7 +15,7 @@ function createConfig(ruleName: string) {
     lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
     format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
     rules: { noDebugger: 'off', noConsole: 'off' },
-    pluginRules: { [ruleName]: 'error', 'no-unused-vars': 'off', 'quotes': 'off' },
+    pluginRules: { 'pickier/no-unused-imports': 'off', [ruleName]: 'error', 'no-unused-vars': 'off', 'quotes': 'off' },
   }
 }
 

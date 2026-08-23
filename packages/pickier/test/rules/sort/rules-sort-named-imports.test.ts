@@ -26,7 +26,7 @@ describe('pickier/sort-named-imports', () => {
       format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
       rules: { noDebugger: 'off', noConsole: 'off' },
       plugins: [{ name: 'pickier', rules: {} }],
-      pluginRules: { 'pickier/sort-named-imports': ['warn', { type: 'alphabetical', order: 'asc' }] },
+      pluginRules: { 'pickier/no-unused-imports': 'off', 'pickier/sort-named-imports': ['warn', { type: 'alphabetical', order: 'asc' }] },
     }, null, 2), 'utf8')
 
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
@@ -50,7 +50,7 @@ describe('pickier/sort-named-imports', () => {
       format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
       rules: { noDebugger: 'off', noConsole: 'off' },
       plugins: [{ name: 'pickier', rules: {} }],
-      pluginRules: { 'pickier/sort-named-imports': ['warn', { ignoreAlias: true }] },
+      pluginRules: { 'pickier/no-unused-imports': 'off', 'pickier/sort-named-imports': ['warn', { ignoreAlias: true }] },
     }, null, 2), 'utf8')
 
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })

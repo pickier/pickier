@@ -34,7 +34,7 @@ describe('pickier/sort-imports', () => {
       format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
       rules: { noDebugger: 'off', noConsole: 'off' },
       plugins: [{ name: 'pickier', rules: {} }],
-      pluginRules: { 'pickier/sort-imports': 'warn' },
+      pluginRules: { 'pickier/no-unused-imports': 'off', 'pickier/sort-imports': 'warn' },
     }, null, 2), 'utf8')
 
     const lintCode = await runLint([dir], { config: cfgPath, reporter: 'json' })

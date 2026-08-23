@@ -81,6 +81,7 @@ export const defaultConfig: PickierConfig = {
     'pickier/prefer-const': 'error',
     'pickier/prefer-template': 'warn',
     'pickier/no-unused-vars': 'error',
+    'pickier/no-unused-imports': 'error',
     'pickier/sort-tailwind-classes': 'warn',
     'regexp/no-unused-capturing-group': 'error',
     'regexp/no-super-linear-backtracking': 'error',

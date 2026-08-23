@@ -5,6 +5,7 @@ import { preferConstRule } from '../rules/general/prefer-const'
 import { preferTemplate } from '../rules/general/prefer-template'
 import { firstRule } from '../rules/imports/first'
 import { importDedupeRule } from '../rules/imports/import-dedupe'
+import { noUnusedImportsRule } from '../rules/imports/no-unused-imports'
 import { namedRule } from '../rules/imports/named'
 import { noCycleRule } from '../rules/imports/no-cycle'
 import { noDuplicateImportsRule } from '../rules/imports/no-duplicate-imports'
@@ -34,6 +35,7 @@ export const pickierPlugin: PickierPlugin = {
 
     // Import rules
     'import-dedupe': codeOnly(importDedupeRule),
+    'no-unused-imports': codeOnly(noUnusedImportsRule),
     'import-first': codeOnly(firstRule),
     'import-named': codeOnly(namedRule),
     'import-no-cycle': codeOnly(noCycleRule),
