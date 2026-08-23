@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.62...v0.1.63)
+
+## 🐛 Bug Fixes
+
+- **no-unused-vars**: stop reporting parameters of overload signatures ([1a34991](https://github.com/pickier/pickier/commit/1a34991)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.63 ([9a0b386](https://github.com/pickier/pickier/commit/9a0b386)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.61...v0.1.62)
 
 ## 🧪 Tests
