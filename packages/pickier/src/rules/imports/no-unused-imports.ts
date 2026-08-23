@@ -146,15 +146,20 @@ export const noUnusedImportsRule: RuleModule = {
       /*
        * A `import` STATEMENT, not `import(…)` or `import.meta`.
        *
-       * `/^\s*import\b/` matched a dynamic import too, and the damage was not
-       * a spurious binding: the scan then ran forward looking for a `from`
-       * clause that a call expression does not have, swallowing dozens of real
-       * lines as "part of the import" and blanking them out of the search body.
-       * Every genuinely-used name in that stretch then read as unused. One
-       * `import('@stacksjs/logging').then(…)` in the middle of a file was
-       * enough to make it report imports the file uses six times.
+       * Two lookaheads, and both were learned the same way. `/^\s*import\b/`
+       * matched a dynamic import, and `/^\s*import\s*(?![(.])/` matched a
+       * line beginning `imports.push(…)` - a perfectly ordinary local named
+       * `imports`, which is what a file that BUILDS import statements calls
+       * its accumulator.
+       *
+       * The damage in both cases is not a spurious binding: the scan then runs
+       * forward looking for a `from` clause that is not there, swallows dozens
+       * of real lines as "part of the import", and blanks them out of the
+       * search body. Every genuinely-used name in that stretch then reads as
+       * unused. One such line mid-file was enough to report imports a file
+       * uses six times.
        */
-      if (!/^\s*import\s*(?![(.])/.test(lines[i]))
+      if (!/^\s*import(?![\w$])\s*(?![(.])/.test(lines[i]))
         continue
 
       /*

@@ -6,16 +6,18 @@
  * indefinitely with nothing referring to it.
  *
  * Most of what is pinned here is not "does it find the unused one". It is the
- * three ways an early version of this rule reported imports that were being
+ * four ways an early version of this rule reported imports that were being
  * used, which is the failure mode that matters: acting on this rule's output
  * means deleting a line, so a false positive breaks a build.
  *
- *   1. A dynamic `import('x').then(…)` read as an import STATEMENT. The scan
- *      then ran forward looking for a `from` clause a call expression does not
- *      have, swallowed dozens of real lines as "part of the import", and every
- *      genuinely-used name in that stretch reported as unused. One such call in
- *      the middle of a file was enough to produce 116 false positives across
- *      one repository.
+ *   1. A dynamic `import('x').then(…)` read as an import STATEMENT, and - the
+ *      same mistake one lookahead further on - a line beginning
+ *      `imports.push(…)`, which is what a file that BUILDS import statements
+ *      calls its accumulator. The scan then ran forward looking for a `from`
+ *      clause that is not there, swallowed dozens of real lines as "part of
+ *      the import", and every genuinely-used name in that stretch reported as
+ *      unused. One such line mid-file was enough to produce 116 false
+ *      positives across one repository.
  *   2. `\b` boundaries, which are defined in terms of `\w` and so cannot see
  *      `$` as part of a name - `` import { $ } from 'bun' `` followed by
  *      `` await $`echo hi` `` read as unused.
@@ -248,5 +250,46 @@ describe('no-unused-imports: the false positives that made it dangerous', () => 
     ].join('\n')
 
     expect(await lint(source)).toBe(0)
+  })
+})
+
+describe('no-unused-imports: a line that merely starts with the letters "import"', () => {
+  it('does not treat `imports.push(…)` as an import statement', async () => {
+    /*
+     * `imports` is what a file that BUILDS import statements calls its
+     * accumulator, and `/^\s*import\s*(?![(.])/` matched it. The scan then ran
+     * on looking for a `from` clause, swallowed the lines below it, and
+     * reported `componentsPath` - used twice inside those template literals -
+     * as unused.
+     */
+    const source = [
+      'import { componentsPath } from \'a\'',
+      '',
+      'export function build(tags: string[]): string[] {',
+      '  const imports: string[] = []',
+      '  for (const tag of tags)',
+      '    imports.push(`import ${tag} from \'${componentsPath(tag)}.stx\'`)',
+      '  return imports',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(0)
+  })
+
+  it('still reports a genuinely unused import in such a file', async () => {
+    const source = [
+      'import { componentsPath, unused } from \'a\'',
+      '',
+      'export function build(tags: string[]): string[] {',
+      '  const imports: string[] = []',
+      '  for (const tag of tags)',
+      '    imports.push(`import ${tag} from \'${componentsPath(tag)}.stx\'`)',
+      '  return imports',
+      '}',
+      '',
+    ].join('\n')
+
+    expect(await lint(source)).toBe(1)
   })
 })
