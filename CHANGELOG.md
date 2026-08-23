@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.64...v0.1.65)
+
+## 🐛 Bug Fixes
+
+- **no-unused-imports**: do not read `imports.push(…)` as an import statement ([2291418](https://github.com/pickier/pickier/commit/2291418)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.65 ([c46708b](https://github.com/pickier/pickier/commit/c46708b)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.63...v0.1.64)
 
 ## 🚀 Features
