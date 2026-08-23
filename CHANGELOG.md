@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.63...v0.1.64)
+
+## 🚀 Features
+
+- **no-unused-imports**: report imports nothing uses ([360ee7e](https://github.com/pickier/pickier/commit/360ee7e)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.64 ([90bfd47](https://github.com/pickier/pickier/commit/90bfd47)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.62...v0.1.63)
 
 ## 🐛 Bug Fixes
