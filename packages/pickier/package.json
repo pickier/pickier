@@ -81,9 +81,9 @@
     "@stacksjs/clapp": "^0.2.3"
   },
   "optionalDependencies": {
-    "@stacksjs/ts-spell-check": "^0.1.0"
+    "@stacksjs/ts-spell-check": "^0.1.1"
   },
   "devDependencies": {
-    "bunfig": "^0.15.13"
+    "bunfig": "^0.15.19"
   }
 }
