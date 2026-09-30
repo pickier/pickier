@@ -23,7 +23,7 @@
     },
     "packages/pickier": {
       "name": "pickier",
-      "version": "0.1.58",
+      "version": "0.1.65",
       "bin": {
         "pickier": "./dist/bin/cli.js",
       },
@@ -40,7 +40,7 @@
     },
     "packages/vscode": {
       "name": "pickier-vscode",
-      "version": "0.1.58",
+      "version": "0.1.65",
       "dependencies": {
         "pickier": "workspace:*",
       },
@@ -53,7 +53,7 @@
     },
     "packages/zig": {
       "name": "@pickier/zig",
-      "version": "0.1.58",
+      "version": "0.1.65",
     },
   },
   "overrides": {
