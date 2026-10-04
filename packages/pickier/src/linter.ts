@@ -62,6 +62,33 @@ export async function lintText(
   return issues
 }
 
+/**
+ * The text `pickier --fix` would write for a file with this content.
+ *
+ * `runLint` reads and writes files; an editor needs the same fixes applied to
+ * an unsaved buffer and handed back as text. This is that, and `runLint`
+ * calls it too, so a fix-all in an editor and `pickier --fix` on disk cannot
+ * drift apart.
+ */
+export function fixText(text: string, cfg: PickierConfig, filePath = 'untitled'): string {
+  // Built-in fixer: remove debugger statement lines (same gates as the scan)
+  let fixed = removeDebuggerLines(filePath, text, cfg, parseDisableDirectives(text), getCommentLines(text))
+  // Apply plugin rule fixers
+  fixed = applyPluginFixes(filePath, fixed, cfg)
+  // Normalize leading whitespace on lines `hasIndentIssue` would flag.
+  // This is a line-local rewrite that mirrors the lint check exactly —
+  // we don't try to re-derive indent levels from bracket counting (the
+  // formatCode path does that and miscompiles JSDoc comments and
+  // multi-line signatures), we just round each flagged line's leading
+  // whitespace to a value the linter would accept. Gated by the same
+  // predicate as the check, so --fix only rewrites what a plain lint
+  // run reports (#1372). Directives and comment lines are recomputed on
+  // the current content because plugin fixers may have shifted lines.
+  if (indentRuleSeverity(filePath, fixed, cfg))
+    fixed = fixIndentLineLocal(fixed, cfg, parseDisableDirectives(fixed), getCommentLines(fixed))
+  return fixed
+}
+
 // Programmatic batch lint returning structured result, with optional cancellation
 export async function runLintProgrammatic(
   globs: string[],
@@ -2206,21 +2233,7 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       }
 
       if (options.fix) {
-        // Built-in fixer: remove debugger statement lines (same gates as the scan)
-        let fixed = removeDebuggerLines(file, src, cfg, suppress, commentLines)
-        // Apply plugin rule fixers
-        fixed = applyPluginFixes(file, fixed, cfg)
-        // Normalize leading whitespace on lines `hasIndentIssue` would flag.
-        // This is a line-local rewrite that mirrors the lint check exactly —
-        // we don't try to re-derive indent levels from bracket counting (the
-        // formatCode path does that and miscompiles JSDoc comments and
-        // multi-line signatures), we just round each flagged line's leading
-        // whitespace to a value the linter would accept. Gated by the same
-        // predicate as the check, so --fix only rewrites what a plain lint
-        // run reports (#1372). Directives and comment lines are recomputed on
-        // the current content because plugin fixers may have shifted lines.
-        if (indentRuleSeverity(file, fixed, cfg))
-          fixed = fixIndentLineLocal(fixed, cfg, parseDisableDirectives(fixed), getCommentLines(fixed))
+        const fixed = fixText(src, cfg, file)
 
         // If content changed, re-scan the fixed version
         if (fixed !== src) {
