@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.65...v0.1.66)
+
+## 🚀 Features
+
+- fixText, the fixes `--fix` writes, for text in memory ([1262ecc](https://github.com/pickier/pickier/commit/1262ecc)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#2020](https://github.com/pickier/pickier/issues/2020))
+
+## 🧹 Chores
+
+- release v0.1.66 ([ae5d3c8](https://github.com/pickier/pickier/commit/ae5d3c8)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.64...v0.1.65)
 
 ## 🐛 Bug Fixes
