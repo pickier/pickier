@@ -1,5 +1,6 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 import type { RuleModule } from '../../types'
+import { lexSource, lineStartsInTemplate as lineStartsInTemplateBody, maskComments, maskSource } from '../../lexer'
 
 /**
  * Characters that mean a `{` continues a type annotation rather than opening a
@@ -32,70 +33,20 @@ const TYPE_CONTINUATION = new Set(['|', '&', ':', ',', '<'])
  * points where it did; and a name that appears only in a comment is now
  * correctly not a use, which is what the rule meant all along.
  *
- * Regex literals are tracked for the same reason strings are. A pattern that
- * ends in an escaped slash closes with `\/` immediately followed by the real
- * delimiter, and a scanner that does not know it is inside a regex reads that
- * pair as the start of a line comment:
- *
- *     return /^https?:\/\//.test(baseUrl) ? baseUrl : `https://${baseUrl}`
- *
- * Everything from `//` onwards was blanked, all three uses of `baseUrl`
- * disappeared, and the rule called a working parameter unused — then the
- * autofix renamed it to `_baseUrl` and left the body referencing `baseUrl`,
- * turning a false positive into a runtime error.
+ * Finding the comments is the shared lexer's job ({@link maskComments}): it
+ * is the one place that knows a regex ending in `\/` is not a line comment, a
+ * template nested in `${}` is not the end of its parent, and a backtick or an
+ * apostrophe inside a comment is prose. This used to be a scanner of its own
+ * here, and every rule that had one got a different subset of that wrong.
  */
-/**
- * Tokens after which a `/` opens a regex literal rather than dividing.
- *
- * Division only follows a value: an identifier, a literal, or a closing
- * bracket. Everything else is an expression position, so `/` starts a pattern.
- */
-const REGEX_PRECEDING = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '<', '>', '~', '^'])
-
-/** Keywords a regex may directly follow, where the previous char is a letter. */
-const REGEX_KEYWORDS = ['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'case', 'do', 'else', 'yield', 'await']
-
-/**
- * Whether the `/` at `at` begins a regex literal.
- *
- * Looks back past whitespace to the last significant character. A letter or
- * digit there usually means division, unless it terminates one of the keywords
- * above.
- */
-function startsRegex(text: string, at: number): boolean {
-  let back = at - 1
-  while (back >= 0 && /\s/.test(text[back]!))
-    back -= 1
-
-  if (back < 0)
-    return true
-
-  const previous = text[back]!
-  if (REGEX_PRECEDING.has(previous))
-    return true
-
-  if (/[\w$)\]]/.test(previous)) {
-    // `)`/`]`/identifier/number is a value, so `/` divides — except after a
-    // keyword, where it opens a pattern.
-    if (/[\w$]/.test(previous)) {
-      let start = back
-      while (start >= 0 && /[\w$]/.test(text[start]!))
-        start -= 1
-
-      const word = text.slice(start + 1, back + 1)
-      return REGEX_KEYWORDS.includes(word)
-    }
-
-    return false
-  }
-
-  return true
+export function maskCommentText(text: string): string {
+  return maskComments(text)
 }
 
 /**
  * Whether a `/` at `at` in `text` can open a regex, for the line scanners below.
  *
- * Looser than {@link startsRegex}, and deliberately kept that way: these
+ * Looser than the shared lexer, and deliberately kept that way: these
  * scanners are string-and-brace counters rather than parsers, and widening what
  * they treat as a pattern makes them misread ordinary code (a `/` after a
  * backtick is a closing delimiter, not an opening one). This adds the single
@@ -119,168 +70,6 @@ function scannerStartsRegex(text: string, at: number): boolean {
     || /[=([{,:;!&|?]$/.test(before)
     || before.endsWith('=>')
     || before.endsWith('return')
-}
-
-export function maskCommentText(text: string): string {
-  const out = text.split('')
-  let index = 0
-  let inString: '\'' | '"' | null = null
-  let escaped = false
-
-  /*
-   * Template literals nest, and nothing else here does.
-   *
-   * ``  `'${value.replace(/'/g, `'\\''`)}'`  `` is one template inside
-   * another template's `${}`, which is ordinary in any code that quotes
-   * quotes - a shell-quoting helper is where it turns up first. Tracked with a
-   * single "am I in a string" flag, the inner backtick closes the *outer*
-   * template, every quote after it flips the state the wrong way, and the
-   * desync runs to the end of the file: a `//` inside a later template gets
-   * blanked as a comment, and the identifiers on that line disappear. The rule
-   * then calls a used parameter unused, and `--fix` renames it while the body
-   * keeps saying the old name.
-   *
-   * So a stack: `-1` is a template body, and a number is a `${}` expression
-   * holding its own brace depth. Inside a body only the backtick and `${`
-   * matter - a quote, a slash, a `//` are all literal text. Inside an
-   * expression everything behaves as it does at the top level, including
-   * another template.
-   */
-  const frames: number[] = []
-  const body = (): boolean => frames.length > 0 && frames[frames.length - 1] === -1
-  const expression = (): boolean => frames.length > 0 && frames[frames.length - 1]! >= 0
-
-  const blank = (from: number, to: number): void => {
-    for (let at = from; at < to && at < out.length; at += 1) {
-      if (out[at] !== '\n' && out[at] !== '\r')
-        out[at] = ' '
-    }
-  }
-
-  while (index < text.length) {
-    const character = text[index]!
-
-    if (inString) {
-      if (escaped)
-        escaped = false
-      else if (character === '\\')
-        escaped = true
-      else if (character === inString)
-        inString = null
-      // A newline ends a quoted string whatever else is happening: an
-      // apostrophe in prose must not swallow the rest of the file here either.
-      else if (character === '\n')
-        inString = null
-
-      index += 1
-      continue
-    }
-
-    if (body()) {
-      if (escaped) {
-        escaped = false
-      }
-      else if (character === '\\') {
-        escaped = true
-      }
-      else if (character === '`') {
-        frames.pop()
-      }
-      else if (character === '$' && text[index + 1] === '{') {
-        // A new frame rather than a flag on this one: the body underneath has
-        // to survive, or the closing brace pops out of the template entirely.
-        frames.push(0)
-        index += 1
-      }
-
-      index += 1
-      continue
-    }
-
-    if (character === '`') {
-      frames.push(-1)
-      index += 1
-      continue
-    }
-
-    if (expression()) {
-      if (character === '{') {
-        frames[frames.length - 1]! += 1
-        index += 1
-        continue
-      }
-
-      if (character === '}') {
-        const depth = frames[frames.length - 1]!
-
-        if (depth > 0)
-          frames[frames.length - 1] = depth - 1
-        else
-          frames.pop()
-
-        index += 1
-        continue
-      }
-    }
-
-    if (character === '\'' || character === '"') {
-      inString = character
-      index += 1
-      continue
-    }
-
-    // A regex literal is skipped whole, so an escaped slash inside it can
-    // never be mistaken for a comment delimiter. Nothing is blanked: the
-    // pattern is code, and a name inside it is not a use anyway.
-    if (character === '/' && text[index + 1] !== '/' && text[index + 1] !== '*' && startsRegex(text, index)) {
-      let at = index + 1
-      let inClass = false
-      let regexEscaped = false
-
-      while (at < text.length) {
-        const current = text[at]!
-
-        if (regexEscaped)
-          regexEscaped = false
-        else if (current === '\\')
-          regexEscaped = true
-        else if (current === '[')
-          inClass = true
-        else if (current === ']')
-          inClass = false
-        // An unterminated pattern must not swallow the rest of the file.
-        else if (current === '\n')
-          break
-        else if (current === '/' && !inClass) {
-          at += 1
-          break
-        }
-
-        at += 1
-      }
-
-      index = at
-      continue
-    }
-
-    if (character === '/' && text[index + 1] === '/') {
-      const end = text.indexOf('\n', index)
-      blank(index + 2, end < 0 ? text.length : end)
-      index = end < 0 ? text.length : end
-      continue
-    }
-
-    if (character === '/' && text[index + 1] === '*') {
-      const end = text.indexOf('*/', index + 2)
-      blank(index + 2, end < 0 ? text.length : end)
-      index = end < 0 ? text.length : end + 2
-      continue
-    }
-
-    index += 1
-  }
-
-  return out.join('')
 }
 
 export const noUnusedVarsRule: RuleModule = {
@@ -309,163 +98,15 @@ export const noUnusedVarsRule: RuleModule = {
     // tracks strings by watching for a quote, and an apostrophe in English
     // prose is a quote - see `maskCommentText`. Offsets and line breaks are
     // preserved, so reported positions are unaffected.
-    const code = maskCommentText(text)
+    const lexed = lexSource(text)
+    const code = maskSource(text, { comments: true }, lexed)
     const lines = code.split(/\r?\n/)
     const full = code
 
-    // Pre-compute which lines start inside a multi-line template literal body.
-    // Used to skip analysis of generated code inside template content in both loops.
-    const lineStartsInTemplate: boolean[] = new Array(lines.length).fill(false)
-    const computeTemplateLines = () => {
-      const tmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr (frame's own brace depth)
-      let tInSingle = false
-      let tInDouble = false
-      let tInRegex = false
-      let tInBlockComment = false
-      let tEscaped = false
-      // Track the previous non-whitespace, non-comment character on the
-      // current logical statement so we can decide whether `/` starts a
-      // regex literal (after operators/keywords/`,`/`(`/etc.) or is a
-      // division operator (after an identifier/literal/`)`/`]`).
-      let prevSig = ''
-      const isRegexStart = (): boolean => {
-        if (prevSig === '') return true
-        // Operators and punctuation that imply an expression follows.
-        if ('=([{,;!&|?:+-*/%^~<>'.includes(prevSig)) return true
-        return false
-      }
-      for (let li = 0; li < lines.length; li++) {
-        lineStartsInTemplate[li] = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
-        const s = lines[li]
-        for (let k = 0; k < s.length; k++) {
-          const ch = s[k]
-          // Multi-line /* ... */ takes precedence over everything else
-          // (including string and template state) — these comments can
-          // span lines and contain any characters.
-          if (tInBlockComment) {
-            if (ch === '*' && k + 1 < s.length && s[k + 1] === '/') {
-              tInBlockComment = false
-              k++
-            }
-            continue
-          }
-          if (tEscaped) {
-            tEscaped = false
-            continue
-          }
-          const inBody = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] === -1
-          const inExpr = tmplStack.length > 0 && tmplStack[tmplStack.length - 1] >= 0
-          if (ch === '\\' && (tInSingle || tInDouble || tInRegex || inBody)) {
-            tEscaped = true
-            continue
-          }
-          if (tInSingle) {
-            if (ch === '\'') tInSingle = false
-            continue
-          }
-          if (tInDouble) {
-            if (ch === '"') tInDouble = false
-            continue
-          }
-          if (tInRegex) {
-            if (ch === '[') {
-              let depth = 1
-              let kk = k + 1
-              while (kk < s.length) {
-                const cc = s[kk]
-                if (cc === '\\') {
-                  kk += 2
-                  continue
-                }
-                if (cc === ']') {
-                  depth--
-                  if (depth === 0) break
-                }
-                kk++
-              }
-              k = kk
-              continue
-            }
-            if (ch === '/') {
-              tInRegex = false
-              while (k + 1 < s.length && /[gimsuvy]/.test(s[k + 1])) k++
-            }
-            continue
-          }
-          if (inBody) {
-            if (ch === '`') {
-              tmplStack.pop()
-            }
-            else if (ch === '$' && k + 1 < s.length && s[k + 1] === '{') {
-              // Push a NEW expr frame so the body frame underneath is
-              // preserved. Mutating the body frame loses context and the
-              // closing `}` would pop us out of the template entirely.
-              tmplStack.push(0)
-              k++
-            }
-            continue
-          }
-          // Top-level OR ${} expr context — handle comments, strings, regex.
-          if (ch === '/' && k + 1 < s.length && s[k + 1] === '/') break
-          if (ch === '/' && k + 1 < s.length && s[k + 1] === '*') {
-            tInBlockComment = true
-            k++
-            continue
-          }
-          if (inExpr) {
-            if (ch === '`') {
-              tmplStack.push(-1)
-              prevSig = ''
-            }
-            else if (ch === '\'') {
-              tInSingle = true
-              prevSig = '\''
-            }
-            else if (ch === '"') {
-              tInDouble = true
-              prevSig = '"'
-            }
-            else if (ch === '{') {
-              tmplStack[tmplStack.length - 1]++
-              prevSig = '{'
-            }
-            else if (ch === '}') {
-              const cur = tmplStack[tmplStack.length - 1]
-              if (cur > 0) tmplStack[tmplStack.length - 1] = cur - 1
-              else tmplStack.pop()
-              prevSig = '}'
-            }
-            else if (ch === '/' && isRegexStart()) {
-              tInRegex = true
-            }
-            else if (!/\s/.test(ch)) {
-              prevSig = ch
-            }
-            continue
-          }
-          // Outside template (top-level code)
-          if (ch === '`') {
-            tmplStack.push(-1)
-            prevSig = ''
-          }
-          else if (ch === '\'') {
-            tInSingle = true
-            prevSig = '\''
-          }
-          else if (ch === '"') {
-            tInDouble = true
-            prevSig = '"'
-          }
-          else if (ch === '/' && isRegexStart()) {
-            tInRegex = true
-          }
-          else if (!/\s/.test(ch)) {
-            prevSig = ch
-          }
-        }
-      }
-    }
-    computeTemplateLines()
+    // Which lines start inside a multi-line template literal body, from the
+    // same lexical pass. Used to skip analysis of generated code inside
+    // template content in both loops.
+    const lineStartsInTemplate = lineStartsInTemplateBody(text, lexed)
 
     const declRe = new RegExp('^\\s*(?:const|let|var)\\s+(.+?)' + ';' + '?\\s*$')
     for (let i = 0; i < lines.length; i++) {
@@ -1989,62 +1630,28 @@ else {
     if (byLine.size === 0)
       return text
 
-    // Compute backtick spans on each line so we can skip matches that
-    // fall inside a single-line template literal (where the rule's
-    // multi-line tracker can't help — a template that opens and closes
-    // on the same line has `lineStartsInTemplate` = false but its
-    // contents are still embedded code we shouldn't rewrite).
+    // Never rename inside a template literal - a template that opens and
+    // closes on one line has `lineStartsInTemplate` = false, but its contents
+    // are still embedded code we shouldn't rewrite - nor inside a string or a
+    // comment. Both come from the shared lexer over the whole file, so a
+    // backtick or a quote in a comment on some other line cannot shift them.
     const lines = text.split(/\r?\n/)
-    function backtickRanges(line: string): Array<[number, number]> {
-      const out: Array<[number, number]> = []
-      let inS = false
-      let inD = false
-      let esc = false
-      let openTick = -1
-      for (let k = 0; k < line.length; k++) {
-        const ch = line[k]
-        if (esc) {
-          esc = false
-          continue
-        }
-        if (ch === '\\' && (inS || inD || openTick >= 0)) {
-          esc = true
-          continue
-        }
-        if (openTick >= 0) {
-          if (ch === '`') {
-            out.push([openTick, k])
-            openTick = -1
-          }
-          continue
-        }
-        if (inS) {
-          if (ch === '\'') inS = false
-          continue
-        }
-        if (inD) {
-          if (ch === '"') inD = false
-          continue
-        }
-        if (ch === '`') openTick = k
-        else if (ch === '\'') inS = true
-        else if (ch === '"') inD = true
-      }
-      // If a backtick opened but didn't close on this line, treat the
-      // remainder of the line as inside a template — it's the first line
-      // of a multi-line template literal.
-      if (openTick >= 0)
-        out.push([openTick, line.length])
-      return out
+    const lexed = lexSource(text)
+    const lineOffsets: number[] = [0]
+    for (let at = 0; at < text.length; at++) {
+      if (text[at] === '\n')
+        lineOffsets.push(at + 1)
     }
+    const protectedAt = (offset: number): boolean =>
+      lexed.templates.some(([open, close]) => offset > open && offset < close)
+      || lexed.regions.some(region => region.kind !== 'template' && offset >= region.start && offset < region.end)
     let changed = false
     for (const [lineNum, names] of byLine) {
       const lineIdx = lineNum - 1
       const line = lines[lineIdx]
       if (line === undefined)
         continue
-      const tickSpans = backtickRanges(line)
-      const inAnyTick = (pos: number): boolean => tickSpans.some(([a, b]) => pos > a && pos < b)
+      const lineOffset = lineOffsets[lineIdx] ?? 0
       const edits: Array<{ start: number, end: number, name: string }> = []
       for (const name of names) {
         const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -2052,7 +1659,7 @@ else {
         let m: RegExpExecArray | null
         // eslint-disable-next-line no-cond-assign
         while ((m = re.exec(line)) !== null) {
-          if (inAnyTick(m.index))
+          if (protectedAt(lineOffset + m.index))
             continue
           edits.push({ start: m.index, end: m.index + name.length, name })
         }

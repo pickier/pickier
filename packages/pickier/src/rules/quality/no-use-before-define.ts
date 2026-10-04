@@ -1,4 +1,5 @@
 import type { RuleModule } from '../../types'
+import { maskNonCode } from '../../lexer'
 
 export const noUseBeforeDefineRule: RuleModule = {
   meta: {
@@ -7,7 +8,9 @@ export const noUseBeforeDefineRule: RuleModule = {
   },
   check: (text, ctx) => {
     const issues: ReturnType<RuleModule['check']> = []
-    const lines = text.split(/\r?\n/)
+    // Words in comments, strings and patterns are prose, not uses or
+    // declarations: `// the caller's name` must not "use" a `name` declared below.
+    const lines = maskNonCode(text).split(/\r?\n/)
 
     // Track variable declarations and their line numbers
     const declarations = new Map<string, number>()
