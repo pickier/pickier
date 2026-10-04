@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.66...v0.1.67)
+
+## 🐛 Bug Fixes
+
+- one shared lexer, so prose in a comment is never read as code ([a17bd8d](https://github.com/pickier/pickier/commit/a17bd8d)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1377](https://github.com/pickier/pickier/issues/1377))
+
+## 🧹 Chores
+
+- release v0.1.67 ([8694d4a](https://github.com/pickier/pickier/commit/8694d4a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.65...v0.1.66)
 
 ## 🚀 Features
