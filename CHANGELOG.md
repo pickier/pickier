@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.67...v0.1.68)
+
+## 🐛 Bug Fixes
+
+- **prefer-const**: count a reassignment written before the declaration ([465c540](https://github.com/pickier/pickier/commit/465c540)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.68 ([2bdeb89](https://github.com/pickier/pickier/commit/2bdeb89)) _(by Chris <chrisbreuer93@gmail.com>)_
+- release with @stacksjs/bumpx by name, not whatever npm calls bumpx ([f09e7f5](https://github.com/pickier/pickier/commit/f09e7f5)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.66...v0.1.67)
 
 ## 🐛 Bug Fixes
