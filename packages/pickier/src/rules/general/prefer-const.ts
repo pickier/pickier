@@ -195,8 +195,14 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
       // No initializer — the line can't be turned into `const`.
       return null
     }
+    // Everything but the declaration itself, BEFORE it included: a function
+    // or method written above a `let` runs after it and can reassign it.
+    // `class A { bump() { counter++ } }` then `let counter = 0` was reported
+    // as never reassigned, and `--fix` made it a `const` that throws on the
+    // first call. Searching too widely only means not suggesting `const` for
+    // a shadowed name, which is the safe direction for an auto-fix.
     const restStartIdx = text.indexOf(line)
-    const rest = text.slice(restStartIdx + line.length)
+    const rest = `${text.slice(0, Math.max(0, restStartIdx))}\n${text.slice(restStartIdx + line.length)}`
     // Longest first, so an operator that is a prefix of another cannot claim
     // the match: `&=` would otherwise shadow `&&=`. The three logical
     // assignments were missing entirely, and this rule is auto-fixable — so
