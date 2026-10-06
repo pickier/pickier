@@ -91,14 +91,15 @@ pub fn run(io: std.Io, arena: Allocator) !u8 {
     const wanted: usize = if (root.get("threads")) |t| @intCast(@max(1, t.integer)) else cpus;
     const threads = @max(1, @min(wanted, files.items.len));
 
-    var group: std.Io.Group = .init;
-    var started: usize = 0;
-    while (started < threads) : (started += 1) {
-        group.concurrent(io, worker, .{&job}) catch break;
+    // Plain threads with a generous stack: the rules recurse and keep line
+    // buffers on the stack, which the small default task stacks overflow.
+    const pool = try arena.alloc(?std.Thread, threads);
+    for (pool) |*t| t.* = std.Thread.spawn(.{ .stack_size = 16 << 20 }, worker, .{&job}) catch null;
+    // Threads that could not start leave their share to this one
+    worker(&job);
+    for (pool) |t| {
+        if (t) |thread| thread.join();
     }
-    // No concurrency available, or fewer threads than asked: this thread works too
-    if (started < threads) worker(&job);
-    try group.await(io);
 
     if (job.failed.load(.acquire)) return 1;
 

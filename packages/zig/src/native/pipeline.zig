@@ -8,6 +8,7 @@ const types = @import("types.zig");
 const registry = @import("registry.zig");
 const builtins = @import("builtins.zig");
 const directives = @import("directives.zig");
+const text = @import("text.zig");
 
 const Issue = types.Issue;
 const Allocator = std.mem.Allocator;
@@ -74,6 +75,9 @@ fn spaced(allocator: Allocator, name: []const u8, prefix: []const u8) ![]const u
 
 /// The issues for one file, in the order the TypeScript linter reports them.
 pub fn lintFile(allocator: Allocator, path: []const u8, content: []const u8, settings: *const types.Settings) ![]Issue {
+    // A shell shebang brings in the shell plugin and changes the built-in
+    // checks; the TypeScript linter handles that file instead.
+    if (text.hasShellShebang(content)) return error.Declined;
     var suppress = try directives.parseDisableDirectives(content, allocator);
     var comment_lines = if (isCodePath(path))
         try directives.getCommentLines(content, allocator)
