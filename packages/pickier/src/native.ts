@@ -32,6 +32,9 @@ export const NATIVE_RULES: ReadonlySet<string> = new Set<string>([
   'pickier/sort-tailwind-classes',
   'style/brace-style',
   'style/max-statements-per-line',
+  'regexp/no-super-linear-backtracking',
+  'regexp/no-unused-capturing-group',
+  'regexp/no-useless-lazy',
 ])
 
 /** Plugins whose rules can apply to a TS/JS file. */
