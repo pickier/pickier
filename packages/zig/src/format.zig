@@ -172,22 +172,16 @@ fn processLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
 /// character at least as long as the opener with nothing after it, and an
 /// unclosed fence runs to the end of the document.
 fn processMarkdownLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
-    // As in the TS engine only CRLF pairs are line endings; a lone CR stays put
-    const text = if (std.mem.indexOfScalar(u8, src, '\r') != null)
-        try std.mem.replaceOwned(u8, allocator, src, "\r\n", "\n")
-    else
-        src;
-
     const trim = cfg.trim_trailing_whitespace;
     var output: std.ArrayList(u8) = .empty;
-    try output.ensureTotalCapacity(allocator, text.len);
+    try output.ensureTotalCapacity(allocator, src.len);
 
     var blank: u32 = 0;
     // Inside a fenced block while fence_char != 0
     var fence_char: u8 = 0;
     var fence_len: usize = 0;
     var first = true;
-    var it = std.mem.splitScalar(u8, text, '\n');
+    var it: MarkdownLines = .{ .src = src };
 
     while (it.next()) |line| {
         if (!first) try output.append(allocator, '\n');
@@ -241,6 +235,33 @@ fn processMarkdownLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u
     while (start < output.items.len and output.items[start] == '\n') : (start += 1) {}
     return output.items[start..];
 }
+
+/// The lines of a document split on LF. As in the TS engine, which turns CRLF
+/// into LF before splitting, the CR of a CRLF pair is dropped and a lone CR
+/// stays in its line; doing it here saves copying the whole document.
+const MarkdownLines = struct {
+    src: []const u8,
+    pos: ?usize = 0,
+
+    fn next(self: *MarkdownLines) ?[]const u8 {
+        const start = self.pos orelse return null;
+        const nl = std.mem.indexOfScalarPos(u8, self.src, start, '\n') orelse {
+            self.pos = null;
+            return self.src[start..];
+        };
+        self.pos = nl + 1;
+        const end = if (nl > start and self.src[nl - 1] == '\r') nl - 1 else nl;
+        return self.src[start..end];
+    }
+
+    /// The next line without consuming it. Only its blankness is asked about,
+    /// and a CR counts as blank, so the CR of a CRLF pair is left on.
+    fn peek(self: *const MarkdownLines) ?[]const u8 {
+        const start = self.pos orelse return null;
+        const end = std.mem.indexOfScalarPos(u8, self.src, start, '\n') orelse self.src.len;
+        return self.src[start..end];
+    }
+};
 
 const MarkdownFence = struct {
     char: u8,
@@ -1989,6 +2010,11 @@ test "markdown - trailing run inside an unclosed fence follows the final newline
 
 test "markdown - CRLF line endings" {
     try expectMarkdown("a  \r\nb \r\n```\r\nc \r\n```\r\n", "a  \nb\n```\nc \n```\n");
+}
+
+test "markdown - a lone CR is content, not a line ending" {
+    try expectMarkdown("a \r\nb\r", "a\nb\r\n");
+    try expectMarkdown("x  \ry\n", "x  \ry\n");
 }
 
 test "markdown - an indented fence in a list item is still a fence" {
