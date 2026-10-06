@@ -50,8 +50,11 @@ function config() {
       for (const alias of BUILTIN_ALIASES[id]!) off[alias] = 'off'
     }
   }
+  // A plan id such as `general/prefer-const` is enabled through an alias
+  // (`pickier/prefer-const`): leave every id with the same rule name on.
+  const name = (id: string) => id.slice(id.lastIndexOf('/') + 1)
   for (const id of Object.keys(cfg.pluginRules ?? {})) {
-    if (id !== only)
+    if (id !== only && name(id) !== name(only))
       off[id] = 'off'
   }
   if (BUILTINS.includes(only)) {

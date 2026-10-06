@@ -122,7 +122,25 @@ pub fn build(b: *std.Build) void {
     const lockfile_rules_tests = b.addTest(.{ .root_module = lockfile_rules_test_mod });
     const run_lockfile_rules_tests = b.addRunArtifact(lockfile_rules_tests);
 
+    // Tests - the native lint engine (JavaScript string helpers, rule ports)
+    const native_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/native/pc_test_root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const native_tests = b.addTest(.{ .root_module = native_test_mod });
+    const run_native_tests = b.addRunArtifact(native_tests);
+    const text_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/native/text.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const text_tests = b.addTest(.{ .root_module = text_test_mod });
+    const run_text_tests = b.addRunArtifact(text_tests);
+
     const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_native_tests.step);
+    test_step.dependOn(&run_text_tests.step);
     test_step.dependOn(&run_format_tests.step);
     test_step.dependOn(&run_json_sort_tests.step);
     test_step.dependOn(&run_config_tests.step);

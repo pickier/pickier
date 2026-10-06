@@ -35,6 +35,8 @@ export const NATIVE_RULES: ReadonlySet<string> = new Set<string>([
   'regexp/no-super-linear-backtracking',
   'regexp/no-unused-capturing-group',
   'regexp/no-useless-lazy',
+  'general/prefer-const',
+  'general/prefer-template',
 ])
 
 /** Plugins whose rules can apply to a TS/JS file. */
