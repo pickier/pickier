@@ -13,7 +13,6 @@ const _RE_LEADING_WS = /^[ \t]*/
 // Indent tracking counts braces, brackets AND parens — tracking only `{`
 // flattened multi-line arrays and call arguments to the enclosing level
 const RE_CLOSING_BRACE = /^[}\])]/
-const RE_OPENING_BRACE = /[{[(]\s*$/
 const RE_TRAILING_LINE_COMMENT = /\s*\/\/.*$/
 const RE_CONTROL_OPEN = /^(?:if|else\s+if|for|while)\s*\(/
 // `.method()` chain links, ternary branches, and logical-operator operands
@@ -29,6 +28,10 @@ const RE_CONTINUATION_LINE = /^(?:\.[\w$[]|\?[\s.:]|:\s|&&|\|\|)/
  * so the closing paren of the condition must be matched, not pattern-matched.
  */
 function isHangingControlLine(code: string): boolean {
+  // Both patterns are anchored on `if` / `else` / `for` / `while` / `do`
+  const first = code.charCodeAt(0)
+  if (first !== 105 && first !== 101 && first !== 102 && first !== 119 && first !== 100)
+    return false
   const m = RE_CONTROL_OPEN.exec(code)
   if (!m)
     return /^(?:else|do)\s*$/.test(code)
@@ -243,8 +246,13 @@ function formatYaml(src: string, cfg: PickierConfig): string {
   }
 }
 
+// Indentation strings are rebuilt for every line; cache the common widths
+const SPACES_CACHE: string[] = Array.from({ length: 129 }, (_, n) => ' '.repeat(n))
+
 function toSpaces(count: number): string {
-  return ' '.repeat(Math.max(0, count))
+  if (count <= 0)
+    return ''
+  return count < SPACES_CACHE.length ? SPACES_CACHE[count] : ' '.repeat(count)
 }
 
 function makeIndent(visualLevels: number, cfg: PickierConfig): string {
@@ -412,7 +420,10 @@ function fixQuotesLine(line: string, preferred: 'single' | 'double'): string {
  * Uses pre-compiled regex patterns and fast-path maskStrings.
  */
 // Characters that trigger spacing normalization — if none are present, skip all 11 regex passes
-const SPACING_CHARS = new Set(['{', ',', '=', '+', '-', '*', '/', ';', '<', '>'])
+function isSpacingCharCode(c: number): boolean {
+  // { , = + - * / ; < >
+  return c === 123 || c === 44 || c === 61 || c === 43 || c === 45 || c === 42 || c === 47 || c === 59 || c === 60 || c === 62
+}
 
 function normalizeSpacingLine(line: string): string {
   // Fast path: skip very short lines (closing braces, etc.)
@@ -436,7 +447,7 @@ function normalizeSpacingLine(line: string): string {
   // Fast path: if no operator/punctuation characters exist, nothing to normalize
   let hasSpacingChar = false
   for (let j = firstNonSpace; j < line.length; j++) {
-    if (SPACING_CHARS.has(line[j])) {
+    if (isSpacingCharCode(line.charCodeAt(j))) {
       hasSpacingChar = true
       break
     }
@@ -446,17 +457,30 @@ function normalizeSpacingLine(line: string): string {
 
   const { text, strings } = maskStrings(line)
   let t = text
-  t = t.replace(RE_SPACE_BEFORE_BRACE, '$1 {')
-  t = t.replace(RE_SPACE_AFTER_BRACE_KW, '{ $1')
-  t = t.replace(RE_COMMA_SPACE, ', $1')
-  t = t.replace(RE_EQUALS_SPACE, ' = ')
-  t = t.replace(RE_PLUS_OP, '$1 + $2')
-  t = t.replace(RE_MINUS_OP, '$1 - $2')
-  t = t.replace(RE_STAR_OP, '$1 * $2')
-  t = t.replace(RE_SLASH_OP, '$1 / $2')
-  t = t.replace(RE_SEMI_SPACE, '; $1')
-  t = t.replace(RE_LT_OP, '$1 < $2')
-  t = t.replace(RE_GT_OP, '$1 > $2')
+  // Each pattern needs its literal character, and no replacement introduces
+  // one, so a pattern whose character is absent can be skipped outright.
+  if (t.includes('{')) {
+    t = t.replace(RE_SPACE_BEFORE_BRACE, '$1 {')
+    t = t.replace(RE_SPACE_AFTER_BRACE_KW, '{ $1')
+  }
+  if (t.includes(','))
+    t = t.replace(RE_COMMA_SPACE, ', $1')
+  if (t.includes('='))
+    t = t.replace(RE_EQUALS_SPACE, ' = ')
+  if (t.includes('+'))
+    t = t.replace(RE_PLUS_OP, '$1 + $2')
+  if (t.includes('-'))
+    t = t.replace(RE_MINUS_OP, '$1 - $2')
+  if (t.includes('*'))
+    t = t.replace(RE_STAR_OP, '$1 * $2')
+  if (t.includes('/'))
+    t = t.replace(RE_SLASH_OP, '$1 / $2')
+  if (t.includes(';'))
+    t = t.replace(RE_SEMI_SPACE, '; $1')
+  if (t.includes('<'))
+    t = t.replace(RE_LT_OP, '$1 < $2')
+  if (t.includes('>'))
+    t = t.replace(RE_GT_OP, '$1 > $2')
 
   // Collapse multi-spaces in code (not leading whitespace)
   if (firstNonSpace > 0) {
@@ -684,8 +708,9 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // Track whether this plain code line leaves us inside a block comment.
     // Template-involved lines are skipped: their backtick content is already
     // handled above and must not be mistaken for comment markers.
+    // Starting outside a comment, only a `/*` can leave the line inside one.
     if (splitIdx < 0 && tmplStack.length === 0)
-      inBlockComment = blockCommentStateAfter(line, false)
+      inBlockComment = line.includes('/*') && blockCommentStateAfter(line, false)
 
     // The line begins in code but ends inside a template opened on this line.
     // Format only the code prefix and re-attach the template tail verbatim so its
@@ -733,7 +758,9 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
       ? establishedIndent + trimmed
       : makeIndent(indentLevel + hangDepth + continuationBump, cfg) + trimmed
 
-    if (RE_OPENING_BRACE.test(trimmed)) {
+    // Opens a block: ends in `{`, `[` or `(` (`trimmed` has no trailing whitespace)
+    const lastCode = trimmed.charCodeAt(trimmed.length - 1)
+    if (lastCode === 123 || lastCode === 91 || lastCode === 40) {
       indentLevel += 1
       hangDepth = 0
     }
@@ -741,7 +768,7 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
       // Brace-less control flow (`if (x)` / `else` / `for (...)` without `{`)
       // hangs its single statement one level deeper; previously that
       // statement was snapped back to the enclosing level (#1369).
-      const code = trimmed.replace(RE_TRAILING_LINE_COMMENT, '')
+      const code = trimmed.includes('//') ? trimmed.replace(RE_TRAILING_LINE_COMMENT, '') : trimmed
       hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
     }
 
@@ -1342,15 +1369,41 @@ interface ParsedImport {
   original: string
 }
 
-function collectIdentifierSet(text: string): Set<string> {
-  const identifiers = new Set<string>()
-  const identifierRe = /[$A-Z_][\w$]*/gi
-  let match = identifierRe.exec(text)
-  while (match !== null) {
-    identifiers.add(match[0])
-    match = identifierRe.exec(text)
+function isIdentCharCode(c: number): boolean {
+  return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c === 95 || c === 36
+}
+
+/**
+ * Whether `name` appears in `text` as a whole identifier token, as the
+ * pattern `/[$A-Z_][\w$]*\/gi` would split it: a run of `[\w$]` characters
+ * holds one token, starting at its first non-digit and running to the end of
+ * the run. Searching for the few imported names directly is much cheaper
+ * than collecting every identifier in the file.
+ */
+function hasIdentifierToken(text: string, name: string): boolean {
+  let from = 0
+  while (true) {
+    const p = text.indexOf(name, from)
+    if (p === -1)
+      return false
+    from = p + 1
+    if (isIdentCharCode(text.charCodeAt(p + name.length)))
+      continue
+    let q = p - 1
+    let startsHere = true
+    while (q >= 0) {
+      const c = text.charCodeAt(q)
+      if (!isIdentCharCode(c))
+        break
+      if (c < 48 || c > 57) {
+        startsHere = false
+        break
+      }
+      q--
+    }
+    if (startsHere)
+      return true
   }
-  return identifiers
 }
 
 export function formatImports(source: string): string {
@@ -1436,8 +1489,15 @@ export function formatImports(source: string): string {
   const rest = lines.slice(restStart).join('\n')
 
   // Remove unused only for simple named (no alias). Keep defaults, namespaces, and all type specifiers.
-  const usedIdentifiers = collectIdentifierSet(rest)
-  const used = (name: string): boolean => usedIdentifiers.has(name)
+  const usedCache = new Map<string, boolean>()
+  const used = (name: string): boolean => {
+    let hit = usedCache.get(name)
+    if (hit === undefined) {
+      hit = hasIdentifierToken(rest, name)
+      usedCache.set(name, hit)
+    }
+    return hit
+  }
   for (const imp of imports) {
     if (imp.kind !== 'value')
       continue

@@ -102,7 +102,6 @@ describe('pre-compiled regex patterns in format.ts', () => {
   const expectedPatterns = [
     'RE_LEADING_WS',
     'RE_CLOSING_BRACE',
-    'RE_OPENING_BRACE',
     'RE_FOR_LOOP',
     'RE_EMPTY_SEMI',
     'RE_DUP_SEMI',
@@ -401,9 +400,15 @@ describe('formatImports fast path', () => {
 describe('normalizeSpacingLine character pre-check', () => {
   const src = readFileSync(join(SRC_DIR, 'format.ts'), 'utf8')
 
-  it('has SPACING_CHARS set for fast-path check', () => {
+  it('has a spacing-character check for the fast path', () => {
     // Must check for operator/punctuation characters before running 11 regexes
-    expect(src).toContain('SPACING_CHARS')
+    expect(src).toContain('function isSpacingCharCode')
+  })
+
+  it('skips each regex pass whose literal character is absent', () => {
+    const fnBody = src.match(/function normalizeSpacingLine\([\s\S]*?\n\}/)![0]
+    for (const ch of [',', '=', '+', '-', '*', '/', ';', '<', '>'])
+      expect(fnBody).toContain(`if (t.includes('${ch}'))`)
   })
 
   it('skips regex passes when no spacing characters present', () => {
