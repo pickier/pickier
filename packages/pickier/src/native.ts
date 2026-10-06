@@ -17,7 +17,22 @@ import { resolveRuleSeverity } from './utils'
  */
 
 /** Built-in checks and plugin rules whose native output matches TypeScript. */
-export const NATIVE_RULES: ReadonlySet<string> = new Set<string>([])
+export const NATIVE_RULES: ReadonlySet<string> = new Set<string>([
+  // built-in checks
+  'quotes',
+  'indent',
+  'no-debugger',
+  'no-console',
+  'no-template-curly-in-string',
+  'no-cond-assign',
+  // plugin rules
+  'pickier/import-dedupe',
+  'pickier/no-import-dist',
+  'pickier/no-import-node-modules-by-path',
+  'pickier/sort-tailwind-classes',
+  'style/brace-style',
+  'style/max-statements-per-line',
+])
 
 /** Plugins whose rules can apply to a TS/JS file. */
 const CODE_PLUGINS = new Set(['eslint', 'general', 'quality', 'pickier', 'style', 'regexp', 'ts', 'node', 'unused-imports', 'perfectionist'])

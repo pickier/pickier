@@ -55,8 +55,11 @@ function config() {
       off[id] = 'off'
   }
   if (BUILTINS.includes(only)) {
-    // keep its default severity, or turn on one that is off by default
-    off[only] = (cfg.rules as any)[only] ?? 'warn'
+    // Keep its default severity, or turn on one that is off by default -
+    // through its legacy alias where it has one: a bare `no-cond-assign`
+    // would also switch on the plugin rule of that name.
+    const alias = BUILTIN_ALIASES[only]!.find(a => !a.includes('/'))
+    off[alias ?? only] = (cfg.rules as any)[only] ?? (cfg.rules as any)[alias ?? ''] ?? 'warn'
   }
   cfg.rules = { ...(cfg.rules as any), ...off }
   cfg.pluginRules = { ...(cfg.pluginRules as any), ...Object.fromEntries(Object.entries(off).filter(([k]) => k.includes('/'))) }
