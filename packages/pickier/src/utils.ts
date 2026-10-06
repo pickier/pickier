@@ -124,6 +124,17 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
     const BunGlob = (globalThis as any).Bun.Glob
     const results: string[] = []
     for (const pattern of patterns) {
+      // A path with no glob characters that names a file is that file. Bun.Glob
+      // matches from `cwd`, so an absolute path, or one outside it, would
+      // otherwise find nothing - and the file would silently go unlinted.
+      if (!/[*?[{]/.test(pattern)) {
+        const full = isAbsolute(pattern) ? pattern : join(cwd, pattern)
+        if (statSync(full, { throwIfNoEntry: false })?.isFile()) {
+          if (!ignoreMatcher(full))
+            results.push(absolute ? full : (full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full))
+          continue
+        }
+      }
       const g = new BunGlob(pattern)
       for await (const file of g.scan({ cwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
         const full = isAbsolute(file) ? file : join(cwd, file)
