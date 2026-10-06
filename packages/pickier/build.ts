@@ -1,5 +1,7 @@
 import type { BunPlugin } from 'bun'
 import { dts } from 'bun-plugin-dtsx'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 // bunfig bundles a logger whose log encryption, gzip rotation and stream
 // piping import node:crypto, node:zlib and Node streams up front - about 10 ms
@@ -36,6 +38,14 @@ const lazyBuiltins: BunPlugin = {
 }
 
 if (import.meta.main) {
+  // Chunk names change from build to build, so clear the last build's output
+  // rather than ship it alongside - all but the native engines, which
+  // scripts/build-native.ts builds separately.
+  for (const entry of existsSync('dist') ? readdirSync('dist') : []) {
+    if (entry !== 'native')
+      rmSync(join('dist', entry), { recursive: true, force: true })
+  }
+
   // pickier-disable-next-line ts/no-top-level-await
   await Bun.build({
     entrypoints: ['src/index.ts', 'bin/cli.ts', 'src/lint-worker.ts'],
