@@ -27,7 +27,7 @@ pub const default_config = Config{};
 // ---------------------------------------------------------------------------
 
 const word_char_lut: [256]bool = blk: {
-    var lut = [_]bool{false} ** 256;
+    var lut: [256]bool = @splat(false);
     for ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$") |c| {
         lut[c] = true;
     }
@@ -35,7 +35,7 @@ const word_char_lut: [256]bool = blk: {
 };
 
 const spacing_char_lut: [256]bool = blk: {
-    var lut = [_]bool{false} ** 256;
+    var lut: [256]bool = @splat(false);
     for ("{,=+-*/;<>") |c| {
         lut[c] = true;
     }
@@ -44,8 +44,8 @@ const spacing_char_lut: [256]bool = blk: {
 
 // Pre-computed indentation strings to avoid per-character append
 const max_cached_indent = 32;
-const indent_spaces: [max_cached_indent * 8]u8 = [_]u8{' '} ** (max_cached_indent * 8);
-const indent_tabs: [max_cached_indent]u8 = [_]u8{'\t'} ** max_cached_indent;
+const indent_spaces: [max_cached_indent * 8]u8 = @splat(' ');
+const indent_tabs: [max_cached_indent]u8 = @splat('\t');
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -68,7 +68,10 @@ pub fn formatCodeWithConfig(src: []const u8, file_path: []const u8, cfg: Config,
     const is_json = isJsonFile(file_path);
 
     // Phase 1: Normalize CRLF, trim trailing ws, collapse blank lines, remove leading blanks
-    var content = try processLines(src, cfg, arena);
+    var content = if (isMarkdownFile(file_path))
+        try processMarkdownLines(src, cfg, arena)
+    else
+        try processLines(src, cfg, arena);
 
     // Phase 2: Format imports (for .ts/.js files)
     if (is_code) {
@@ -82,11 +85,11 @@ pub fn formatCodeWithConfig(src: []const u8, file_path: []const u8, cfg: Config,
         }
     }
 
-    // Phase 3: Process code lines (quotes, indentation, spacing)
+    // Phase 3: Process code lines (quotes, indentation, spacing). Quotes are
+    // only ever rewritten in code: in JSON, markdown prose or any other file a
+    // `"` is content, and `'` would change it (JSON would stop parsing).
     if (is_code) {
         content = try processCodeLinesFused(content, cfg, arena);
-    } else {
-        content = try fixQuotesAllLines(content, cfg.quotes, arena);
     }
 
     // Phase 4: Ensure final newline
@@ -102,7 +105,7 @@ pub fn formatCodeWithConfig(src: []const u8, file_path: []const u8, cfg: Config,
 
 fn processLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
     // Pre-allocate to input size (output can only shrink)
-    var output = std.ArrayList(u8){};
+    var output: std.ArrayList(u8) = .empty;
     try output.ensureTotalCapacity(allocator, src.len);
 
     var consecutive_blanks: u32 = 0;
@@ -152,6 +155,160 @@ fn processLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 1 (markdown): whitespace normalization that keeps the meaning
+// ---------------------------------------------------------------------------
+
+/// Markdown counterpart of processLines, mirroring normalizeMarkdownLines in
+/// packages/pickier/src/format.ts. The code-oriented pass gets markdown wrong
+/// in two ways that change what a document means:
+///
+/// - A fenced code block is literal content. Trailing spaces and blank runs
+///   inside it belong to the sample, so the block is copied through verbatim.
+/// - Two or more trailing spaces before a non-blank line are a hard line
+///   break (`<br>`). They are kept, normalized to exactly two; trailing
+///   whitespace anywhere else is trimmed.
+///
+/// Fences follow CommonMark: a block closes only on a run of the same
+/// character at least as long as the opener with nothing after it, and an
+/// unclosed fence runs to the end of the document.
+fn processMarkdownLines(src: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
+    // As in the TS engine only CRLF pairs are line endings; a lone CR stays put
+    const text = if (std.mem.indexOfScalar(u8, src, '\r') != null)
+        try std.mem.replaceOwned(u8, allocator, src, "\r\n", "\n")
+    else
+        src;
+
+    const trim = cfg.trim_trailing_whitespace;
+    var output: std.ArrayList(u8) = .empty;
+    try output.ensureTotalCapacity(allocator, text.len);
+
+    var blank: u32 = 0;
+    // Inside a fenced block while fence_char != 0
+    var fence_char: u8 = 0;
+    var fence_len: usize = 0;
+    var first = true;
+    var it = std.mem.splitScalar(u8, text, '\n');
+
+    while (it.next()) |line| {
+        if (!first) try output.append(allocator, '\n');
+        first = false;
+
+        if (fence_char != 0) {
+            if (parseMarkdownFence(line)) |close| {
+                if (close.char == fence_char and close.len >= fence_len and isJsBlank(close.rest)) {
+                    fence_char = 0;
+                    try output.appendSlice(allocator, if (trim) trimTrailingWs(line) else line);
+                    continue;
+                }
+            }
+            try output.appendSlice(allocator, line);
+            continue;
+        }
+
+        if (isJsBlank(line)) {
+            blank += 1;
+            // A dropped blank line takes back the separator written for it
+            if (blank > cfg.max_consecutive_blank_lines and output.items.len > 0) output.items.len -= 1;
+            continue;
+        }
+        blank = 0;
+
+        if (parseMarkdownFence(line)) |open| {
+            // A backtick in a backtick fence's info string makes it inline code instead
+            if (!(open.char == '`' and std.mem.indexOfScalar(u8, open.rest, '`') != null)) {
+                fence_char = open.char;
+                fence_len = open.len;
+                try output.appendSlice(allocator, if (trim) trimTrailingWs(line) else line);
+                continue;
+            }
+        }
+
+        const last = line[line.len - 1];
+        if (!trim or (last != ' ' and last != '\t')) {
+            try output.appendSlice(allocator, line);
+            continue;
+        }
+
+        try output.appendSlice(allocator, trimTrailingWs(line));
+        const hard_break = endsWith(line, "  ") and
+            (if (it.peek()) |next| !isJsBlank(next) else false) and
+            !isAtxHeading(line);
+        if (hard_break) try output.appendSlice(allocator, "  ");
+    }
+
+    // Remove any leading blank lines at the top of the file
+    var start: usize = 0;
+    while (start < output.items.len and output.items[start] == '\n') : (start += 1) {}
+    return output.items[start..];
+}
+
+const MarkdownFence = struct {
+    char: u8,
+    len: usize,
+    /// Everything after the fence run (info string, or trailing text on a closer)
+    rest: []const u8,
+};
+
+/// A fence opener/closer: 3+ backticks or tildes after optional indentation
+/// (fences nested in list items are indented past the usual three spaces).
+/// Matches `/^[ \t]*(`{3,}|~{3,})(.*)$/` in the TS engine.
+fn parseMarkdownFence(line: []const u8) ?MarkdownFence {
+    var i: usize = 0;
+    while (i < line.len and (line[i] == ' ' or line[i] == '\t')) : (i += 1) {}
+    if (i == line.len or (line[i] != '`' and line[i] != '~')) return null;
+    const c = line[i];
+    const run_start = i;
+    while (i < line.len and line[i] == c) : (i += 1) {}
+    if (i - run_start < 3) return null;
+    const rest = line[i..];
+    // The regex's `.` stops at the line terminators CR, U+2028 and U+2029
+    if (std.mem.indexOfScalar(u8, rest, '\r') != null or
+        std.mem.indexOf(u8, rest, "\u{2028}") != null or
+        std.mem.indexOf(u8, rest, "\u{2029}") != null) return null;
+    return .{ .char = c, .len = i - run_start, .rest = rest };
+}
+
+/// An ATX heading (`# Title`), which cannot end in a hard line break.
+/// Matches `/^ {0,3}#{1,6}(?:[ \t]|$)/`.
+fn isAtxHeading(line: []const u8) bool {
+    var i: usize = 0;
+    while (i < 3 and i < line.len and line[i] == ' ') : (i += 1) {}
+    const hashes_start = i;
+    while (i < line.len and line[i] == '#') : (i += 1) {}
+    const hashes = i - hashes_start;
+    if (hashes < 1 or hashes > 6) return false;
+    return i == line.len or line[i] == ' ' or line[i] == '\t';
+}
+
+/// `s.trim() === ''` in JavaScript: empty, or nothing but whitespace, which
+/// for JS includes the Unicode space separators, NBSP and the BOM.
+fn isJsBlank(s: []const u8) bool {
+    var i: usize = 0;
+    while (i < s.len) {
+        const c = s[i];
+        if (c < 0x80) {
+            if (c != ' ' and (c < 0x09 or c > 0x0d)) return false;
+            i += 1;
+            continue;
+        }
+        const n = std.unicode.utf8ByteSequenceLength(c) catch return false;
+        if (i + n > s.len) return false;
+        const cp = std.unicode.utf8Decode(s[i..][0..n]) catch return false;
+        switch (cp) {
+            0xa0, 0x1680, 0x2000...0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff => {},
+            else => return false,
+        }
+        i += n;
+    }
+    return true;
+}
+
+/// Strip trailing spaces and tabs (`/[ \t]+$/`)
+fn trimTrailingWs(line: []const u8) []const u8 {
+    return std.mem.trimEnd(u8, line, " \t");
+}
+
+// ---------------------------------------------------------------------------
 // Phase 2: Import formatting
 // ---------------------------------------------------------------------------
 
@@ -182,7 +339,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Split into lines
-    var lines = std.ArrayList([]const u8){};
+    var lines: std.ArrayList([]const u8) = .empty;
     var iter = std.mem.splitScalar(u8, content, '\n');
     while (iter.next()) |line| {
         try lines.append(allocator, line);
@@ -203,7 +360,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Parse contiguous import block (allowing interleaved comments and blank lines)
-    var imports = std.ArrayList(ParsedImport){};
+    var imports: std.ArrayList(ParsedImport) = .empty;
     var idx: usize = pre_import_end;
     while (idx < lines.items.len) {
         const line = lines.items[idx];
@@ -226,7 +383,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Get rest of file (after import block)
-    var rest_buf = std.ArrayList(u8){};
+    var rest_buf: std.ArrayList(u8) = .empty;
     // Estimate rest size
     var rest_size_est: usize = 0;
     for (lines.items[idx..]) |line| {
@@ -246,7 +403,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
         if (imp.kind != .value) continue;
         if (imp.named.len == 0) continue;
 
-        var kept = std.ArrayList(NamedSpecifier){};
+        var kept: std.ArrayList(NamedSpecifier) = .empty;
         for (imp.named) |spec| {
             if (spec.alias != null or isIdentUsed(rest, spec.name)) {
                 try kept.append(allocator, spec);
@@ -256,7 +413,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Filter out empty imports
-    var non_empty = std.ArrayList(ParsedImport){};
+    var non_empty: std.ArrayList(ParsedImport) = .empty;
     for (imports.items) |imp| {
         if (imp.kind == .side_effect) {
             try non_empty.append(allocator, imp);
@@ -284,7 +441,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
             entry.value_ptr.* = .{
                 .value = null,
                 .type_imp = null,
-                .sides = std.ArrayList(ParsedImport){},
+                .sides = .empty,
             };
         }
 
@@ -295,7 +452,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
                 entry.value_ptr.type_imp = imp;
             } else {
                 // Merge named types
-                var merged = std.ArrayList(NamedSpecifier){};
+                var merged: std.ArrayList(NamedSpecifier) = .empty;
                 try merged.appendSlice(allocator, entry.value_ptr.type_imp.?.named_types);
                 try merged.appendSlice(allocator, imp.named_types);
                 entry.value_ptr.type_imp.?.named_types = try merged.toOwnedSlice(allocator);
@@ -307,7 +464,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
                 // Merge
                 if (imp.default_name != null) entry.value_ptr.value.?.default_name = imp.default_name;
                 if (imp.namespace_name != null) entry.value_ptr.value.?.namespace_name = imp.namespace_name;
-                var merged = std.ArrayList(NamedSpecifier){};
+                var merged: std.ArrayList(NamedSpecifier) = .empty;
                 try merged.appendSlice(allocator, entry.value_ptr.value.?.named);
                 try merged.appendSlice(allocator, imp.named);
                 entry.value_ptr.value.?.named = try merged.toOwnedSlice(allocator);
@@ -320,7 +477,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
                             .named_types = imp.named_types,
                         };
                     } else {
-                        var tm = std.ArrayList(NamedSpecifier){};
+                        var tm: std.ArrayList(NamedSpecifier) = .empty;
                         try tm.appendSlice(allocator, entry.value_ptr.type_imp.?.named_types);
                         try tm.appendSlice(allocator, imp.named_types);
                         entry.value_ptr.type_imp.?.named_types = try tm.toOwnedSlice(allocator);
@@ -331,7 +488,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Build output imports list
-    var entries = std.ArrayList(ParsedImport){};
+    var entries: std.ArrayList(ParsedImport) = .empty;
     var map_iter = by_source.iterator();
     while (map_iter.next()) |kv| {
         for (kv.value_ptr.sides.items) |side| {
@@ -360,7 +517,7 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     }
 
     // Render output: preserve pre-import comments, then sorted imports
-    var output = std.ArrayList(u8){};
+    var output: std.ArrayList(u8) = .empty;
     try output.ensureTotalCapacity(allocator, content.len + 256);
 
     // Preserve comments/blanks before imports
@@ -536,8 +693,8 @@ fn parseImportStatement(stmt: []const u8, allocator: Allocator) !?ParsedImport {
     // Parse value import specifiers
     var default_name: ?[]const u8 = null;
     var namespace_name: ?[]const u8 = null;
-    var named = std.ArrayList(NamedSpecifier){};
-    var named_types = std.ArrayList(NamedSpecifier){};
+    var named: std.ArrayList(NamedSpecifier) = .empty;
+    var named_types: std.ArrayList(NamedSpecifier) = .empty;
 
     // Extract named group { ... } if present
     var remaining = spec_part;
@@ -613,7 +770,7 @@ fn parseNamedSpecifiers(spec_part: []const u8, allocator: Allocator) ![]NamedSpe
     if (inner.len > 0 and inner[inner.len - 1] == '}') inner = inner[0 .. inner.len - 1];
     inner = std.mem.trim(u8, inner, " \t");
 
-    var specs = std.ArrayList(NamedSpecifier){};
+    var specs: std.ArrayList(NamedSpecifier) = .empty;
     var spec_iter = std.mem.splitScalar(u8, inner, ',');
     while (spec_iter.next()) |raw| {
         const s = std.mem.trim(u8, raw, " \t");
@@ -676,11 +833,11 @@ fn isIdentUsed(code: []const u8, name: []const u8) bool {
 
 fn processCodeLinesFused(content: []const u8, cfg: Config, allocator: Allocator) ![]u8 {
     // Pre-allocate output: content + 25% headroom for indentation growth
-    var output = std.ArrayList(u8){};
+    var output: std.ArrayList(u8) = .empty;
     try output.ensureTotalCapacity(allocator, content.len + content.len / 4);
 
     // Scratch buffer for per-line quote fixing (reused across lines)
-    var scratch = std.ArrayList(u8){};
+    var scratch: std.ArrayList(u8) = .empty;
     try scratch.ensureTotalCapacity(allocator, 512);
 
     var indent_level: usize = 0;
@@ -888,14 +1045,6 @@ fn fixQuotesInto(line: []const u8, preferred: Config.QuoteStyle, output: *std.Ar
     }
 }
 
-/// Legacy wrapper that returns allocated slice (used by fixQuotesAllLines)
-fn fixQuotesLine(line: []const u8, preferred: Config.QuoteStyle, allocator: Allocator) ![]u8 {
-    var output = std.ArrayList(u8){};
-    try output.ensureTotalCapacity(allocator, line.len + 8);
-    try fixQuotesInto(line, preferred, &output, allocator);
-    return output.items;
-}
-
 fn convertDoubleToSingle(inner: []const u8, output: *std.ArrayList(u8), allocator: Allocator) !void {
     try output.append(allocator, '\'');
     var i: usize = 0;
@@ -946,20 +1095,6 @@ fn convertSingleToDouble(inner: []const u8, output: *std.ArrayList(u8), allocato
         }
     }
     try output.append(allocator, '"');
-}
-
-fn fixQuotesAllLines(content: []const u8, preferred: Config.QuoteStyle, allocator: Allocator) ![]u8 {
-    var output = std.ArrayList(u8){};
-    try output.ensureTotalCapacity(allocator, content.len + 64);
-    var line_iter = std.mem.splitScalar(u8, content, '\n');
-    var first_line = true;
-    while (line_iter.next()) |line| {
-        if (!first_line) try output.append(allocator, '\n');
-        first_line = false;
-        const fixed = try fixQuotesLine(line, preferred, allocator);
-        try output.appendSlice(allocator, fixed);
-    }
-    return output.items;
 }
 
 // ---------------------------------------------------------------------------
@@ -1158,6 +1293,11 @@ fn ensureFinalNewline(content: []const u8, policy: Config.FinalNewline, allocato
 pub fn isCodeFile(path: []const u8) bool {
     // Match TS CODE_EXTS: only .ts and .js are "code" files
     return endsWith(path, ".ts") or endsWith(path, ".js");
+}
+
+/// Match TS MARKDOWN_EXTS
+pub fn isMarkdownFile(path: []const u8) bool {
+    return endsWith(path, ".md") or endsWith(path, ".mdx") or endsWith(path, ".markdown");
 }
 
 pub fn isJsonFile(path: []const u8) bool {
@@ -1700,12 +1840,28 @@ test "non-code file - no import processing" {
     try std.testing.expect(std.mem.indexOf(u8, result, "import") != null);
 }
 
-test "non-code file - quotes still fixed" {
+test "non-code file - quotes left alone" {
     const allocator = std.testing.allocator;
     const input = "const x = \"hello\"\n";
     const result = try formatCode(input, "data.txt", allocator);
     defer allocator.free(result);
-    try std.testing.expect(std.mem.indexOf(u8, result, "'hello'") != null);
+    try std.testing.expectEqualStrings(input, result);
+}
+
+test "markdown prose - quotes left alone" {
+    const allocator = std.testing.allocator;
+    const input = "He said \"hi\" and `\"x\"` too.\n";
+    const result = try formatCode(input, "README.md", allocator);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings(input, result);
+}
+
+test "json - double quotes kept so it still parses" {
+    const allocator = std.testing.allocator;
+    const input = "{\n  \"name\": \"x\",\n  \"list\": [\"a\", \"b\"]\n}\n";
+    const result = try formatCode(input, "data.json", allocator);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings(input, result);
 }
 
 test ".tsx file NOT treated as code (matches TS CODE_EXTS)" {
@@ -1713,9 +1869,8 @@ test ".tsx file NOT treated as code (matches TS CODE_EXTS)" {
     const input = "function foo() {\nreturn \"hi\"\n}\n";
     const result = try formatCode(input, "app.tsx", allocator);
     defer allocator.free(result);
-    // .tsx is not in CODE_EXTS, so no indentation/quote fixing applied
-    // Only quote fixing for non-code files (fixQuotesAllLines) applies
-    try std.testing.expect(std.mem.indexOf(u8, result, "'hi'") != null);
+    // .tsx is not in CODE_EXTS, so no indentation or quote fixing applies
+    try std.testing.expectEqualStrings(input, result);
 }
 
 test ".jsx file NOT treated as code (matches TS CODE_EXTS)" {
@@ -1723,8 +1878,7 @@ test ".jsx file NOT treated as code (matches TS CODE_EXTS)" {
     const input = "function foo() {\nreturn \"hi\"\n}\n";
     const result = try formatCode(input, "app.jsx", allocator);
     defer allocator.free(result);
-    // .jsx is not in CODE_EXTS, so no indentation fixing applied
-    try std.testing.expect(std.mem.indexOf(u8, result, "'hi'") != null);
+    try std.testing.expectEqualStrings(input, result);
 }
 
 test ".js file treated as code" {
@@ -1733,6 +1887,100 @@ test ".js file treated as code" {
     const result = try formatCode(input, "app.js", allocator);
     defer allocator.free(result);
     try std.testing.expect(std.mem.indexOf(u8, result, "  return 'hi'") != null);
+}
+
+// ===========================================================================
+// Markdown tests (mirror packages/pickier/test/format/format-markdown.test.ts)
+// ===========================================================================
+
+fn expectMarkdown(input: []const u8, expected: []const u8) !void {
+    const allocator = std.testing.allocator;
+    const result = try formatCode(input, "doc.md", allocator);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "markdown - trims trailing whitespace in prose and collapses blank runs" {
+    try expectMarkdown("# Title \n\n\n\nSome text.\t\n", "# Title\n\nSome text.\n");
+}
+
+test "markdown - turns whitespace-only lines into blank lines" {
+    try expectMarkdown("a\n   \n  \nb\n", "a\n\nb\n");
+}
+
+test "markdown - keeps a fenced code block verbatim, trailing spaces and blank runs included" {
+    const src = "```js\nconst s = `line one \nline two`;\n\n\n\nfoo()  \n```\n";
+    try expectMarkdown(src, src);
+}
+
+test "markdown - keeps tilde fences and longer fences verbatim until the matching close" {
+    try expectMarkdown(
+        "````md\n```js\nx  \n```\n\n\ny \n````\nafter \n",
+        "````md\n```js\nx  \n```\n\n\ny \n````\nafter\n",
+    );
+    try expectMarkdown("~~~\nkeep \n~~~\n", "~~~\nkeep \n~~~\n");
+}
+
+test "markdown - does not close a backtick fence on a line that has an info string" {
+    try expectMarkdown("```\na \n```js\nb \n```\nc \n", "```\na \n```js\nb \n```\nc\n");
+}
+
+test "markdown - treats an unclosed fence as running to the end of the document" {
+    try expectMarkdown("```\na \n\n\n\nb \n", "```\na \n\n\n\nb \n");
+}
+
+test "markdown - preserves hard line breaks, normalized to two spaces" {
+    try expectMarkdown("first  \nsecond\n", "first  \nsecond\n");
+    try expectMarkdown("first    \nsecond\n", "first  \nsecond\n");
+}
+
+test "markdown - trims trailing spaces that are not a hard break" {
+    // End of paragraph: the next line is blank, so there is no break to keep
+    try expectMarkdown("first  \n\nsecond\n", "first\n\nsecond\n");
+    // End of document
+    try expectMarkdown("last  ", "last\n");
+    // A single trailing space is never a break
+    try expectMarkdown("first \nsecond\n", "first\nsecond\n");
+    // Headings cannot carry a hard break
+    try expectMarkdown("# Title  \ntext\n", "# Title\ntext\n");
+}
+
+test "markdown - is idempotent" {
+    const allocator = std.testing.allocator;
+    const once = try formatCode("a  \nb\n\n\n```\nc \n\n\n```\n  \n", "doc.md", allocator);
+    defer allocator.free(once);
+    try expectMarkdown(once, once);
+}
+
+test "markdown - reads backticks in prose as inline code, not template literals" {
+    // An unbalanced backtick must not switch off trimming for the rest of the file
+    try expectMarkdown("Use ` carefully \nnext \n", "Use ` carefully\nnext\n");
+}
+
+test "markdown - CRLF line endings" {
+    try expectMarkdown("a  \r\nb \r\n```\r\nc \r\n```\r\n", "a  \nb\n```\nc \n```\n");
+}
+
+test "markdown - an indented fence in a list item is still a fence" {
+    const src = "- item\n\n  ```sh\n  echo hi  \n\n\n  ```\n";
+    try expectMarkdown(src, src);
+}
+
+test "markdown - .mdx and .markdown are markdown too" {
+    const allocator = std.testing.allocator;
+    for ([_][]const u8{ "doc.mdx", "doc.markdown" }) |path| {
+        const result = try formatCode("first  \nsecond\n", path, allocator);
+        defer allocator.free(result);
+        try std.testing.expectEqualStrings("first  \nsecond\n", result);
+    }
+}
+
+test "markdown - trim_trailing_whitespace disabled keeps trailing spaces" {
+    const allocator = std.testing.allocator;
+    const cfg = Config{ .trim_trailing_whitespace = false };
+    const result = try formatCodeWithConfig("a \n  \n\n\nb  \n", "doc.md", cfg, allocator);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings("a \n\nb  \n", result);
 }
 
 // ===========================================================================
@@ -1865,7 +2113,7 @@ test "real-world - object literal" {
 test "large input - many lines" {
     const allocator = std.testing.allocator;
     // Build a 200-line input
-    var input_buf = std.ArrayList(u8){};
+    var input_buf: std.ArrayList(u8) = .empty;
     defer input_buf.deinit(allocator);
     for (0..200) |i| {
         var num_buf: [16]u8 = undefined;
@@ -1957,7 +2205,7 @@ test "edge: string containing target quote" {
 
 test "edge: very long string" {
     const allocator = std.testing.allocator;
-    var input_buf = std.ArrayList(u8){};
+    var input_buf: std.ArrayList(u8) = .empty;
     defer input_buf.deinit(allocator);
     try input_buf.appendSlice(allocator, "const x = \"");
     for (0..500) |_| {
@@ -2287,7 +2535,7 @@ test "edge: consecutive CRLF" {
 
 test "edge: very long line 1000 chars" {
     const allocator = std.testing.allocator;
-    var input_buf = std.ArrayList(u8){};
+    var input_buf: std.ArrayList(u8) = .empty;
     defer input_buf.deinit(allocator);
     try input_buf.appendSlice(allocator, "const x = '");
     for (0..1000) |_| try input_buf.append(allocator, 'a');
