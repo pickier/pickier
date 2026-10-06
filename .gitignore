@@ -17,3 +17,4 @@ packages/pickier/bin/pickier
 /packages/zig/.zig-cache
 /packages/zig/zig-out
 pantry
+/bechmarks/results

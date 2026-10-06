@@ -6,7 +6,8 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from 'pickier'
+import { runLintProgrammatic } from '../../packages/pickier/src/index'
+import { pickierCli } from './pickier-cli'
 
 function which(bin: string): string | null {
   try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
@@ -20,8 +21,6 @@ const oxlintGlobal = which('oxlint')
 const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
 const biomeGlobal = which('biome')
 const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
-// Pickier Zig native binary — same one used in format-comparison bench
-const pickierBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
 try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
 catch { /* ignore */ }
@@ -59,7 +58,7 @@ function cliBiome(filePath: string): void {
 }
 
 function cliPickier(filePath: string): void {
-  try { execSync(`${pickierBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
+  try { execSync(`${pickierCli} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected when issues found */ }
 }
 
@@ -78,8 +77,8 @@ console.log(`${'='.repeat(72)}`)
 console.log(`  ESLint:  ${eslintBin} (via node — Bun has ajv compat issue)`)
 console.log(`  oxlint:  ${oxlintGlobal ?? '(via bunx)'}`)
 console.log(`  Biome:   ${biomeGlobal ?? '(via bunx)'}`)
-console.log(`  Pickier CLI: ${pickierBin}`)
-console.log(`  Note: 'pickier (api)' = programmatic in-process; 'pickier (cli)' = native Zig binary spawn`)
+console.log(`  Pickier CLI: ${pickierCli}`)
+console.log(`  Note: 'pickier (api)' = programmatic in-process; 'pickier (cli)' = ${pickierCli}`)
 console.log(`${'='.repeat(72)}\n`)
 
 for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {

@@ -44,14 +44,13 @@
     "bench:comparison": "bun run benchmarks/comparison.ts",
     "bench:breakdown": "bun run benchmarks/breakdown.ts",
     "bench:format-comparison": "bun run benchmarks/format-comparison.bench.ts",
+    "bench:markdown": "bun run benchmarks/markdown.bench.ts",
+    "bench:markdown-corpus": "bun run benchmarks/markdown-corpus.ts",
     "bench:all": "bun run bench:lint && bun run bench:format && bun run bench:combined",
     "lint": "bunx --bun pickier .",
     "lint:fix": "bunx --bun pickier . --fix",
     "prepublishOnly": "bun --bun run build",
     "test": "bun test"
-  },
-  "dependencies": {
-    "pickier": "workspace:*"
   },
   "devDependencies": {
     "@babel/parser": "^7.28.5",
@@ -60,8 +59,8 @@
     "happy-dom": "^20.0.11",
     "jsdom": "^25.0.1",
     "mitata": "^1.0.34",
-    "oxfmt": "^0.1.0",
-    "prettier": "^3.7.4",
+    "oxfmt": "^0.72.0",
+    "prettier": "^3.9.9",
     "typescript": "^7.0.2"
   }
 }

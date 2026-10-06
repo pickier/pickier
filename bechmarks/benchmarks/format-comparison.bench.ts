@@ -5,13 +5,13 @@
  *
  *   1. Programmatic / In-memory
  *      Pickier formatCode() — in-memory, no process spawn
+ *      oxfmt format()      — in-memory napi binding, no process spawn
  *      Prettier format()   — in-memory, no process spawn
- *      oxfmt               — piped via stdin (no JS API)
- *      Biome               — piped via stdin (no JS API)
+ *      Biome               — piped via stdin (no JS formatting API)
  *
  *   2. CLI (single file)
  *      All tools spawn a subprocess.
- *      Pickier uses its Zig-compiled native binary for max speed.
+ *      Pickier uses its Zig binary when built (packages/zig), else the npm CLI.
  *
  *   3. CLI Batch (all fixtures sequentially)
  *
@@ -23,8 +23,10 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { defaultConfig, formatCode } from 'pickier'
+import { format as oxfmtFormat } from 'oxfmt'
+import { defaultConfig, formatCode } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
+import { pickierCli, pickierCliLabel } from './pickier-cli'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -49,32 +51,20 @@ const stats = Object.fromEntries(
 ) as Record<keyof typeof content, { lines: number, bytes: number }>
 
 // ---------------------------------------------------------------------------
-// Resolve CLI binaries once, outside the hot loop
+// Resolve CLI binaries once, outside the hot loop. Every tool runs from this
+// package's node_modules so the versions are the ones in package.json, not
+// whatever happens to be on PATH or whatever `npx` downloads today.
 // ---------------------------------------------------------------------------
-function which(bin: string): string | null {
-  try {
-    return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim()
-  }
-  catch {
-    return null
-  }
-}
+const localBin = (name: string) => resolve(__dirname, '../node_modules/.bin', name)
 
-const oxfmtGlobal = which('oxfmt')
-const oxfmtCmd = oxfmtGlobal ?? 'npx --yes oxfmt'
-const biomeGlobal = which('biome')
-const biomeCmd = biomeGlobal ?? 'npx --yes @biomejs/biome'
-const prettierGlobal = which('prettier')
-const prettierCmd = prettierGlobal ?? 'npx --yes prettier'
-const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
+const oxfmtCmd = localBin('oxfmt')
+const biomeCmd = localBin('biome')
+const prettierCmd = localBin('prettier')
 
-// Warm up npx cache so the first bench iteration isn't penalised
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
+// A tool that fails instantly would look fast, and every call below swallows
+// the non-zero exit check mode returns. Make sure each CLI actually runs first.
+for (const cmd of [oxfmtCmd, biomeCmd, prettierCmd, pickierCli])
+  execSync(`${cmd} --version`, { stdio: 'ignore' })
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,15 +79,11 @@ const prettierOpts = {
   printWidth: 100,
 }
 
-/** oxfmt via stdin — no JS API available */
-function stdinOxfmt(src: string): void {
-  try {
-    execSync(`${oxfmtCmd} format --stdin-filepath bench.ts`, {
-      input: src,
-      stdio: ['pipe', 'ignore', 'ignore'],
-    })
-  }
-  catch { /* non-zero exit expected */ }
+const oxfmtOpts = {
+  semi: false,
+  singleQuote: true,
+  tabWidth: 2,
+  printWidth: 100,
 }
 
 /** Biome via stdin — no JS formatting API available */
@@ -112,7 +98,7 @@ function stdinBiome(src: string): void {
 }
 
 function cliOxfmt(filePath: string): void {
-  try { execSync(`${oxfmtCmd} format --check ${filePath}`, { stdio: 'ignore' }) }
+  try { execSync(`${oxfmtCmd} --check ${filePath}`, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected */ }
 }
 
@@ -128,7 +114,7 @@ function cliPrettier(filePath: string): void {
 
 function cliPickier(filePath: string): void {
   try {
-    execSync(`${pickierZigBin} run ${filePath} --mode format --check`, {
+    execSync(`${pickierCli} run ${filePath} --mode format --check`, {
       stdio: 'ignore',
     })
   }
@@ -139,7 +125,7 @@ function cliPickier(filePath: string): void {
 // Header
 // ---------------------------------------------------------------------------
 console.log(`\n${'='.repeat(80)}`)
-console.log('     PICKIER (Zig) vs OXFMT vs BIOME vs PRETTIER — Formatting Benchmark')
+console.log('     PICKIER vs OXFMT vs BIOME vs PRETTIER — Formatting Benchmark')
 console.log('='.repeat(80))
 console.log('\nFixtures:')
 console.log(`  Small:  ${stats.small.lines} lines  (${(stats.small.bytes / 1024).toFixed(1)} KB)`)
@@ -147,14 +133,14 @@ console.log(`  Medium: ${stats.medium.lines} lines  (${(stats.medium.bytes / 102
 console.log(`  Large:  ${stats.large.lines} lines  (${(stats.large.bytes / 1024).toFixed(1)} KB)`)
 console.log()
 console.log('Tools:')
-console.log(`  Pickier:   formatCode() in-memory  +  Zig-compiled native binary CLI`)
-console.log(`  oxfmt:     ${oxfmtGlobal ?? '(via npx)'}  — stdin pipe + CLI  (no JS API)`)
-console.log(`  Biome:     ${biomeGlobal ?? '(via npx)'}  — stdin pipe + CLI  (no JS formatting API)`)
-console.log(`  Prettier:  format() in-memory  +  ${prettierGlobal ?? 'npx'} CLI`)
+console.log(`  Pickier:   formatCode() in-memory  +  ${pickierCli} CLI`)
+console.log(`  oxfmt:     format() in-memory  +  ${oxfmtCmd} CLI`)
+console.log(`  Biome:     ${biomeCmd}  — stdin pipe + CLI  (no JS formatting API)`)
+console.log(`  Prettier:  format() in-memory  +  ${prettierCmd} CLI`)
 console.log(`${'='.repeat(80)}\n`)
 
 // ===================================================================
-// 1. Programmatic — Pickier & Prettier in-memory, oxfmt & Biome stdin
+// 1. Programmatic — Pickier, oxfmt & Prettier in-memory, Biome stdin
 // ===================================================================
 
 for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large', 'large']] as const) {
@@ -163,8 +149,8 @@ for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large',
       formatCode(content[size], cfg, 'bench.ts')
     })
 
-    bench('oxfmt (stdin)', () => {
-      stdinOxfmt(content[size])
+    bench('oxfmt', async () => {
+      await oxfmtFormat('bench.ts', content[size], oxfmtOpts)
     })
 
     bench('Biome (stdin)', () => {
@@ -183,7 +169,7 @@ for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large',
 
 for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large', 'large']] as const) {
   group(`CLI — ${label} File (${stats[size].lines} lines)`, () => {
-    bench('Pickier (Zig)', () => {
+    bench(pickierCliLabel, () => {
       cliPickier(fixturePaths[size])
     })
 
@@ -206,7 +192,7 @@ for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large',
 // ===================================================================
 
 group('CLI Batch — All Files', () => {
-  bench('Pickier (Zig)', () => {
+  bench(pickierCliLabel, () => {
     for (const fp of Object.values(fixturePaths)) cliPickier(fp)
   })
 
@@ -232,8 +218,8 @@ group('Throughput — Large File x 20', () => {
     for (let i = 0; i < 20; i++) formatCode(content.large, cfg, 'bench.ts')
   })
 
-  bench('oxfmt (stdin)', () => {
-    for (let i = 0; i < 20; i++) stdinOxfmt(content.large)
+  bench('oxfmt', async () => {
+    for (let i = 0; i < 20; i++) await oxfmtFormat('bench.ts', content.large, oxfmtOpts)
   })
 
   bench('Biome (stdin)', () => {

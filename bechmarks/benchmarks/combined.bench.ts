@@ -6,8 +6,9 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from 'pickier'
+import { runLintProgrammatic } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
+import { pickierCli, pickierCliLabel } from './pickier-cli'
 
 function which(bin: string): string | null {
   try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
@@ -25,7 +26,6 @@ const oxlintGlobal = which('oxlint')
 const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
 const oxfmtGlobal = which('oxfmt')
 const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
-const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
 try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
 catch { /* ignore */ }
@@ -72,11 +72,11 @@ catch { /* issues found */ }
   await prettier.format(content, prettierOpts)
 }
 
-// Pickier Zig: lint + format in one native binary invocation
-function runPickierZig(filePath: string) {
-  try { execSync(`${pickierZigBin} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
+// Pickier CLI: lint + format
+function runPickierCli(filePath: string) {
+  try { execSync(`${pickierCli} run ${filePath} --mode lint`, { stdio: 'ignore' }) }
 catch { /* ok */ }
-  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
+  try { execSync(`${pickierCli} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
 catch { /* ok */ }
 }
 
@@ -107,8 +107,8 @@ console.log(`  Biome:    ${biomeGlobal ?? '(via bunx)'}`)
 console.log(`  Prettier: ${prettierGlobal ?? '(via bunx)'}`)
 console.log(`  oxlint:   ${oxlintGlobal ?? '(via bunx)'}`)
 console.log(`  oxfmt:    ${oxfmtGlobal ?? '(via bunx)'}`)
-console.log(`  Pickier Zig: ${pickierZigBin}`)
-console.log(`  Note: 'pickier (api)' = programmatic API; 'pickier (cli)' = native Zig binary CLI`)
+console.log(`  Pickier CLI: ${pickierCli}`)
+console.log(`  Note: 'pickier (api)' = programmatic API; 'pickier (cli)' = ${pickierCli}`)
 console.log(`${'='.repeat(72)}\n`)
 
 for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
@@ -118,7 +118,7 @@ for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 line
     })
 
     bench('pickier (cli)', () => {
-      runPickierZig(fixtures[size])
+      runPickierCli(fixtures[size])
     })
 
     bench('eslint + prettier', async () => {
@@ -142,7 +142,7 @@ group('Combined (Lint + Format) — All Files (batch)', () => {
   })
 
   bench('pickier (cli)', () => {
-    for (const f of Object.values(fixtures)) runPickierZig(f)
+    for (const f of Object.values(fixtures)) runPickierCli(f)
   })
 
   bench('eslint + prettier', async () => {

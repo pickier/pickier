@@ -2,7 +2,7 @@
  * Formatting Performance Benchmarks
  * Compares Pickier vs Prettier vs Biome vs oxfmt
  *
- * Pickier: formatCode() in-memory API + Zig native binary CLI
+ * Pickier: formatCode() in-memory API + CLI (Zig binary when built, else the npm CLI)
  * Others:  in-memory where available, CLI (stdin/file) otherwise
  *
  * Run: bun run bench:format
@@ -11,8 +11,9 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { defaultConfig, formatCode } from 'pickier'
+import { defaultConfig, formatCode } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
+import { pickierCli, pickierCliLabel } from './pickier-cli'
 
 function which(bin: string): string | null {
   try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
@@ -23,7 +24,6 @@ const biomeGlobal = which('biome')
 const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
 const oxfmtGlobal = which('oxfmt')
 const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
-const pickierZigBin = resolve(__dirname, '../../packages/zig/zig-out/bin/pickier-zig')
 
 try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
 catch { /* ignore */ }
@@ -73,7 +73,7 @@ function stdinOxfmt(src: string): void {
 }
 
 function cliPickier(filePath: string): void {
-  try { execSync(`${pickierZigBin} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
+  try { execSync(`${pickierCli} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected */ }
 }
 
@@ -90,7 +90,7 @@ function cliOxfmt(filePath: string): void {
 console.log(`\n${'='.repeat(72)}`)
 console.log('  PICKIER vs Prettier vs Biome vs oxfmt — Formatting Benchmark')
 console.log(`${'='.repeat(72)}`)
-console.log(`  Pickier Zig: ${pickierZigBin}`)
+console.log(`  Pickier CLI: ${pickierCli}`)
 console.log(`  Biome:       ${biomeGlobal ?? '(via bunx)'}`)
 console.log(`  oxfmt:       ${oxfmtGlobal ?? '(via bunx)'}`)
 console.log(`${'='.repeat(72)}\n`)

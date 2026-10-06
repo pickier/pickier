@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from 'pickier'
+import { runLintProgrammatic } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
 
 // Load fixtures

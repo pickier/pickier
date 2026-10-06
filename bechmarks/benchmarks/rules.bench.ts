@@ -4,7 +4,7 @@
  */
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from 'pickier'
+import { runLintProgrammatic } from '../../packages/pickier/src/index'
 
 // Load fixtures
 const fixtures = {
