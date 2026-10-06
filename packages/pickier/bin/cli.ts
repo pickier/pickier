@@ -7,7 +7,7 @@
 // we parse process.argv directly and call runUnified via a dynamic import,
 // bypassing the CLI framework entirely. This saves ~5ms on the hot path.
 //
-// Lint-only flags (--fix, --dry-run, --reporter, --max-warnings, --cache)
+// Lint-only flags (--fix, --dry-run, --max-warnings)
 // fall through to the full CLI framework below.
 // ---------------------------------------------------------------------------
 
@@ -31,6 +31,8 @@ async function main() {
   let verbose = false
   let config: string | undefined
   let ext: string | undefined
+  let cache = false
+  let reporter: 'stylish' | 'json' | 'compact' | undefined
   const globs: string[] = []
   let useFastPath = true
 
@@ -61,7 +63,14 @@ async function main() {
     else if (a === '--ignore-path') {
       i++ // skip value
     }
-    else if (a === '--fix' || a === '--dry-run' || a === '--reporter' || a === '--max-warnings' || a === '--cache') {
+    else if (a === '--cache') {
+      cache = true
+    }
+    else if (a === '--reporter') {
+      const value = argv[++i]
+      reporter = value === 'json' || value === 'compact' ? value : 'stylish'
+    }
+    else if (a === '--fix' || a === '--dry-run' || a === '--max-warnings') {
       // Lint-only flags — fall through to full CLI
       useFastPath = false
       globs.length = 0
@@ -82,7 +91,7 @@ async function main() {
   // round-trip through auto mode's "default to fix" branch in runUnified.
   if (useFastPath && (mode === 'format' || mode === 'auto' || mode === 'lint') && globs.length > 0) {
     const { runUnified } = await import('../src/run.ts')
-    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext })
+    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext, ...(cache && { cache }), ...(reporter && { reporter }) })
     process.exit(code)
   }
   // Suppress unused-variable warning — `format` is captured but only

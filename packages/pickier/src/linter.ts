@@ -4,6 +4,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { LazyLogger } from './logger'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
+import { cacheApplies, openLintCache } from './cache'
 import { resetLexCache } from './lexer'
 import { createLazyLogger, flushLogs } from './logger'
 import { lintInWorkers, workerThreadsFor } from './parallel'
@@ -2345,10 +2346,47 @@ async function lintFiles(globs: string[], options: LintOptions): Promise<number>
 
     // Many files: spread them over worker threads. Diagnostics and traces
     // narrate the run in order, so those runs stay on this thread.
-    const workerCount = enableDiagnostics || ENV.TRACE ? 0 : workerThreadsFor(files.length)
-    const issueArrays = workerCount > 1
-      ? await lintInWorkers(files, options, workerCount, processFile)
-      : await processWithConcurrency(files, concurrency, processFile)
+    const lintAll = async (list: string[]): Promise<LintIssue[][]> => {
+      const workerCount = enableDiagnostics || ENV.TRACE ? 0 : workerThreadsFor(list.length)
+      return workerCount > 1
+        ? lintInWorkers(list, options, workerCount, processFile)
+        : processWithConcurrency(list, concurrency, processFile)
+    }
+
+    let issueArrays: LintIssue[][]
+    if (cacheApplies(cfg, options)) {
+      // Files whose content is what their cached issues came from are not
+      // linted again; the rest are, and their issues go into the cache.
+      const cache = openLintCache(cfg, options)
+      const contents = files.map((f) => {
+        try {
+          return readFileSync(f, 'utf8')
+        }
+        catch {
+          return null
+        }
+      })
+      issueArrays = new Array<LintIssue[]>(files.length)
+      const misses: number[] = []
+      for (let i = 0; i < files.length; i++) {
+        const hit = contents[i] === null ? undefined : cache.get(files[i]!, contents[i]!)
+        if (hit)
+          issueArrays[i] = hit
+        else
+          misses.push(i)
+      }
+      const linted = await lintAll(misses.map(i => files[i]!))
+      misses.forEach((fileIndex, k) => {
+        issueArrays[fileIndex] = linted[k]!
+        if (contents[fileIndex] !== null)
+          cache.set(files[fileIndex]!, contents[fileIndex]!, linted[k]!)
+      })
+      cache.save()
+      trace('cache', { hits: files.length - misses.length, misses: misses.length })
+    }
+    else {
+      issueArrays = await lintAll(files)
+    }
     const allIssues = issueArrays.flat()
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Processing complete! Found ${allIssues.length} issues total`)

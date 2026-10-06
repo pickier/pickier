@@ -18,3 +18,4 @@ packages/pickier/bin/pickier
 /packages/zig/zig-out
 pantry
 /bechmarks/results
+.pickiercache
