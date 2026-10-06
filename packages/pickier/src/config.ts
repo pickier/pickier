@@ -1,5 +1,7 @@
 import type { PickierConfig } from './types'
-import { loadConfig } from 'bunfig'
+import { readdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 // Aliases pickier probes for — bunfig walks them in order until one matches.
 // `code-style` is the documented brand alias; `lint` plays nicely with
@@ -243,16 +245,89 @@ export const defaultConfig: PickierConfig = {
   verbose: true,
 }
 
+// Env vars pickier reads itself at runtime. bunfig maps other `PICKIER_*`
+// vars onto config keys (`PICKIER_VERBOSE` -> `verbose`), so any var outside
+// this list means bunfig has something to apply.
+const RUNTIME_ENV = new Set([
+  'PICKIER_CONCURRENCY',
+  'PICKIER_DIAGNOSTICS',
+  'PICKIER_FAIL_ON_WARNINGS',
+  'PICKIER_NO_AUTO_CONFIG',
+  'PICKIER_RULE_TIMEOUT_MS',
+  'PICKIER_TIMEOUT_MS',
+  'PICKIER_TRACE',
+])
+
+// A file bunfig could load: one named after pickier or an alias, or the
+// generic `config.*` / `.config.*` it also tries in every search directory.
+const RE_CONFIG_NAME = /pickier|code-style|lint/i
+const RE_GENERIC_CONFIG = /^\.?config\./i
+
+/**
+ * Whether bunfig could find any configuration at all.
+ *
+ * bunfig pulls in `node:crypto` and Node streams and probes ~200 paths, which
+ * is most of a single-file CLI run when the project has no config. This
+ * checks a superset of what it searches - the directories it walks, the
+ * `package.json` keys it reads and the env vars it maps - so it only ever
+ * says "no" when bunfig would have returned the defaults unchanged.
+ */
+function mayHaveConfig(cwd: string): boolean {
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('PICKIER_') && !RUNTIME_ENV.has(key))
+      return true
+  }
+
+  const home = homedir()
+  const dirs = [cwd, join(cwd, 'config'), join(cwd, '.config'), join(home, '.config', 'pickier'), join(home, '.config'), home]
+  for (const dir of dirs) {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    }
+    catch {
+      continue
+    }
+    for (const e of entries) {
+      if (e.isDirectory())
+        continue
+      if (RE_CONFIG_NAME.test(e.name) || RE_GENERIC_CONFIG.test(e.name))
+        return true
+    }
+  }
+
+  let raw: string
+  try {
+    raw = readFileSync(join(cwd, 'package.json'), 'utf8')
+  }
+  catch {
+    return false
+  }
+  try {
+    const pkg = JSON.parse(raw)
+    return pkg !== null && typeof pkg === 'object' && Object.keys(pkg).some(k => RE_CONFIG_NAME.test(k))
+  }
+  catch {
+    return true
+  }
+}
+
 // Lazy-loaded config to avoid top-level await (enables bun --compile)
 let _config: PickierConfig | null = null
 
 export async function getConfig(): Promise<PickierConfig> {
   if (!_config) {
-    _config = await loadConfig({
-      name: 'pickier',
-      alias: [...CONFIG_ALIASES],
-      defaultConfig,
-    })
+    if (!mayHaveConfig(process.cwd())) {
+      _config = defaultConfig
+    }
+    else {
+      const { loadConfig } = await import('bunfig')
+      _config = await loadConfig({
+        name: 'pickier',
+        alias: [...CONFIG_ALIASES],
+        defaultConfig,
+      })
+    }
   }
   return _config
 }
