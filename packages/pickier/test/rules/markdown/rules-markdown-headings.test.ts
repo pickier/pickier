@@ -2,6 +2,7 @@
 import type { LintOptions } from '../../../src/types'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { runLint } from '../../../src/linter'
+import { noDuplicateHeadingRule } from '../../../src/rules/markdown/no-duplicate-heading'
 import { cleanupTempFiles, createConfigWithMarkdownRules, createTempFile } from './test-helpers'
 
 afterEach(() => cleanupTempFiles())
@@ -255,6 +256,17 @@ Some content
     finally {
       console.log = originalLog
     }
+  })
+
+  // logsmith changelogs start each version with a "[Compare changes]" link
+  // and repeat the same section headings, at `##` or `###`, in every version.
+  it('treats each changelog version as its own section', () => {
+    const version = (level: string) => `[Compare changes](https://example.com/compare)\n\n${level} 🐛 Bug Fixes\n\n- fix\n\n${level} Contributors\n\n- someone\n`
+    const check = (text: string) => noDuplicateHeadingRule.check(text, { filePath: 'CHANGELOG.md', config: {} as any })
+    expect(check(version('##') + version('##') + version('##'))).toEqual([])
+    expect(check(version('###') + version('###'))).toEqual([])
+    // Within one version a repeat is still a duplicate
+    expect(check(`${version('##')}\n## Contributors\n`).map(i => i.line)).toEqual([11])
   })
 })
 
