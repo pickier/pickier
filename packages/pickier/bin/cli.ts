@@ -30,6 +30,7 @@ async function main() {
   let format = false
   let verbose = false
   let config: string | undefined
+  let ext: string | undefined
   const globs: string[] = []
   let useFastPath = true
 
@@ -54,7 +55,10 @@ async function main() {
     else if (a === '--verbose') {
       verbose = true
     }
-    else if (a === '--ext' || a === '--ignore-path') {
+    else if (a === '--ext') {
+      ext = argv[++i]
+    }
+    else if (a === '--ignore-path') {
       i++ // skip value
     }
     else if (a === '--fix' || a === '--dry-run' || a === '--reporter' || a === '--max-warnings' || a === '--cache') {
@@ -78,7 +82,7 @@ async function main() {
   // round-trip through auto mode's "default to fix" branch in runUnified.
   if (useFastPath && (mode === 'format' || mode === 'auto' || mode === 'lint') && globs.length > 0) {
     const { runUnified } = await import('../src/run.ts')
-    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config })
+    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext })
     process.exit(code)
   }
   // Suppress unused-variable warning — `format` is captured but only
