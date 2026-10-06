@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runLint } from '../../../src/linter'
+import { namedRule } from '../../../src/rules/imports/named'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-import-named-'))
@@ -69,5 +70,49 @@ describe('import/named', () => {
     finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  // A directory import resolves to its index file, as in Bun and Node; it
+  // used to be read as a file, which threw EISDIR and lost the whole check.
+  describe('directory imports', () => {
+    const check = (dir: string, source: string) =>
+      namedRule.check(source, { filePath: join(dir, 'a.ts'), config: {} as any })
+
+    it('checks against the directory\'s index file', () => {
+      const dir = tmp()
+      try {
+        mkdirSync(join(dir, 'lib'))
+        writeFileSync(join(dir, 'lib', 'index.ts'), 'export const foo = 1\n')
+        expect(check(dir, "import { foo } from './lib'\n")).toEqual([])
+        expect(check(dir, "import { bar } from './lib'\n").map(i => i.message)).toEqual(['\'bar\' not found in \'./lib\''])
+      }
+      finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('prefers a file over a directory of the same name', () => {
+      const dir = tmp()
+      try {
+        mkdirSync(join(dir, 'lib'))
+        writeFileSync(join(dir, 'lib', 'index.ts'), 'export const foo = 1\n')
+        writeFileSync(join(dir, 'lib.ts'), 'export const bar = 1\n')
+        expect(check(dir, "import { bar } from './lib'\n")).toEqual([])
+      }
+      finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('reports nothing for a directory without an index file', () => {
+      const dir = tmp()
+      try {
+        mkdirSync(join(dir, 'lib'))
+        expect(check(dir, "import { foo } from './lib'\n")).toEqual([])
+      }
+      finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
   })
 })
