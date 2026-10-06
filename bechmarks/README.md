@@ -4,31 +4,39 @@ Performance benchmarks comparing Pickier against other tools. All benchmarks use
 
 ## Results
 
-Measured on an Apple M3 Pro (11 cores) with Bun 1.4.2, oxfmt 0.72.0, Prettier 3.9.9 and Biome 1.9.4. Node is not installed on this machine, so the Node CLIs (Prettier, the oxfmt launcher) run on Bun.
+Measured on an Apple M3 Pro (11 cores) with Bun 1.4.2 and Node 26.10.0. Tool versions: oxfmt 0.72.0, oxlint 1.87.0, Prettier 3.9.9, Biome 2.5.15, and ESLint 10.12.0 with typescript-eslint 8.71.1. The machine was not idle: its load average stayed between 4 and 7 throughout. The mitata suites report means; the corpus run reports hyperfine's mean ± σ.
 
-What each tool does differs, and the numbers should be read with that in mind: oxfmt, Prettier and Biome parse to an AST and reprint the file; Pickier's formatter is line-based (whitespace, indentation, quotes, spacing, semicolons, imports) and, for Markdown, normalizes whitespace while leaving code blocks verbatim. Every tool runs in check mode, and every benchmark first confirms each tool actually ran — a tool that exits early is never timed.
+The tools do not do identical work, so read the numbers with that in mind:
+
+- **Formatting:** oxfmt, Prettier and Biome parse each file to an AST and reprint it. Pickier's formatter is line-based (whitespace, indentation, quotes, spacing, semicolons, imports). For Markdown it normalizes whitespace and leaves code blocks verbatim.
+- **Linting:** each linter runs its own default rule set, which differs from tool to tool. ESLint uses `eslint.config.js` here, its recommended rules plus typescript-eslint's, because without a config it exits before linting.
+
+Every formatter runs in check mode. Before anything is timed, each suite confirms that every tool actually ran and produced output, so a tool that exits early is never timed. The whole-project row also confirms each linter covered all 299 files.
 
 ### Markdown — mdn/content (CLI, whole repository)
 
-From `bench:markdown-corpus`: mdn/content pinned at `5fd3b03e9ad1`, 14,706 `.md` files (57.9 MB), `--check` over `files/**/*.md`, timed with hyperfine (1 warmup, 10 runs; 3 for Prettier). Pickier is the npm build, which runs on one thread; oxfmt uses every core unless told otherwise.
+From `bench:markdown-corpus`. mdn/content pinned at `5fd3b03e9ad1`: 14,706 `.md` files (57.9 MB), `--check` over `files/**/*.md`, timed with hyperfine (1 warmup, 10 runs; 3 for Prettier). Pickier is the npm build and, like oxfmt, uses every core unless told otherwise. The single-thread rows pair `PICKIER_WORKERS=0` with oxfmt's `--threads=1`.
 
 | Tool | Mean ± σ | Min … Max | vs Pickier |
 |------|---------:|----------:|-----------:|
-| **Pickier** (1 thread) | **0.946 s ± 0.037 s** | 0.903 … 0.999 s | 1.0x |
-| oxfmt (11 threads) | 2.746 s ± 0.209 s | 2.472 … 3.138 s | 2.9x slower |
-| oxfmt (`--threads=1`) | 5.995 s ± 0.846 s | 5.205 … 7.660 s | 6.3x slower |
-| Prettier | 79.020 s ± 3.064 s | 75.850 … 81.965 s | 83.5x slower |
+| **Pickier** | **0.580 s ± 0.010 s** | 0.566 … 0.598 s | 1.0x |
+| Pickier (1 thread) | 0.820 s ± 0.021 s | 0.802 … 0.867 s | 1.4x slower |
+| oxfmt | 2.057 s ± 0.041 s | 2.008 … 2.114 s | 3.5x slower |
+| oxfmt (`--threads=1`) | 5.460 s ± 0.052 s | 5.395 … 5.543 s | 9.4x slower |
+| Prettier | 79.699 s ± 1.300 s | 78.766 … 81.184 s | 137x slower |
+
+On one thread each, Pickier is 6.7x faster than oxfmt.
 
 ### Markdown — in-memory API
 
-From `bench:markdown`: each tool formats the same string through its JS API (Pickier `formatCode()`, oxfmt `format()`, Prettier `format({ parser: 'markdown' })`). Fixtures are copies of this repo's docs.
+From `bench:markdown`: each tool formats the same string through its JS API: Pickier `formatCode()`, oxfmt `format()`, Prettier `format({ parser: 'markdown' })`. The fixtures are copies of this repo's docs.
 
 | File | Pickier | oxfmt | Prettier |
 |------|--------:|------:|---------:|
-| Small (88 lines, 2.3 KB) | **3.74 µs** | 60.1 µs | 1.01 ms |
-| Medium (451 lines, 14.9 KB) | **22.5 µs** | 127 µs | 7.74 ms |
-| Large (1,755 lines, 88 KB) | **137 µs** | 2.56 ms | 89.0 ms |
-| All three x 10 (throughput) | **1.29 ms** | 23.4 ms | 994 ms |
+| Small (88 lines, 2.3 KB) | **3.57 µs** | 58.2 µs | 833 µs |
+| Medium (451 lines, 14.9 KB) | **21.2 µs** | 118 µs | 6.83 ms |
+| Large (1,755 lines, 88 KB) | **98.4 µs** | 1.99 ms | 83.5 ms |
+| All three x 10 (throughput) | **1.24 ms** | 22.0 ms | 911 ms |
 
 ### TypeScript formatting — in-memory API
 
@@ -36,10 +44,10 @@ From `bench:format-comparison`. Pickier, oxfmt and Prettier run in-process throu
 
 | File | Pickier | oxfmt | Prettier | Biome (stdin) |
 |------|--------:|------:|---------:|--------------:|
-| Small (52 lines, 1 KB) | **22.9 µs** | 70.9 µs | 1.02 ms | 18.6 ms |
-| Medium (419 lines, 10 KB) | **197 µs** | 329 µs | 7.69 ms | 21.9 ms |
-| Large (1,279 lines, 31 KB) | **557 µs** | 825 µs | 19.1 ms | 25.4 ms |
-| Large x 20 (throughput) | **10.8 ms** | 16.6 ms | 355 ms | 504 ms |
+| Small (52 lines, 1 KB) | **15.4 µs** | 67.7 µs | 933 µs | 44.7 ms |
+| Medium (419 lines, 10 KB) | **141 µs** | 304 µs | 6.80 ms | 45.8 ms |
+| Large (1,279 lines, 31 KB) | **397 µs** | 769 µs | 17.9 ms | 48.9 ms |
+| Large x 20 (throughput) | **7.77 ms** | 15.4 ms | 336 ms | 987 ms |
 
 ### TypeScript formatting — CLI
 
@@ -47,38 +55,36 @@ Every tool spawns a process and reads the file from disk, in check mode, with no
 
 | File | Pickier | oxfmt | Biome | Prettier |
 |------|--------:|------:|------:|---------:|
-| Small (52 lines) | **15.6 ms** | 28.7 ms | 23.0 ms | 70.1 ms |
-| Medium (419 lines) | **16.9 ms** | 28.8 ms | 33.3 ms | 102.6 ms |
-| Large (1,279 lines) | **18.5 ms** | 30.0 ms | 67.7 ms | 125.3 ms |
-| All three, sequentially | **54.1 ms** | 93.2 ms | 122.8 ms | 291.8 ms |
+| Small (52 lines) | **14.9 ms** | 44.3 ms | 48.2 ms | 90.5 ms |
+| Medium (419 lines) | **16.4 ms** | 43.9 ms | 57.1 ms | 118 ms |
+| Large (1,279 lines) | **17.0 ms** | 45.8 ms | 91.6 ms | 151 ms |
+| All three, sequentially | **49.4 ms** | 133 ms | 193 ms | 364 ms |
 
 ### Linting — Pickier vs ESLint vs oxlint vs Biome
 
-> The lint and combined tables were measured on an earlier release with the Zig port as `pickier (cli)`, and have not been re-run since the CLI benchmarks switched to the npm build. ESLint needs Node, which this machine does not have.
+From `bench:lint`, with each linter on its default rules (see above):
 
-From the `bench:lint` suite. `pickier (api)` = programmatic in-process (no spawn overhead). `pickier (cli)` = native Zig binary — the fair CLI-vs-CLI comparison. ESLint runs via `node` since its `ajv` dependency has a Bun compat issue.
+- **`pickier (api)`:** `runLintProgrammatic()` in-process, with no process start.
+- **CLIs:** every other column spawns the tool's CLI. Pickier's is the npm build, which lints TS/JS files with its native engine (`dist/native`) on every core, and reports exactly what its TypeScript rules report.
 
-| File | Pickier (api) | Pickier (cli) | ESLint (node) | oxlint | Biome |
-|------|-------------:|--------------:|--------------:|-------:|------:|
-| Small (52 lines) | **249 µs** | **19 ms** | 57 ms | 47 ms | 38 ms |
-| Medium (419 lines) | **1.73 ms** | **21 ms** | 57 ms | 47 ms | 41 ms |
-| Large (1,279 lines) | **4.43 ms** | **28 ms** | 57 ms | 49 ms | 45 ms |
-| All files (batch) | **40 µs** | **62 ms** | 172 ms | 144 ms | 129 ms |
-
-Pickier's CLI binary is **2–3x faster than Biome** and **2–3x faster than oxlint** CLI-vs-CLI. The programmatic API is another **100–1000x faster** on top of that.
+| File | Pickier (api) | Pickier (cli) | oxlint | Biome | ESLint |
+|------|-------------:|--------------:|-------:|------:|-------:|
+| Small (52 lines) | **180 µs** | **22.4 ms** | 45.6 ms | 46.1 ms | 330 ms |
+| Medium (419 lines) | **1.24 ms** | **23.1 ms** | 44.9 ms | 50.1 ms | 341 ms |
+| Large (1,279 lines) | **4.30 ms** | **23.9 ms** | 44.7 ms | 79.1 ms | 359 ms |
+| All three, one process each | **6.51 ms** | **71.7 ms** | 133 ms | 175 ms | 1.08 s |
+| Whole project (`packages/pickier/src`, 299 files, one invocation) | — | **34.7 ms** | 50.1 ms | 112 ms | 1.27 s |
 
 ### Combined — Lint + Format Workflow
 
-From the `bench:combined` suite. Two Pickier rows: `(api)` = programmatic in-process, `(cli)` = native Zig binary doing both lint + format. ESLint runs via `node`.
+From `bench:combined`: lint and format-check each fixture. Pickier does both in one tool; the others take two tools, except Biome, which does both in one `biome check`.
 
-| File | Pickier (api) | Pickier (cli) | ESLint + Prettier | oxlint + oxfmt | Biome |
-|------|-------------:|--------------:|------------------:|---------------:|------:|
-| Small (52 lines) | **303 µs** | **35 ms** | 63 ms | 94 ms | 41 ms |
-| Medium (419 lines) | **2.19 ms** | **38 ms** | 74 ms | 94 ms | 54 ms |
-| Large (1,279 lines) | **5.98 ms** | **49 ms** | 93 ms | 102 ms | 91 ms |
-| All files (batch) | **8.24 ms** | **125 ms** | 238 ms | 286 ms | 184 ms |
-
-Pickier's CLI binary is **1.8–2x faster than Biome** and **1.7–2x faster than ESLint + Prettier** CLI-vs-CLI. The programmatic API is another **10–300x faster** on top.
+| File | Pickier (api) | Pickier (cli) | Biome | oxlint + oxfmt | ESLint + Prettier |
+|------|-------------:|--------------:|------:|---------------:|------------------:|
+| Small (52 lines) | **204 µs** | **38.5 ms** | 50.3 ms | 90.7 ms | 338 ms |
+| Medium (419 lines) | **1.47 ms** | **40.7 ms** | 62.9 ms | 87.3 ms | 350 ms |
+| Large (1,279 lines) | **4.64 ms** | **39.1 ms** | 78.0 ms | 89.0 ms | 375 ms |
+| All three, one process each | **6.19 ms** | **113 ms** | 194 ms | 261 ms | 1.02 s |
 
 ## Running
 
@@ -90,7 +96,7 @@ bun run --cwd ../packages/pickier build   # CLI benchmarks spawn the npm build
 bun run bench
 
 # Individual suites
-bun run bench:lint        # Linting: Pickier vs ESLint
+bun run bench:lint        # Linting: Pickier vs ESLint vs oxlint vs Biome
 bun run bench:format      # Formatting: Pickier vs Prettier vs Biome
 bun run bench:combined    # Combined lint + format workflows
 bun run bench:format-comparison  # Pickier vs oxfmt vs Biome vs Prettier
@@ -108,7 +114,7 @@ bun run bench:all         # lint + format + combined sequentially
 
 ### Linting (`bench:lint`)
 
-Compares Pickier's programmatic linting API against ESLint across small (52 lines), medium (419 lines), and large (1,279 lines) TypeScript fixtures. Tests single-file linting, batch linting, and cold/warm performance.
+Pickier (in-process API and CLI), ESLint, oxlint and Biome on the small, medium and large fixtures, one file per invocation, then on a whole project in one invocation: a fresh copy of `packages/pickier/src` (299 files). Each CLI is run once before timing to confirm it works, and the project run checks that every tool linted every file.
 
 ### Formatting (`bench:format`)
 
@@ -183,10 +189,13 @@ PICKIER_TIMEOUT_MS=8000      # Glob timeout in ms
 PICKIER_RULE_TIMEOUT_MS=5000 # Per-rule timeout in ms
 PICKIER_BENCH_ZIG=1          # CLI benchmarks spawn packages/zig's build instead of the npm CLI
 PICKIER_WORKERS=4            # Worker threads for a run over many files (default: one per core; 0 = main thread only)
+PICKIER_NATIVE=0             # Lint on the TypeScript path only, without the native engine
 ```
 
 ## Tips for Accurate Results
 
 - Close other applications to reduce CPU noise
+- Put the Bun you mean to measure first on `PATH`: the CLI benchmarks spawn `bun`, and an older Bun found first changes Pickier's numbers
+- ESLint, oxlint and the oxfmt and Prettier launchers need Node on `PATH`; without it they fail, and the sanity checks stop the run
 - Run multiple times for statistical significance
 - First runs are often slower due to JIT warmup

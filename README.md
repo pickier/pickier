@@ -327,26 +327,37 @@ Spacing:
 
 ## Benchmarks
 
-Measured on an Apple M3 Pro with Bun 1.4.2, oxfmt 0.72.0, Prettier 3.9.9 and Biome 1.9.4, every tool in check mode. oxfmt, Prettier and Biome parse and reprint; Pickier's formatter is line-based, and for Markdown it normalizes whitespace and leaves code blocks verbatim. Methodology, all tables and the commands to reproduce them are in [`bechmarks/README.md`](bechmarks/README.md).
+Measured on an Apple M3 Pro with Bun 1.4.2 and Node 26.10.0, against oxfmt 0.72.0, oxlint 1.87.0, Prettier 3.9.9, Biome 2.5.15 and ESLint 10.12.0. Formatters run in check mode. oxfmt, Prettier and Biome parse and reprint; Pickier's formatter is line-based, and for Markdown it normalizes whitespace and leaves code blocks verbatim. Each linter runs its own default rules. Methodology, every table and the commands to reproduce them are in [`bechmarks/README.md`](bechmarks/README.md).
 
 ### Markdown — mdn/content
 
-14,706 `.md` files (57.9 MB) at a pinned commit, `--check` over `files/**/*.md`, timed with hyperfine. Pickier runs on one thread; oxfmt uses all 11 cores unless limited.
+14,706 `.md` files (57.9 MB) at a pinned commit, `--check` over `files/**/*.md`, timed with hyperfine. Both tools use all 11 cores unless limited.
 
-| Tool | Mean ± σ | Min … Max | vs Pickier |
-|------|---------:|----------:|-----------:|
-| **Pickier** (1 thread) | **0.946 s ± 0.037 s** | 0.903 … 0.999 s | 1.0x |
-| oxfmt (11 threads) | 2.746 s ± 0.209 s | 2.472 … 3.138 s | 2.9x slower |
-| oxfmt (`--threads=1`) | 5.995 s ± 0.846 s | 5.205 … 7.660 s | 6.3x slower |
-| Prettier | 79.020 s ± 3.064 s | 75.850 … 81.965 s | 83.5x slower |
+| Tool | Mean ± σ | vs Pickier |
+|------|---------:|-----------:|
+| **Pickier** | **0.580 s ± 0.010 s** | 1.0x |
+| Pickier (1 thread) | 0.820 s ± 0.021 s | 1.4x slower |
+| oxfmt | 2.057 s ± 0.041 s | 3.5x slower |
+| oxfmt (`--threads=1`) | 5.460 s ± 0.052 s | 9.4x slower |
+| Prettier | 79.699 s ± 1.300 s | 137x slower |
 
-### TypeScript — in-memory API and CLI
+### TypeScript formatting
 
 | | Pickier | oxfmt | Biome | Prettier |
 |---|--------:|------:|------:|---------:|
-| Large file (1,279 lines), in memory | **557 µs** | 825 µs | 25.4 ms (stdin) | 19.1 ms |
-| Large file, CLI | **18.5 ms** | 30.0 ms | 67.7 ms | 125.3 ms |
-| All three fixtures, CLI | **54.1 ms** | 93.2 ms | 122.8 ms | 291.8 ms |
+| Large file (1,279 lines), in memory | **397 µs** | 769 µs | 48.9 ms (stdin) | 17.9 ms |
+| Large file, CLI | **17.0 ms** | 45.8 ms | 91.6 ms | 151 ms |
+| All three fixtures, CLI | **49.4 ms** | 133 ms | 193 ms | 364 ms |
+
+### Linting
+
+The CLI lints TS/JS files with a native engine on every core, and reports exactly what its TypeScript rules report.
+
+| | Pickier | oxlint | Biome | ESLint |
+|---|--------:|-------:|------:|-------:|
+| Large file (1,279 lines), CLI | **23.9 ms** | 44.7 ms | 79.1 ms | 359 ms |
+| Whole project (299 files), one invocation | **34.7 ms** | 50.1 ms | 112 ms | 1.27 s |
+| Lint + format, all three fixtures | **113 ms** | 261 ms (oxlint + oxfmt) | 194 ms | 1.02 s (+ Prettier) |
 
 ```bash
 # reproduce locally
@@ -354,6 +365,7 @@ bun run --cwd packages/pickier build
 cd bechmarks && bun install
 bun run bench:markdown-corpus
 bun run bench:format-comparison
+bun run bench:lint
 ```
 
 ## Programmatic Usage
