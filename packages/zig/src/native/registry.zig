@@ -25,6 +25,12 @@ const entries = [_]Entry{
     .{ .id = "style/no-multi-spaces", .check = @import("rules/no_multi_spaces.zig").check },
     .{ .id = "style/no-multiple-empty-lines", .check = @import("rules/no_multiple_empty_lines.zig").check },
     .{ .id = "style/no-trailing-spaces", .check = @import("rules/no_trailing_spaces.zig").check },
+    .{ .id = "eslint/no-new", .check = @import("rules/no_new.zig").check },
+    .{ .id = "quality/no-new", .check = @import("rules/no_new.zig").check },
+    .{ .id = "general/no-new", .check = @import("rules/general_no_new.zig").check },
+    .{ .id = "general/no-regex-spaces", .check = @import("rules/no_regex_spaces.zig").check },
+    .{ .id = "node/prefer-global/buffer", .check = @import("rules/prefer_global_buffer.zig").check },
+    .{ .id = "node/prefer-global/process", .check = @import("rules/prefer_global_process.zig").check },
 };
 
 pub fn lookup(id: []const u8) ?types.CheckFn {
