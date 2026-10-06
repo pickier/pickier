@@ -1004,34 +1004,19 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
     joined = fixQuotes(joined, cfg.format.quotes, filePath)
   }
 
-  // ensure final newline policy
-  if (cfg.format.finalNewline === 'none') {
-    return joined.replace(/\n+$/g, '')
-  }
-
-  // For idempotency: if file already has 1-2 trailing newlines and we want "one", keep it stable
-  // This prevents oscillation when imports are added/removed
-  const hasOneNewline = /[^\n]\n$/.test(joined) || joined === '\n'
-  const hasTwoNewlines = /\n\n$/.test(joined)
-
-  if (cfg.format.finalNewline === 'two') {
-    // Always want exactly two newlines
-    if (hasTwoNewlines)
-      return joined
-    if (hasOneNewline)
-      return `${joined}\n`
-    return `${joined}\n\n`
-  }
-
-  // finalNewline === 'one': always ensure exactly one newline (stable and idempotent)
-  if (hasTwoNewlines) {
-    // Reduce from 2 to 1
-    return joined.replace(/\n\n$/, '\n')
-  }
-  if (hasOneNewline) {
+  // Final newline policy: replace the whole trailing run of newlines, however
+  // long, so a second pass never changes it. Trimming one newline at a time
+  // left runs that blank-line collapsing does not reach (an unclosed markdown
+  // fence, maxConsecutiveBlankLines > 1) shrinking on every run.
+  let end = joined.length
+  while (end > 0 && joined.charCodeAt(end - 1) === 10)
+    end--
+  if (cfg.format.finalNewline === 'none')
+    return end === joined.length ? joined : joined.slice(0, end)
+  const tail = cfg.format.finalNewline === 'two' ? '\n\n' : '\n'
+  if (joined.length - end === tail.length)
     return joined
-  }
-  return `${joined}\n`
+  return joined.slice(0, end) + tail
 }
 
 /**

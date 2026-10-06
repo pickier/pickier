@@ -1252,9 +1252,10 @@ fn normalizeCodeSpacing(text: []const u8, output: *std.ArrayList(u8), allocator:
 // Phase 4: Final newline
 // ---------------------------------------------------------------------------
 
+/// Replaces the whole trailing run of newlines, however long, so a second pass
+/// never changes it. Content that formatted down to nothing (whitespace-only
+/// input) still gets the newline(s), as in the TS engine.
 fn ensureFinalNewline(content: []const u8, policy: Config.FinalNewline, allocator: Allocator) ![]u8 {
-    if (content.len == 0) return @constCast(content);
-
     // Find where the actual content ends (before trailing newlines)
     var end = content.len;
     while (end > 0 and content[end - 1] == '\n') : (end -= 1) {}
@@ -1412,8 +1413,26 @@ test "only whitespace input" {
     const allocator = std.testing.allocator;
     const result = try formatCode("   \n\t\n   \n", "test.ts", allocator);
     defer allocator.free(result);
-    // All lines are whitespace-only so content becomes empty
-    try std.testing.expectEqual(@as(usize, 0), result.len);
+    // All lines are whitespace-only: what is left is the final newline
+    try std.testing.expectEqualStrings("\n", result);
+}
+
+test "only whitespace input - two and none policies" {
+    const allocator = std.testing.allocator;
+    const two = try formatCodeWithConfig("   \n", "test.ts", .{ .final_newline = .two }, allocator);
+    defer allocator.free(two);
+    try std.testing.expectEqualStrings("\n\n", two);
+    const none = try formatCodeWithConfig("   \n", "test.ts", .{ .final_newline = .none }, allocator);
+    defer allocator.free(none);
+    try std.testing.expectEqualStrings("", none);
+}
+
+test "final newline - whole trailing run trimmed when blank lines are allowed" {
+    const allocator = std.testing.allocator;
+    const cfg = Config{ .max_consecutive_blank_lines = 3 };
+    const result = try formatCodeWithConfig("hello\n\n\n\n", "test.ts", cfg, allocator);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings("hello\n", result);
 }
 
 test "single line no newline" {
@@ -1955,6 +1974,17 @@ test "markdown - is idempotent" {
 test "markdown - reads backticks in prose as inline code, not template literals" {
     // An unbalanced backtick must not switch off trimming for the rest of the file
     try expectMarkdown("Use ` carefully \nnext \n", "Use ` carefully\nnext\n");
+}
+
+test "markdown - trailing run inside an unclosed fence follows the final newline policy" {
+    const allocator = std.testing.allocator;
+    try expectMarkdown("```\na\n\n\n\n", "```\na\n");
+    const two = try formatCodeWithConfig("```\na\n\n\n\n", "doc.md", .{ .final_newline = .two }, allocator);
+    defer allocator.free(two);
+    try std.testing.expectEqualStrings("```\na\n\n", two);
+    const none = try formatCodeWithConfig("```\na\n\n\n\n", "doc.md", .{ .final_newline = .none }, allocator);
+    defer allocator.free(none);
+    try std.testing.expectEqualStrings("```\na", none);
 }
 
 test "markdown - CRLF line endings" {

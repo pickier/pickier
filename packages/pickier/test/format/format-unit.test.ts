@@ -522,6 +522,13 @@ describe('file type handling', () => {
     expect(result).not.toContain('  return')
   })
 
+  it('leaves quotes alone outside code', () => {
+    const json = '{\n  "name": "x"\n}\n'
+    expect(fmt(json, 'data.json')).toBe(json)
+    expect(fmt('const x = "hello"\n', 'data.txt')).toBe('const x = "hello"\n')
+    expect(fmt('He said "hi".\n', 'README.md')).toBe('He said "hi".\n')
+  })
+
   it('treats .js as code', () => {
     const input = 'function foo() {\nreturn "hi"\n}\n'
     const result = fmt(input, 'app.js')
@@ -1217,6 +1224,24 @@ describe('final newline edge cases', () => {
   it('one policy trims multiple trailing newlines', () => {
     const result = fmt('hello\n\n\n\n')
     expect(result).toBe('hello\n')
+  })
+
+  it('trims the whole trailing run in one pass when blank lines are allowed', () => {
+    const once = fmt('hello\n\n\n\n', 'test.ts', { maxConsecutiveBlankLines: 3 })
+    expect(once).toBe('hello\n')
+    expect(fmt(once, 'test.ts', { maxConsecutiveBlankLines: 3 })).toBe(once)
+  })
+
+  it('normalizes a trailing run inside an unclosed markdown fence', () => {
+    expect(fmt('```\na\n\n\n\n', 'doc.md')).toBe('```\na\n')
+    expect(fmt('```\na\n\n\n\n', 'doc.md', { finalNewline: 'two' })).toBe('```\na\n\n')
+    expect(fmt('```\na\n\n\n\n', 'doc.md', { finalNewline: 'none' })).toBe('```\na')
+  })
+
+  it('whitespace-only input becomes a lone newline', () => {
+    expect(fmt('   \n\t\n   \n')).toBe('\n')
+    expect(fmt('   \n', 'test.ts', { finalNewline: 'two' })).toBe('\n\n')
+    expect(fmt('   \n', 'test.ts', { finalNewline: 'none' })).toBe('')
   })
 })
 
