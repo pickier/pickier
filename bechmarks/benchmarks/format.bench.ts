@@ -2,8 +2,9 @@
  * Formatting Performance Benchmarks
  * Compares Pickier vs Prettier vs Biome vs oxfmt
  *
- * Pickier: formatCode() in-memory API + CLI (Zig binary when built, else the npm CLI)
- * Others:  in-memory where available, CLI (stdin/file) otherwise
+ * In memory: Pickier, Prettier and oxfmt through their JS APIs; Biome has no
+ * JS formatting API, so it is piped through stdin.
+ * CLI: every tool spawns a process and checks the file on disk.
  *
  * Run: bun run bench:format
  */
@@ -11,24 +12,11 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { defaultConfig, formatCode } from '../../packages/pickier/src/index'
+import { format as oxfmtFormat } from 'oxfmt'
 import * as prettier from 'prettier'
+import { defaultConfig, formatCode } from '../../packages/pickier/src/index'
 import { pickierCli, pickierCliLabel } from './pickier-cli'
-
-function which(bin: string): string | null {
-  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
-  catch { return null }
-}
-
-const biomeGlobal = which('biome')
-const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
-const oxfmtGlobal = which('oxfmt')
-const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
-
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
+import { biomeCmd, biomeStyle, oxfmtCmd, verifyCli } from './tools'
 
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),
@@ -50,40 +38,29 @@ const prettierOpts = {
   printWidth: 100,
 }
 
+const oxfmtOpts = { semi: false, singleQuote: true, tabWidth: 2, printWidth: 100 }
+
 const cfg = { ...defaultConfig }
 
+const stdinBiomeCmd = `${biomeCmd} format --stdin-file-path=bench.ts ${biomeStyle}`
+const cliPickierCmd = (f: string) => `${pickierCli} run ${f} --mode format --check`
+const cliBiomeCmd = (f: string) => `${biomeCmd} format ${biomeStyle} ${f}`
+const cliOxfmtCmd = (f: string) => `${oxfmtCmd} --check ${f}`
+
+for (const f of Object.values(fixtures)) {
+  verifyCli('Pickier', cliPickierCmd(f))
+  verifyCli('Biome', cliBiomeCmd(f))
+  verifyCli('oxfmt', cliOxfmtCmd(f))
+  verifyCli('Biome (stdin)', stdinBiomeCmd, readFileSync(f, 'utf-8'))
+}
+
 function stdinBiome(src: string): void {
-  try {
-    execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed --indent-width=2`, {
-      input: src,
-      stdio: ['pipe', 'ignore', 'ignore'],
-    })
-  }
+  try { execSync(stdinBiomeCmd, { input: src, stdio: ['pipe', 'ignore', 'ignore'] }) }
   catch { /* non-zero exit expected */ }
 }
 
-function stdinOxfmt(src: string): void {
-  try {
-    execSync(`${oxfmtCmd} format --stdin-filepath bench.ts`, {
-      input: src,
-      stdio: ['pipe', 'ignore', 'ignore'],
-    })
-  }
-  catch { /* non-zero exit expected */ }
-}
-
-function cliPickier(filePath: string): void {
-  try { execSync(`${pickierCli} run ${filePath} --mode format --check`, { stdio: 'ignore' }) }
-  catch { /* non-zero exit expected */ }
-}
-
-function cliBiome(filePath: string): void {
-  try { execSync(`${biomeCmd} format --quote-style=single --semicolons=as-needed --indent-width=2 ${filePath}`, { stdio: 'ignore' }) }
-  catch { /* non-zero exit expected */ }
-}
-
-function cliOxfmt(filePath: string): void {
-  try { execSync(`${oxfmtCmd} format --check ${filePath}`, { stdio: 'ignore' }) }
+function cli(cmd: string): void {
+  try { execSync(cmd, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected */ }
 }
 
@@ -91,8 +68,8 @@ console.log(`\n${'='.repeat(72)}`)
 console.log('  PICKIER vs Prettier vs Biome vs oxfmt — Formatting Benchmark')
 console.log(`${'='.repeat(72)}`)
 console.log(`  Pickier CLI: ${pickierCli}`)
-console.log(`  Biome:       ${biomeGlobal ?? '(via bunx)'}`)
-console.log(`  oxfmt:       ${oxfmtGlobal ?? '(via bunx)'}`)
+console.log(`  Biome:       ${biomeCmd}`)
+console.log(`  oxfmt:       ${oxfmtCmd}`)
 console.log(`${'='.repeat(72)}\n`)
 
 // ── In-memory / programmatic ────────────────────────────────────────────────
@@ -106,12 +83,12 @@ for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 line
       await prettier.format(content[size], prettierOpts)
     })
 
-    bench('biome (stdin)', () => {
-      stdinBiome(content[size])
+    bench('oxfmt', async () => {
+      await oxfmtFormat('bench.ts', content[size], oxfmtOpts)
     })
 
-    bench('oxfmt (stdin)', () => {
-      stdinOxfmt(content[size])
+    bench('biome (stdin)', () => {
+      stdinBiome(content[size])
     })
   })
 }
@@ -119,32 +96,24 @@ for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 line
 // ── CLI ─────────────────────────────────────────────────────────────────────
 for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 lines)', 'medium'], ['Large (~1279 lines)', 'large']] as const) {
   group(`CLI — ${label}`, () => {
-    bench('pickier (cli)', () => {
-      cliPickier(fixtures[size])
-    })
-
-    bench('biome', () => {
-      cliBiome(fixtures[size])
-    })
-
-    bench('oxfmt', () => {
-      cliOxfmt(fixtures[size])
-    })
+    bench(pickierCliLabel, () => cli(cliPickierCmd(fixtures[size])))
+    bench('biome', () => cli(cliBiomeCmd(fixtures[size])))
+    bench('oxfmt', () => cli(cliOxfmtCmd(fixtures[size])))
   })
 }
 
 // ── CLI Batch ────────────────────────────────────────────────────────────────
 group('CLI Batch — All Files', () => {
-  bench('pickier (cli)', () => {
-    for (const fp of Object.values(fixtures)) cliPickier(fp)
+  bench(pickierCliLabel, () => {
+    for (const fp of Object.values(fixtures)) cli(cliPickierCmd(fp))
   })
 
   bench('biome', () => {
-    for (const fp of Object.values(fixtures)) cliBiome(fp)
+    for (const fp of Object.values(fixtures)) cli(cliBiomeCmd(fp))
   })
 
   bench('oxfmt', () => {
-    for (const fp of Object.values(fixtures)) cliOxfmt(fp)
+    for (const fp of Object.values(fixtures)) cli(cliOxfmtCmd(fp))
   })
 })
 
@@ -158,12 +127,12 @@ group('Throughput — Large File x 20', () => {
     for (let i = 0; i < 20; i++) await prettier.format(content.large, prettierOpts)
   })
 
-  bench('biome (stdin)', () => {
-    for (let i = 0; i < 20; i++) stdinBiome(content.large)
+  bench('oxfmt', async () => {
+    for (let i = 0; i < 20; i++) await oxfmtFormat('bench.ts', content.large, oxfmtOpts)
   })
 
-  bench('oxfmt (stdin)', () => {
-    for (let i = 0; i < 20; i++) stdinOxfmt(content.large)
+  bench('biome (stdin)', () => {
+    for (let i = 0; i < 20; i++) stdinBiome(content.large)
   })
 })
 

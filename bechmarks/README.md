@@ -182,6 +182,7 @@ PICKIER_NO_AUTO_CONFIG=1     # Skip config file loading
 PICKIER_TIMEOUT_MS=8000      # Glob timeout in ms
 PICKIER_RULE_TIMEOUT_MS=5000 # Per-rule timeout in ms
 PICKIER_BENCH_ZIG=1          # CLI benchmarks spawn packages/zig's build instead of the npm CLI
+PICKIER_WORKERS=4            # Worker threads for a run over many files (default: one per core; 0 = main thread only)
 ```
 
 ## Tips for Accurate Results

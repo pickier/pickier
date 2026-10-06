@@ -1,33 +1,23 @@
 /**
  * Linting Performance Benchmarks
  * Compares pickier vs ESLint vs oxlint vs Biome
+ *
+ * Each tool runs its default or recommended rule set: Pickier's defaults,
+ * ESLint with @eslint/js + typescript-eslint recommended (eslint.config.js),
+ * oxlint's defaults and Biome's recommended rules. They are not the same
+ * rules, so this measures what each tool costs as people set it up.
  */
-import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { execSync, spawnSync } from 'node:child_process'
+import { cpSync, readFileSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
 import { runLintProgrammatic } from '../../packages/pickier/src/index'
 import { pickierCli } from './pickier-cli'
+import { biomeCmd, eslintCmd, nodeVersion, oxlintCmd, verifyCli, version } from './tools'
 
-function which(bin: string): string | null {
-  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
-  catch { return null }
-}
-
-// ESLint must run via node (not bun) — ESLint's ajv dependency has a Bun compat issue
-const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
-const eslintCmd = `node ${eslintBin}`
-const oxlintGlobal = which('oxlint')
-const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
-const biomeGlobal = which('biome')
-const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
-
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
+// ESLint needs real Node — its ajv dependency does not run on Bun
+if (!nodeVersion())
+  throw new Error('ESLint needs Node on PATH (e.g. `pantry install -g node`)')
 
 // Load fixtures
 const fixtures = {
@@ -40,6 +30,13 @@ const fixtureContent = {
   small: readFileSync(fixtures.small, 'utf-8'),
   medium: readFileSync(fixtures.medium, 'utf-8'),
   large: readFileSync(fixtures.large, 'utf-8'),
+}
+
+for (const f of Object.values(fixtures)) {
+  verifyCli('ESLint', `${eslintCmd} ${f}`)
+  verifyCli('oxlint', `${oxlintCmd} ${f}`)
+  verifyCli('Biome', `${biomeCmd} lint ${f}`)
+  verifyCli('Pickier', `${pickierCli} run ${f} --mode lint`)
 }
 
 function cliESLint(filePath: string): void {
@@ -74,9 +71,9 @@ async function runPickier(filePath: string) {
 console.log(`\n${'='.repeat(72)}`)
 console.log('  PICKIER vs ESLint vs oxlint vs Biome — Linting Benchmark')
 console.log(`${'='.repeat(72)}`)
-console.log(`  ESLint:  ${eslintBin} (via node — Bun has ajv compat issue)`)
-console.log(`  oxlint:  ${oxlintGlobal ?? '(via bunx)'}`)
-console.log(`  Biome:   ${biomeGlobal ?? '(via bunx)'}`)
+console.log(`  ESLint:  ${version(eslintCmd)} on node ${nodeVersion()}`)
+console.log(`  oxlint:  ${version(oxlintCmd)}`)
+console.log(`  Biome:   ${version(biomeCmd)}`)
 console.log(`  Pickier CLI: ${pickierCli}`)
 console.log(`  Note: 'pickier (api)' = programmatic in-process; 'pickier (cli)' = ${pickierCli}`)
 console.log(`${'='.repeat(72)}\n`)
@@ -125,6 +122,54 @@ group('Linting — All Files (batch)', () => {
   bench('biome (cli)', () => {
     for (const f of Object.values(fixtures)) cliBiome(f)
   })
+})
+
+// A whole project in one invocation per tool: a fresh copy of this
+// repository's own packages/pickier/src, so every tool lints the same files
+// and ESLint finds eslint.config.js above them (it ignores files outside the
+// directory its config lives in). Not under .cache: Pickier's default ignores
+// and oxlint's .gitignore handling both skip that, and a tool that lints
+// nothing is timed as instant. Removed again when the run ends.
+const projectDir = resolve(__dirname, '../project-src')
+rmSync(projectDir, { recursive: true, force: true })
+cpSync(resolve(__dirname, '../../packages/pickier/src'), projectDir, { recursive: true })
+process.on('exit', () => rmSync(projectDir, { recursive: true, force: true }))
+const projectFiles = Array.from(new Bun.Glob('**/*.ts').scanSync({ cwd: projectDir })).length
+
+// Every tool must actually lint every file - one that skips them (an ignore
+// rule, a missing config) would look fast. Each reports how many it read.
+function output(cmd: string, stdoutOnly = false): string {
+  const r = spawnSync('sh', ['-c', cmd], { encoding: 'utf-8', maxBuffer: 256 * 1024 * 1024 })
+  return stdoutOnly ? r.stdout : `${r.stdout}${r.stderr}`
+}
+const seen = {
+  pickier: Number(/Scanned (\d+) files/.exec(output(`${pickierCli} run ${projectDir} --mode lint --verbose`))?.[1]),
+  eslint: (JSON.parse(output(`${eslintCmd} ${projectDir} --format json`, true)) as unknown[]).length,
+  oxlint: (JSON.parse(output(`${oxlintCmd} ${projectDir} -f json`, true)) as { number_of_files: number }).number_of_files,
+  biome: Number(/Checked (\d+) files?/.exec(output(`${biomeCmd} lint ${projectDir}`))?.[1]),
+}
+for (const [tool, count] of Object.entries(seen)) {
+  if (count !== projectFiles)
+    throw new Error(`${tool} linted ${count} of the ${projectFiles} project files`)
+}
+const projectCmds = {
+  pickier: `${pickierCli} run ${projectDir} --mode lint`,
+  eslint: `${eslintCmd} ${projectDir}`,
+  oxlint: `${oxlintCmd} ${projectDir}`,
+  biome: `${biomeCmd} lint ${projectDir}`,
+}
+for (const [name, cmd] of Object.entries(projectCmds))
+  verifyCli(name, cmd)
+const cliRun = (cmd: string) => {
+  try { execSync(cmd, { stdio: 'ignore' }) }
+  catch { /* findings exit non-zero */ }
+}
+
+group(`Linting — project (packages/pickier/src, ${projectFiles} files, one invocation)`, () => {
+  bench('pickier (cli)', () => cliRun(projectCmds.pickier))
+  bench('eslint (cli)', () => cliRun(projectCmds.eslint))
+  bench('oxlint (cli)', () => cliRun(projectCmds.oxlint))
+  bench('biome (cli)', () => cliRun(projectCmds.biome))
 })
 
 // Run benchmarks

@@ -27,6 +27,7 @@ import { format as oxfmtFormat } from 'oxfmt'
 import { defaultConfig, formatCode } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
 import { pickierCli, pickierCliLabel } from './pickier-cli'
+import { biomeCmd, biomeStyle, oxfmtCmd, prettierCmd, verifyCli } from './tools'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -51,22 +52,6 @@ const stats = Object.fromEntries(
 ) as Record<keyof typeof content, { lines: number, bytes: number }>
 
 // ---------------------------------------------------------------------------
-// Resolve CLI binaries once, outside the hot loop. Every tool runs from this
-// package's node_modules so the versions are the ones in package.json, not
-// whatever happens to be on PATH or whatever `npx` downloads today.
-// ---------------------------------------------------------------------------
-const localBin = (name: string) => resolve(__dirname, '../node_modules/.bin', name)
-
-const oxfmtCmd = localBin('oxfmt')
-const biomeCmd = localBin('biome')
-const prettierCmd = localBin('prettier')
-
-// A tool that fails instantly would look fast, and every call below swallows
-// the non-zero exit check mode returns. Make sure each CLI actually runs first.
-for (const cmd of [oxfmtCmd, biomeCmd, prettierCmd, pickierCli])
-  execSync(`${cmd} --version`, { stdio: 'ignore' })
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const cfg = { ...defaultConfig }
@@ -86,40 +71,37 @@ const oxfmtOpts = {
   printWidth: 100,
 }
 
+const stdinBiomeCmd = `${biomeCmd} format --stdin-file-path=bench.ts ${biomeStyle}`
+const oxfmtCheck = (f: string) => `${oxfmtCmd} --check ${f}`
+const biomeCheck = (f: string) => `${biomeCmd} format ${biomeStyle} ${f}`
+const prettierCheck = (f: string) => `${prettierCmd} --check ${f}`
+const pickierCheck = (f: string) => `${pickierCli} run ${f} --mode format --check`
+
+// Every call below swallows the non-zero exit check mode returns, which
+// would also hide a tool failing outright. Run each one for real first.
+for (const [size, f] of Object.entries(fixturePaths)) {
+  verifyCli('oxfmt', oxfmtCheck(f))
+  verifyCli('Biome', biomeCheck(f))
+  verifyCli('Prettier', prettierCheck(f))
+  verifyCli('Pickier', pickierCheck(f))
+  verifyCli('Biome (stdin)', stdinBiomeCmd, content[size as keyof typeof content])
+}
+
 /** Biome via stdin — no JS formatting API available */
 function stdinBiome(src: string): void {
-  try {
-    execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed --indent-width=2`, {
-      input: src,
-      stdio: ['pipe', 'ignore', 'ignore'],
-    })
-  }
+  try { execSync(stdinBiomeCmd, { input: src, stdio: ['pipe', 'ignore', 'ignore'] }) }
   catch { /* non-zero exit expected */ }
 }
 
-function cliOxfmt(filePath: string): void {
-  try { execSync(`${oxfmtCmd} --check ${filePath}`, { stdio: 'ignore' }) }
+function cli(cmd: string): void {
+  try { execSync(cmd, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected */ }
 }
 
-function cliBiome(filePath: string): void {
-  try { execSync(`${biomeCmd} format --quote-style=single --semicolons=as-needed --indent-width=2 ${filePath}`, { stdio: 'ignore' }) }
-  catch { /* non-zero exit expected */ }
-}
-
-function cliPrettier(filePath: string): void {
-  try { execSync(`${prettierCmd} --check ${filePath}`, { stdio: 'ignore' }) }
-  catch { /* non-zero exit expected */ }
-}
-
-function cliPickier(filePath: string): void {
-  try {
-    execSync(`${pickierCli} run ${filePath} --mode format --check`, {
-      stdio: 'ignore',
-    })
-  }
-  catch { /* non-zero exit expected */ }
-}
+const cliOxfmt = (f: string) => cli(oxfmtCheck(f))
+const cliBiome = (f: string) => cli(biomeCheck(f))
+const cliPrettier = (f: string) => cli(prettierCheck(f))
+const cliPickier = (f: string) => cli(pickierCheck(f))
 
 // ---------------------------------------------------------------------------
 // Header

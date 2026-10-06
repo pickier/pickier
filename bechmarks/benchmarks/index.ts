@@ -10,26 +10,11 @@ import { bench, group, run } from 'mitata'
 import { defaultConfig, formatCode, runLintProgrammatic } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
 import { pickierCli, pickierCliLabel } from './pickier-cli'
+import { biomeCmd, biomeStyle, eslintCmd, nodeVersion, oxlintCmd, verifyCli } from './tools'
 
-function which(bin: string): string | null {
-  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
-  catch { return null }
-}
-
-// ESLint must run via node — ajv dependency has a Bun compat issue
-const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
-const eslintCmd = `node ${eslintBin}`
-const biomeGlobal = which('biome')
-const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
-const oxlintGlobal = which('oxlint')
-const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
-
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
+// ESLint needs real Node — its ajv dependency does not run on Bun
+if (!nodeVersion())
+  throw new Error('ESLint needs Node on PATH (e.g. `pantry install -g node`)')
 
 const fixtures = {
   small: resolve(__dirname, '../fixtures/small.ts'),
@@ -41,6 +26,14 @@ const fixtureContent = {
   small: readFileSync(fixtures.small, 'utf-8'),
   medium: readFileSync(fixtures.medium, 'utf-8'),
   large: readFileSync(fixtures.large, 'utf-8'),
+}
+
+for (const [size, f] of Object.entries(fixtures)) {
+  verifyCli('ESLint', `${eslintCmd} ${f}`)
+  verifyCli('oxlint', `${oxlintCmd} ${f}`)
+  verifyCli('Biome', `${biomeCmd} lint ${f}`)
+  verifyCli('Biome (stdin)', `${biomeCmd} format --stdin-file-path=bench.ts ${biomeStyle}`, fixtureContent[size as keyof typeof fixtureContent])
+  verifyCli('Pickier', `${pickierCli} run ${f} --mode lint`)
 }
 
 const prettierOpts = { parser: 'typescript' as const, semi: false, singleQuote: true, tabWidth: 2 }
@@ -55,7 +48,7 @@ console.log(`  Small:  ${fixtureContent.small.split('\n').length} lines`)
 console.log(`  Medium: ${mediumLines} lines`)
 console.log(`  Large:  ${largeLines} lines`)
 console.log(`  Pickier CLI: ${pickierCli}`)
-console.log(`  ESLint: ${eslintBin} (via node)`)
+console.log(`  ESLint: ${eslintCmd} (node ${nodeVersion()})`)
 console.log('='.repeat(80) + '\n')
 
 // ── Linting ──────────────────────────────────────────────────────────────────
@@ -63,7 +56,7 @@ group(`Linting — Medium File (${mediumLines} lines)`, () => {
   bench('Pickier (api)', async () => {
     await runLintProgrammatic([fixtures.medium], { reporter: 'json' })
   })
-  bench('Pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     try { execSync(`${pickierCli} run ${fixtures.medium} --mode lint`, { stdio: 'ignore' }) }
 catch { /* ok */ }
   })
@@ -85,7 +78,7 @@ group(`Linting — Large File (${largeLines} lines)`, () => {
   bench('Pickier (api)', async () => {
     await runLintProgrammatic([fixtures.large], { reporter: 'json' })
   })
-  bench('Pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     try { execSync(`${pickierCli} run ${fixtures.large} --mode lint`, { stdio: 'ignore' }) }
 catch { /* ok */ }
   })
@@ -108,7 +101,7 @@ group(`Formatting — Medium File (${mediumLines} lines)`, () => {
   bench('Pickier (api)', () => {
     formatCode(fixtureContent.medium, cfg, 'bench.ts')
   })
-  bench('Pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     try { execSync(`${pickierCli} run ${fixtures.medium} --mode format --check`, { stdio: 'ignore' }) }
 catch { /* ok */ }
   })
@@ -117,7 +110,7 @@ catch { /* ok */ }
   })
   bench('Biome (stdin)', () => {
     try {
-      execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed`, {
+      execSync(`${biomeCmd} format --stdin-file-path=bench.ts ${biomeStyle}`, {
         input: fixtureContent.medium, stdio: ['pipe', 'ignore', 'ignore'],
       })
     }
@@ -129,7 +122,7 @@ group(`Formatting — Large File (${largeLines} lines)`, () => {
   bench('Pickier (api)', () => {
     formatCode(fixtureContent.large, cfg, 'bench.ts')
   })
-  bench('Pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     try { execSync(`${pickierCli} run ${fixtures.large} --mode format --check`, { stdio: 'ignore' }) }
 catch { /* ok */ }
   })
@@ -138,7 +131,7 @@ catch { /* ok */ }
   })
   bench('Biome (stdin)', () => {
     try {
-      execSync(`${biomeCmd} format --stdin-file-path=bench.ts --quote-style=single --semicolons=as-needed`, {
+      execSync(`${biomeCmd} format --stdin-file-path=bench.ts ${biomeStyle}`, {
         input: fixtureContent.large, stdio: ['pipe', 'ignore', 'ignore'],
       })
     }
@@ -152,7 +145,7 @@ group('Stress Test — Lint 50x Small File', () => {
     for (let i = 0; i < 50; i++)
       await runLintProgrammatic([fixtures.small], { reporter: 'json' })
   })
-  bench('Pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     for (let i = 0; i < 50; i++)
       try { execSync(`${pickierCli} run ${fixtures.small} --mode lint`, { stdio: 'ignore' }) }
 catch { /* ok */ }

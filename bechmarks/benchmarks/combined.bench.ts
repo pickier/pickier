@@ -6,37 +6,14 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { bench, group, run } from 'mitata'
-import { runLintProgrammatic } from '../../packages/pickier/src/index'
 import * as prettier from 'prettier'
+import { defaultConfig, formatCode, runLintProgrammatic } from '../../packages/pickier/src/index'
 import { pickierCli, pickierCliLabel } from './pickier-cli'
+import { biomeCmd, biomeStyle, eslintCmd, nodeVersion, oxfmtCmd, oxlintCmd, verifyCli, version } from './tools'
 
-function which(bin: string): string | null {
-  try { return execSync(`which ${bin}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() }
-  catch { return null }
-}
-
-// ESLint must run via node (not bun) — ESLint's ajv dependency has a Bun compat issue
-const eslintBin = resolve(__dirname, '../../node_modules/.bin/eslint')
-const eslintCmd = `node ${eslintBin}`
-const biomeGlobal = which('biome')
-const biomeCmd = biomeGlobal ?? 'bunx @biomejs/biome'
-const prettierGlobal = which('prettier')
-const prettierCmd = prettierGlobal ?? 'bunx prettier'
-const oxlintGlobal = which('oxlint')
-const oxlintCmd = oxlintGlobal ?? 'bunx oxlint'
-const oxfmtGlobal = which('oxfmt')
-const oxfmtCmd = oxfmtGlobal ?? 'bunx oxfmt'
-
-try { execSync(`${eslintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${biomeCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${prettierCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${oxlintCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
-try { execSync(`${oxfmtCmd} --version`, { stdio: 'ignore' }) }
-catch { /* ignore */ }
+// ESLint needs real Node — its ajv dependency does not run on Bun
+if (!nodeVersion())
+  throw new Error('ESLint needs Node on PATH (e.g. `pantry install -g node`)')
 
 // Load fixtures
 const fixtures = {
@@ -58,9 +35,17 @@ const prettierOpts = {
   tabWidth: 2,
 }
 
+for (const [size, f] of Object.entries(fixtures)) {
+  verifyCli('ESLint', `${eslintCmd} ${f}`)
+  verifyCli('oxlint', `${oxlintCmd} ${f}`)
+  verifyCli('oxfmt (stdin)', `${oxfmtCmd} --stdin-filepath=${f}`, fixtureContent[size as keyof typeof fixtureContent])
+  verifyCli('Biome', `${biomeCmd} check ${biomeStyle} ${f}`)
+  verifyCli('Pickier', `${pickierCli} run ${f} --mode lint`)
+  verifyCli('Pickier', `${pickierCli} run ${f} --mode format --check`)
+}
+
 // Pickier: programmatic lint + in-memory format (fastest possible)
 async function runPickierFull(filePath: string, content: string) {
-  const { formatCode, defaultConfig } = await import('pickier')
   await runLintProgrammatic([filePath], { reporter: 'json' })
   formatCode(content, defaultConfig, filePath)
 }
@@ -82,7 +67,7 @@ catch { /* ok */ }
 
 // Biome check (lint + format in one CLI command)
 function runBiomeFull(filePath: string) {
-  try { execSync(`${biomeCmd} check --quote-style=single --semicolons=as-needed ${filePath}`, { stdio: 'ignore' }) }
+  try { execSync(`${biomeCmd} check ${biomeStyle} ${filePath}`, { stdio: 'ignore' }) }
   catch { /* non-zero exit expected */ }
 }
 
@@ -91,7 +76,7 @@ function runOxlintOxfmt(filePath: string, content: string) {
   try { execSync(`${oxlintCmd} ${filePath}`, { stdio: 'ignore' }) }
 catch { /* issues found */ }
   try {
-    execSync(`${oxfmtCmd} format --stdin-filepath ${filePath}`, {
+    execSync(`${oxfmtCmd} --stdin-filepath=${filePath}`, {
       input: content,
       stdio: ['pipe', 'ignore', 'ignore'],
     })
@@ -102,11 +87,11 @@ catch { /* issues found */ }
 console.log(`\n${'='.repeat(72)}`)
 console.log('  PICKIER vs ESLint+Prettier vs oxlint+oxfmt vs Biome — Combined Lint+Format')
 console.log(`${'='.repeat(72)}`)
-console.log(`  ESLint:   ${eslintBin} (via node — Bun has ajv compat issue)`)
-console.log(`  Biome:    ${biomeGlobal ?? '(via bunx)'}`)
-console.log(`  Prettier: ${prettierGlobal ?? '(via bunx)'}`)
-console.log(`  oxlint:   ${oxlintGlobal ?? '(via bunx)'}`)
-console.log(`  oxfmt:    ${oxfmtGlobal ?? '(via bunx)'}`)
+console.log(`  ESLint:   ${version(eslintCmd)} on node ${nodeVersion()}`)
+console.log(`  Biome:    ${version(biomeCmd)}`)
+console.log(`  Prettier: format() in memory`)
+console.log(`  oxlint:   ${version(oxlintCmd)}`)
+console.log(`  oxfmt:    ${version(oxfmtCmd)} (stdin)`)
 console.log(`  Pickier CLI: ${pickierCli}`)
 console.log(`  Note: 'pickier (api)' = programmatic API; 'pickier (cli)' = ${pickierCli}`)
 console.log(`${'='.repeat(72)}\n`)
@@ -117,7 +102,7 @@ for (const [label, size] of [['Small (~52 lines)', 'small'], ['Medium (~419 line
       await runPickierFull(fixtures[size], fixtureContent[size])
     })
 
-    bench('pickier (cli)', () => {
+    bench(pickierCliLabel, () => {
       runPickierCli(fixtures[size])
     })
 
@@ -141,7 +126,7 @@ group('Combined (Lint + Format) — All Files (batch)', () => {
       await runPickierFull(f, fixtureContent[k as keyof typeof fixtureContent])
   })
 
-  bench('pickier (cli)', () => {
+  bench(pickierCliLabel, () => {
     for (const f of Object.values(fixtures)) runPickierCli(f)
   })
 

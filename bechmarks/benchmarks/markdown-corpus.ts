@@ -29,6 +29,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { cpus } from 'node:os'
 import { resolve } from 'node:path'
 import { pickierCli } from './pickier-cli'
+import { nodeVersion as detectNode, version } from './tools'
 
 const MDN_REPO = 'https://github.com/mdn/content.git'
 const MDN_COMMIT = '5fd3b03e9ad1ee4e8bc64d4f6888570690a7fbc8'
@@ -80,28 +81,10 @@ const mdBytes = mdFiles.reduce((n, f) => n + Bun.file(resolve(corpus, f)).size, 
 // Tools
 // ---------------------------------------------------------------------------
 // Prettier and the oxfmt wrapper are Node CLIs; use Node when it is there,
-// which is how most people run them, and Bun otherwise. `bun run` puts a
-// `node` shim on PATH that is Bun itself, so ask the runtime what it is.
-function realNodeVersion(): string | null {
-  try {
-    return sh(`node -e "if (typeof Bun === 'undefined') process.stdout.write(process.version)"`) || null
-  }
-  catch {
-    return null
-  }
-}
-const nodeVersion = realNodeVersion()
+// which is how most people run them, and Bun otherwise.
+const nodeVersion = detectNode()
 const jsRuntime = nodeVersion ? 'node' : 'bun'
 const bin = (p: string) => resolve(root, 'node_modules', p)
-
-const version = (cmd: string) => {
-  try {
-    return /\d+\.\d+\.\d+/.exec(sh(`${cmd} --version`))?.[0] ?? '?'
-  }
-  catch {
-    return '?'
-  }
-}
 
 interface Tool { name: string, cmd: string, runs: number, version: string }
 
