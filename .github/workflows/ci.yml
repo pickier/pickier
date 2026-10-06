@@ -82,3 +82,53 @@ jobs:
 
       - name: Unit Test
         run: bun run test
+
+  # The native lint engine (packages/zig/src/native): its unit tests, a build
+  # for every platform the package ships, the whole test suite run with it,
+  # and its reports checked against the TypeScript linter, rule by rule.
+  native:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Use cached node_modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Native unit tests
+        working-directory: packages/zig
+        run: |
+          zig test src/native/test_root.zig
+          zig test src/native/text.zig
+
+      - name: Build the native engine for every platform
+        working-directory: packages/pickier
+        run: bun scripts/build-native.ts --required
+
+      - name: Unit tests with the native engine
+        run: bun run test
+
+      - name: Native vs TypeScript parity
+        working-directory: packages/zig
+        run: |
+          dirs="../pickier/src ../pickier/test ../../bechmarks/fixtures"
+          bun scripts/parity.ts $dirs
+          for id in $(bun -e "import { NATIVE_RULES } from '../pickier/src/native'; console.log([...NATIVE_RULES].join(' '))"); do
+            bun scripts/parity.ts $dirs --rule "$id"
+          done

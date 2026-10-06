@@ -19,7 +19,7 @@
 import { resolve } from 'node:path'
 import { defaultConfig } from '../../pickier/src/config'
 import { lintFileForRun } from '../../pickier/src/linter'
-import { lintNative, nativeRequest } from '../../pickier/src/native'
+import { lintNative, nativeBinary, nativeRequest } from '../../pickier/src/native'
 
 const args = process.argv.slice(2)
 const flag = (name: string) => {
@@ -82,7 +82,13 @@ for (const dir of dirs) {
 }
 
 const { request, ruleIds } = nativeRequest(cfg)
-const binary = resolve(import.meta.dir, '../zig-out/bin/pickier-zig')
+// The engine the CLI would run: $PICKIER_NATIVE_BINARY, the shipped build in
+// packages/pickier/dist/native, or this package's zig-out
+const binary = nativeBinary()
+if (!binary) {
+  console.error('no native engine: build one with `zig build -Doptimize=ReleaseFast` or packages/pickier/scripts/build-native.ts')
+  process.exit(2)
+}
 let t0 = performance.now()
 const native = lintNative(files, request, binary, threads)
 const nativeMs = performance.now() - t0
