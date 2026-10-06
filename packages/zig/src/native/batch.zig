@@ -9,8 +9,8 @@
 //!     "files": [ "/abs/a.ts", ... ] }
 //!
 //! - and writes a JSON array with one entry per file, in the same order: the
-//! file's issues with the TypeScript `LintIssue` fields, or `null` when the
-//! file could not be read (the CLI then lints it itself, failing as it would).
+//! file's issues (see `lintOne` for the encoding), or `null` when the file
+//! could not be read or was declined (the CLI then lints it itself).
 //! Exit status 2 means the request asked for something this engine does not
 //! implement, and nothing was written.
 
@@ -136,33 +136,62 @@ fn lintOne(job: *Job, path: []const u8) ![]u8 {
 
     const file = try std.Io.Dir.cwd().openFile(job.io, path, .{});
     defer file.close(job.io);
-    var buf: [65536]u8 = undefined;
-    var reader = file.readerStreaming(job.io, &buf);
-    const content = try reader.interface.allocRemaining(arena, .unlimited);
+    // One read at the file's size; a streaming reader grows its buffer and
+    // reads in small pieces, which was a quarter of the run.
+    const size: usize = @intCast((try file.stat(job.io)).size);
+    const buf = try arena.alloc(u8, size);
+    const n = try file.readPositionalAll(job.io, buf, 0);
+    const content = buf[0..n];
 
     const issues = try pipeline.lintFile(arena, path, content, job.settings);
 
-    var json: std.ArrayList(u8) = .empty;
-    try json.append(arena, '[');
+    // `{"s":[strings],"i":[line,column,ruleId,message,severity,help, ...]}`:
+    // each issue is six numbers, the strings indexes into `s` (help -1 when
+    // there is none, severity 0 error / 1 warning). Rule ids, messages and
+    // help repeat across a file's issues; sending each once keeps a run with
+    // tens of thousands of issues from being mostly JSON.
+    var table: Strings = .{ .index = std.StringHashMap(u32).init(arena) };
+    var numbers: std.ArrayList(u8) = .empty;
     for (issues, 0..) |issue, k| {
-        if (k > 0) try json.append(arena, ',');
-        try json.appendSlice(arena, "{\"filePath\":");
-        try appendString(&json, arena, path);
-        try json.print(arena, ",\"line\":{d},\"column\":{d},\"ruleId\":", .{ issue.line, issue.column });
-        try appendString(&json, arena, issue.rule_id);
-        try json.appendSlice(arena, ",\"message\":");
-        try appendString(&json, arena, issue.message);
-        try json.appendSlice(arena, ",\"severity\":");
-        try appendString(&json, arena, issue.severity.toString());
-        if (issue.help) |help| {
-            try json.appendSlice(arena, ",\"help\":");
-            try appendString(&json, arena, help);
-        }
-        try json.append(arena, '}');
+        if (k > 0) try numbers.append(arena, ',');
+        const rule = try table.intern(arena, issue.rule_id);
+        const message = try table.intern(arena, issue.message);
+        const help: i64 = if (issue.help) |h| try table.intern(arena, h) else -1;
+        try numbers.print(arena, "{d},{d},{d},{d},{d},{d}", .{
+            issue.line,
+            issue.column,
+            rule,
+            message,
+            @as(u8, if (issue.severity == .@"error") 0 else 1),
+            help,
+        });
     }
-    try json.append(arena, ']');
+    var json: std.ArrayList(u8) = .empty;
+    try json.appendSlice(arena, "{\"s\":[");
+    for (table.list.items, 0..) |str, k| {
+        if (k > 0) try json.append(arena, ',');
+        try appendString(&json, arena, str);
+    }
+    try json.appendSlice(arena, "],\"i\":[");
+    try json.appendSlice(arena, numbers.items);
+    try json.appendSlice(arena, "]}");
     return gpa.dupe(u8, json.items);
 }
+
+/// Strings numbered in the order they are first seen.
+const Strings = struct {
+    index: std.StringHashMap(u32),
+    list: std.ArrayList([]const u8) = .empty,
+
+    fn intern(self: *Strings, allocator: Allocator, s: []const u8) !u32 {
+        const gop = try self.index.getOrPut(s);
+        if (!gop.found_existing) {
+            gop.value_ptr.* = @intCast(self.list.items.len);
+            try self.list.append(allocator, s);
+        }
+        return gop.value_ptr.*;
+    }
+};
 
 /// A JSON string literal; only what JSON requires is escaped.
 fn appendString(out: *std.ArrayList(u8), allocator: Allocator, s: []const u8) !void {

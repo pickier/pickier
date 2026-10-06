@@ -73,11 +73,26 @@ fn spaced(allocator: Allocator, name: []const u8, prefix: []const u8) ![]const u
     return joined;
 }
 
+const DedupeKey = struct { line: u32, column: u32, rule_id: []const u8 };
+
+const DedupeContext = struct {
+    pub fn hash(_: DedupeContext, k: DedupeKey) u64 {
+        var h = std.hash.Wyhash.init(k.line);
+        h.update(std.mem.asBytes(&k.column));
+        h.update(k.rule_id);
+        return h.final();
+    }
+    pub fn eql(_: DedupeContext, a: DedupeKey, b: DedupeKey) bool {
+        return a.line == b.line and a.column == b.column and std.mem.eql(u8, a.rule_id, b.rule_id);
+    }
+};
+
 /// The issues for one file, in the order the TypeScript linter reports them.
 pub fn lintFile(allocator: Allocator, path: []const u8, content: []const u8, settings: *const types.Settings) ![]Issue {
     // A shell shebang brings in the shell plugin and changes the built-in
     // checks; the TypeScript linter handles that file instead.
     if (text.hasShellShebang(content)) return error.Declined;
+    text.resetLineCache();
     var suppress = try directives.parseDisableDirectives(content, allocator);
     var comment_lines = if (isCodePath(path))
         try directives.getCommentLines(content, allocator)
@@ -113,13 +128,14 @@ pub fn lintFile(allocator: Allocator, path: []const u8, content: []const u8, set
     }
 
     // Dedupe by line:column:ruleId, keeping the first
-    var seen = std.StringHashMap(void).init(allocator);
+    var seen = std.HashMap(DedupeKey, void, DedupeContext, std.hash_map.default_max_load_percentage).init(allocator);
+    try seen.ensureTotalCapacity(@intCast(issues.items.len));
     var kept: std.ArrayList(Issue) = .empty;
+    try kept.ensureTotalCapacity(allocator, issues.items.len);
     for (issues.items) |issue| {
-        const key = try std.fmt.allocPrint(allocator, "{d}:{d}:{s}", .{ issue.line, issue.column, issue.rule_id });
-        const gop = try seen.getOrPut(key);
+        const gop = seen.getOrPutAssumeCapacity(.{ .line = issue.line, .column = issue.column, .rule_id = issue.rule_id });
         if (gop.found_existing) continue;
-        try kept.append(allocator, issue);
+        kept.appendAssumeCapacity(issue);
     }
     return kept.items;
 }

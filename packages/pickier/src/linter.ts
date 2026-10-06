@@ -2425,8 +2425,14 @@ async function lintFiles(globs: string[], options: LintOptions): Promise<number>
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Processing complete! Found ${allIssues.length} issues total`)
 
-    const errors = allIssues.filter(i => i.severity === 'error').length
-    const warnings = allIssues.filter(i => i.severity === 'warning').length
+    let errors = 0
+    let warnings = 0
+    for (const i of allIssues) {
+      if (i.severity === 'error')
+        errors++
+      else if (i.severity === 'warning')
+        warnings++
+    }
     trace('issues:summary', { errors, warnings })
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Errors: ${errors}, Warnings: ${warnings}`)

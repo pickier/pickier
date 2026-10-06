@@ -12,8 +12,27 @@
 
 const std = @import("std");
 
-/// `text.split(/\r?\n/)`
-pub fn splitLines(allocator: std.mem.Allocator, text: []const u8) ![][]const u8 {
+// The last file split on this thread. Several rules split the same file;
+// the pipeline clears this as each file starts (`resetLineCache`).
+threadlocal var cached_text: ?[]const u8 = null;
+threadlocal var cached_lines: []const []const u8 = &.{};
+
+pub fn resetLineCache() void {
+    cached_text = null;
+}
+
+/// `text.split(/\r?\n/)`, shared by every rule linting the same file.
+pub fn splitLines(allocator: std.mem.Allocator, text: []const u8) ![]const []const u8 {
+    if (cached_text) |t| {
+        if (t.ptr == text.ptr and t.len == text.len) return cached_lines;
+    }
+    const lines = try splitLinesUncached(allocator, text);
+    cached_text = text;
+    cached_lines = lines;
+    return lines;
+}
+
+fn splitLinesUncached(allocator: std.mem.Allocator, text: []const u8) ![][]const u8 {
     var lines: std.ArrayList([]const u8) = .empty;
     var start: usize = 0;
     var i: usize = 0;
@@ -159,7 +178,7 @@ pub fn hasShellShebang(content: []const u8) bool {
 }
 
 test "splitLines matches /\\r?\\n/" {
-    const lines = try splitLines(std.testing.allocator, "a\r\nb\rc\n\nd");
+    const lines = try splitLinesUncached(std.testing.allocator, "a\r\nb\rc\n\nd");
     defer std.testing.allocator.free(lines);
     try std.testing.expectEqual(@as(usize, 4), lines.len);
     try std.testing.expectEqualStrings("a", lines[0]);

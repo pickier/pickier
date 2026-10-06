@@ -194,13 +194,23 @@ export function formatStylish(issues: LintIssue[]): string {
     byFile.set(issue.filePath, list)
   }
 
+  // Built once: a run can report tens of thousands of issues
+  const errorLabel = colors.red('error')
+  const warnLabel = colors.yellow('warn ')
+  const ruleLabels = new Map<string, string>()
+
   let out = ''
   for (const [filePath, fileIssues] of byFile) {
     // Use full absolute path and underline it (ESLint style)
     out += `\n${colors.bold(`\x1B[4m${filePath}\x1B[24m`)}\n`
 
     for (const issue of fileIssues) {
-      const sev = issue.severity === 'error' ? colors.red('error') : colors.yellow('warn ')
+      const sev = issue.severity === 'error' ? errorLabel : warnLabel
+      let ruleLabel = ruleLabels.get(issue.ruleId)
+      if (ruleLabel === undefined) {
+        ruleLabel = colors.blue(issue.ruleId)
+        ruleLabels.set(issue.ruleId, ruleLabel)
+      }
 
       // Format: "  line:col  severity  message  ruleId"
       // Pad line:col to align nicely (e.g., "  5:10")
@@ -212,7 +222,7 @@ export function formatStylish(issues: LintIssue[]): string {
       const messageWidth = 60
       const paddedMessage = issue.message.padEnd(messageWidth)
 
-      out += `${paddedLineCol}  ${sev}  ${paddedMessage}  ${colors.blue(issue.ruleId)}\n`
+      out += `${paddedLineCol}  ${sev}  ${paddedMessage}  ${ruleLabel}\n`
     }
   }
   return out

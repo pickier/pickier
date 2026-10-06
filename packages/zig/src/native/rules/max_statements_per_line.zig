@@ -20,7 +20,8 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
     for (lines, 0..) |line, i| {
         // `/^\s*$/`
         if (text.trimStart(line).len == 0) continue;
-        const num = countStatementsOnLine(line);
+        // Without a `;` the count is 1 however the line scans
+        const num = if (std.mem.indexOfScalar(u8, line, ';') == null) 1 else countStatementsOnLine(line);
         if (@as(f64, @floatFromInt(num)) > max) {
             try out.append(a, .{
                 .line = @intCast(i + 1),

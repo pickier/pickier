@@ -123,7 +123,8 @@ export const maxStatementsPerLineRule: RuleModule = {
       const line = lines[i]
       if (/^\s*$/.test(line))
         continue
-      const num = countStatementsOnLine(line)
+      // Without a `;` the count is 1 however the line scans
+      const num = line.includes(';') ? countStatementsOnLine(line) : 1
       if (num > max) {
         issues.push({ filePath: ctx.filePath, line: i + 1, column: 1, ruleId: 'max-statements-per-line', message: `This line has ${num} statements. Maximum allowed is ${max}`, severity: 'warning' })
       }

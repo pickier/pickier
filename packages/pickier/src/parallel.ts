@@ -1,7 +1,6 @@
 import type { LintIssue, LintOptions } from './types'
 import { existsSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
-import { fileURLToPath } from 'node:url'
 import { ENV } from './utils'
 
 /** Below this many files a worker's start-up costs more than it saves. */
@@ -33,7 +32,8 @@ function workerEntry(): string | null {
   for (const candidate of ['./lint-worker.ts', './lint-worker.js', './src/lint-worker.js']) {
     const url = new URL(candidate, import.meta.url)
     try {
-      if (url.protocol === 'file:' && existsSync(fileURLToPath(url)))
+      // Bun.fileURLToPath: node:url costs ~6 ms to load, on every run
+      if (url.protocol === 'file:' && existsSync(Bun.fileURLToPath(url)))
         return url.href
     }
     catch {

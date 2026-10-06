@@ -586,6 +586,9 @@ export function isCodeFile(file: string, allowedExts: Set<string>): boolean {
 
 // Basic POSIX-like normalization for matching
 function toPosixPath(p: string): string {
+  // Called for every path a run looks at; most need no change
+  if (!p.includes('\\') && !p.includes('//'))
+    return p
   return p.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
@@ -652,33 +655,40 @@ export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string 
   // Patterns that survive an outside-the-project scan, where a project's own
   // `docs/**` or test globs must not be applied to arbitrary external paths.
   const universalRaw = new Set<string>([...UNIVERSAL_IGNORES, ...ALWAYS_IGNORES])
+  const normalizedCwd = toPosixPath(cwd).replace(/\/$/, '')
+  const cwdPrefix = `${normalizedCwd}/`
+  // The strings each pattern tests for, built once rather than per path
+  const tests = compiled.map(pattern => ({
+    pattern,
+    universal: universalRaw.has(pattern.raw),
+    suffix: pattern.kind === 'extension' ? `.${pattern.value}` : `/${pattern.value}`,
+    inner: `/${pattern.value}/`,
+  }))
 
   return (absPath: string): boolean => {
     const normalizedAbs = toPosixPath(absPath)
-    const normalizedCwd = toPosixPath(cwd).replace(/\/$/, '')
     // Require a separator after the root so siblings sharing a name prefix
     // (/project vs /project-data) don't count as inside the project.
     const isOutsideProject = normalizedAbs !== normalizedCwd
-      && !normalizedAbs.startsWith(`${normalizedCwd}/`)
+      && !normalizedAbs.startsWith(cwdPrefix)
     const rel = isOutsideProject
       ? normalizedAbs
       : normalizedAbs.slice(normalizedCwd.length)
 
-    for (const pattern of compiled) {
+    for (const { pattern, universal, suffix, inner } of tests) {
       // Outside-project scans must not apply project-specific ignore rules such
       // as docs/** or custom test globs to arbitrary external paths.
-      if (isOutsideProject && !universalRaw.has(pattern.raw))
+      if (isOutsideProject && !universal)
         continue
 
       if (pattern.kind === 'extension') {
-        if (rel.endsWith(`.${pattern.value}`))
+        if (rel.endsWith(suffix))
           return true
         continue
       }
 
       if (pattern.kind === 'segment' || pattern.kind === 'suffix') {
-        const name = pattern.value
-        if (rel.includes(`/${name}/`) || rel.endsWith(`/${name}`))
+        if (rel.includes(inner) || rel.endsWith(suffix))
           return true
       }
     }

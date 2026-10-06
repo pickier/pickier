@@ -37,6 +37,9 @@ export const NATIVE_RULES: ReadonlySet<string> = new Set<string>([
   'regexp/no-useless-lazy',
   'general/prefer-const',
   'general/prefer-template',
+  'general/no-unused-vars',
+  'pickier/no-unused-imports',
+  'ts/no-top-level-await',
 ])
 
 /** Plugins whose rules can apply to a TS/JS file. */
@@ -129,11 +132,37 @@ export function lintNative(files: string[], request: NativeRequest, binary: stri
   const r = Bun.spawnSync([binary, 'lint-batch'], { stdin: Buffer.from(input), stdout: 'pipe', stderr: 'pipe' })
   if (r.exitCode !== 0)
     return null
+  let out: Array<{ s: string[], i: number[] } | null>
   try {
-    const out = JSON.parse(r.stdout.toString()) as Array<LintIssue[] | null>
-    return out.length === files.length ? out : null
+    out = JSON.parse(r.stdout.toString())
   }
   catch {
     return null
   }
+  if (out.length !== files.length)
+    return null
+  // Each issue is six numbers: line, column, then indexes into the file's
+  // strings for ruleId and message, severity (0 error, 1 warning), and help
+  // (-1 for none) - built back into the issue objects the linter makes.
+  return out.map((file, f) => {
+    if (file === null)
+      return null
+    const { s: strings, i: n } = file
+    const filePath = files[f]!
+    const issues: LintIssue[] = []
+    for (let k = 0; k < n.length; k += 6) {
+      const issue: LintIssue = {
+        filePath,
+        line: n[k]!,
+        column: n[k + 1]!,
+        ruleId: strings[n[k + 2]!]!,
+        message: strings[n[k + 3]!]!,
+        severity: n[k + 4] === 0 ? 'error' : 'warning',
+      }
+      if (n[k + 5]! >= 0)
+        issue.help = strings[n[k + 5]!]
+      issues.push(issue)
+    }
+    return issues
+  })
 }
