@@ -134,8 +134,9 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_lockfile_rules_tests.step);
 }
 
-/// Zig 0.17 renamed the optimize modes (`.Debug` -> `.debug`), keeping the old
-/// names only as declarations, which an enum literal comparison cannot see.
+/// Zig 0.17 renamed the optimize modes (`.Debug` -> `.debug`); the old names
+/// are only deprecated aliases there, so compare against whichever field exists.
 fn isDebug(optimize: anytype) bool {
-    return optimize == @field(@TypeOf(optimize), "Debug");
+    const Mode = @TypeOf(optimize);
+    return optimize == @field(Mode, if (@hasField(Mode, "debug")) "debug" else "Debug");
 }
