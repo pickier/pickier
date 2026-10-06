@@ -31,6 +31,7 @@ const entries = [_]Entry{
     .{ .id = "general/no-regex-spaces", .check = @import("rules/no_regex_spaces.zig").check },
     .{ .id = "node/prefer-global/buffer", .check = @import("rules/prefer_global_buffer.zig").check },
     .{ .id = "node/prefer-global/process", .check = @import("rules/prefer_global_process.zig").check },
+    .{ .id = "pickier/sort-exports", .check = @import("rules/sort_exports.zig").check },
 };
 
 pub fn lookup(id: []const u8) ?types.CheckFn {
