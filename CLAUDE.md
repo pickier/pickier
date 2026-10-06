@@ -146,6 +146,20 @@ All tests use Bun's test runner. `PICKIER_NO_AUTO_CONFIG=1` is set for you by `p
 - `PICKIER_RULE_TIMEOUT_MS`: Individual rule timeout in milliseconds (default: 5000)
 - `PICKIER_FAIL_ON_WARNINGS=1`: Treat warnings as errors in exit code
 - `PICKIER_WORKERS`: Worker threads for a CLI run over many files (default: one per core above 32 files; `0` keeps everything on the main thread)
+- `PICKIER_NATIVE=0`: Lint TS/JS on the TypeScript path only, without the native engine
+- `PICKIER_NATIVE_BINARY`: Path to a native engine to use instead of the shipped one
+
+### Native Lint Engine
+
+The CLI lints TS/JS files with a Zig engine (`packages/zig/src/native/`, run as `pickier-native lint-batch`) on every core. It reports exactly what the TypeScript rules report. `src/native.ts` decides per run what it takes:
+
+- **Ported rules:** the built-in checks and every rule in `NATIVE_RULES` run natively.
+- **Other rules:** TypeScript runs them on the same files, and the two sets of issues are merged in plan order.
+- **TypeScript only:** `--fix`, formatting, files the engine declines, and an engine that cannot start or speaks another protocol version.
+
+- A rule joins `NATIVE_RULES` only once `packages/zig/scripts/parity.ts` reports no differences for it (`bun scripts/parity.ts <dirs> --rule <id>`).
+- Changing a ported TypeScript rule means changing its Zig port too; CI's `native` job checks every ported rule.
+- Build the shipped engines with `bun run -C packages/pickier build:native`, or for this machine only with `bun scripts/build-native.ts --host`. Both need Zig 0.16+.
 
 ### Key Design Patterns
 
