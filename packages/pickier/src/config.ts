@@ -256,12 +256,18 @@ const RUNTIME_ENV = new Set([
   'PICKIER_RULE_TIMEOUT_MS',
   'PICKIER_TIMEOUT_MS',
   'PICKIER_TRACE',
+  'PICKIER_WORKERS',
 ])
 
-// A file bunfig could load: one named after pickier or an alias, or the
-// generic `config.*` / `.config.*` it also tries in every search directory.
-const RE_CONFIG_NAME = /pickier|code-style|lint/i
-const RE_GENERIC_CONFIG = /^\.?config\./i
+// A file bunfig could load. It tries names built only from `config`, the
+// config name and its aliases - `pickier.config`, `.lint`, `config`,
+// `pickier.code-style.config` and so on - with a script or JSON extension.
+// This accepts any name made of those words, a superset of its list, and
+// ignores case for case-insensitive file systems. `eslint.config.js` and
+// `.markdownlint.jsonc` are not among them.
+const RE_CONFIG_FILE = /^\.?(?:pickier|code-style|lint|config)(?:\.(?:pickier|code-style|lint|config))*\.(?:ts|js|mjs|cjs|mts|cts|json|jsonc)$/i
+// The package.json keys bunfig reads the config from.
+const PACKAGE_KEYS = new Set(['pickier', ...CONFIG_ALIASES])
 
 /**
  * Whether bunfig could find any configuration at all.
@@ -291,7 +297,7 @@ function mayHaveConfig(cwd: string): boolean {
     for (const e of entries) {
       if (e.isDirectory())
         continue
-      if (RE_CONFIG_NAME.test(e.name) || RE_GENERIC_CONFIG.test(e.name))
+      if (RE_CONFIG_FILE.test(e.name))
         return true
     }
   }
@@ -305,7 +311,7 @@ function mayHaveConfig(cwd: string): boolean {
   }
   try {
     const pkg = JSON.parse(raw)
-    return pkg !== null && typeof pkg === 'object' && Object.keys(pkg).some(k => RE_CONFIG_NAME.test(k))
+    return pkg !== null && typeof pkg === 'object' && Object.keys(pkg).some(k => PACKAGE_KEYS.has(k))
   }
   catch {
     return true
