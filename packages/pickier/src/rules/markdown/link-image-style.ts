@@ -187,6 +187,10 @@ export const linkImageStyleRule: RuleModule = {
       let rewritten = original
       for (let pass = 0; pass < 8; pass++) {
         const next = rewritten.replace(
+          // The alternatives start on different characters and each inner run
+          // stops at the one character that ends it, so there is only ever one
+          // way to match: no backtracking blow-up despite the nesting.
+          // eslint-disable-next-line regexp/no-super-linear-backtracking
           /(!?)\[((?:[^[\]]|\[[^\]]*\]\([^)]*\))+)\]\[([^\]]*)\]/g,
           (whole, bang: string, textPart: string, labelPart: string) => {
             const labelKey = (labelPart.trim() === '' ? textPart : labelPart).toLowerCase()
