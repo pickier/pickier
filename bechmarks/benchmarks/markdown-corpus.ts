@@ -8,7 +8,8 @@
  * Every tool runs as a CLI in check mode over the same glob, from the corpus
  * root, so each one reads the same files from disk and writes nothing:
  *
- *   Pickier            pickier run 'files/**\/*.md' --mode format --check  (npm build)
+ *   Pickier            pickier run 'files/**\/*.md' --mode format --check  (npm build, all cores)
+ *   Pickier (1 thread) the same with PICKIER_WORKERS=0
  *   oxfmt              oxfmt --check 'files/**\/*.md'          (all cores)
  *   oxfmt (1 thread)   oxfmt --check --threads=1 'files/**\/*.md'
  *   Prettier           prettier --check 'files/**\/*.md'
@@ -98,6 +99,12 @@ const tools: Tool[] = [
     runs,
     version: version(pickierCli),
   },
+  {
+    name: 'Pickier (1 thread)',
+    cmd: `PICKIER_WORKERS=0 ${pickierCli} run '${GLOB}' --mode format --check`,
+    runs,
+    version: version(pickierCli),
+  },
   { name: 'oxfmt', cmd: `${oxfmt} --check '${GLOB}'`, runs, version: version(oxfmt) },
   { name: 'oxfmt (1 thread)', cmd: `${oxfmt} --check --threads=1 '${GLOB}'`, runs, version: version(oxfmt) },
 ]
@@ -110,7 +117,7 @@ console.log('='.repeat(80))
 console.log(`  Corpus:   mdn/content@${head.slice(0, 12)} — ${mdFiles.length} files matching ${GLOB}, ${(mdBytes / 1024 / 1024).toFixed(1)} MB`)
 console.log(`  Machine:  ${cpus()[0]?.model ?? 'unknown'}, ${cpus().length} cores, bun ${Bun.version}${nodeVersion ? `, node ${nodeVersion}` : ' (no node: Node CLIs run on bun)'}`)
 for (const t of tools)
-  console.log(`  ${t.name.padEnd(17)} ${t.version.padEnd(10)} ${t.cmd}`)
+  console.log(`  ${t.name.padEnd(18)} ${t.version.padEnd(10)} ${t.cmd}`)
 console.log(`${'='.repeat(80)}\n`)
 
 // ---------------------------------------------------------------------------
@@ -122,7 +129,7 @@ for (const t of tools) {
   if (r.status !== 0 && r.status !== 1)
     throw new Error(`${t.name} failed (exit ${r.status}):\n${(r.stderr || r.stdout).slice(-2000)}`)
   const summary = `${r.stdout}\n${r.stderr}`.split('\n').filter(l => /files?\b/i.test(l)).pop()?.trim()
-  console.log(`  ✓ ${t.name.padEnd(17)} exit ${r.status}${summary ? `  — ${summary}` : ''}`)
+  console.log(`  ✓ ${t.name.padEnd(18)} exit ${r.status}${summary ? `  — ${summary}` : ''}`)
 }
 console.log()
 
