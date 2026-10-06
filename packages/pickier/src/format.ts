@@ -5,6 +5,7 @@ const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
 const YAML_EXTS = new Set(['.yaml', '.yml'])
 const SHELL_EXTS = new Set(['.sh', '.bash', '.zsh', '.ksh', '.dash'])
+const MARKDOWN_EXTS = new Set(['.md', '.mdx', '.markdown'])
 const SHELL_SHEBANG_RE = /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/
 
 // Pre-compiled regex patterns for the hot loop (avoids re-creation per line)
@@ -113,6 +114,10 @@ function isJsonFileExt(filePath: string): boolean {
 
 function isYamlFileExt(filePath: string): boolean {
   return YAML_EXTS.has(getFileExt(filePath))
+}
+
+function isMarkdownFileExt(filePath: string): boolean {
+  return MARKDOWN_EXTS.has(getFileExt(filePath))
 }
 
 function isShellFileExt(filePath: string): boolean {
@@ -778,6 +783,85 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
   return result.join('\n')
 }
 
+// A fence opener/closer: 3+ backticks or tildes, indentation allowed (fences
+// nested in list items are indented past the usual three spaces)
+const RE_MD_FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
+const RE_MD_ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]|$)/
+
+/**
+ * Whitespace normalization for markdown, which the code-oriented pass gets
+ * wrong in two ways that change what a document means:
+ *
+ * - A fenced code block is literal content. Trailing spaces and blank runs
+ *   inside it belong to the sample - often inside a string or template
+ *   literal - so the block is copied through verbatim.
+ * - Two or more trailing spaces before a non-blank line are a hard line
+ *   break (`<br>`). They are kept, normalized to exactly two; trailing
+ *   whitespace anywhere else is trimmed.
+ *
+ * Fences follow CommonMark: a block closes only on a run of the same
+ * character at least as long as the opener with nothing after it, and an
+ * unclosed fence runs to the end of the document.
+ */
+function normalizeMarkdownLines(rawLines: string[], cfg: PickierConfig): string[] {
+  const trim = cfg.format.trimTrailingWhitespace
+  const maxConsecutive = Math.max(0, cfg.format.maxConsecutiveBlankLines)
+  const out: string[] = []
+  let blank = 0
+  let fenceChar = ''
+  let fenceLen = 0
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const l = rawLines[i]
+
+    if (fenceChar !== '') {
+      const close = l.indexOf(fenceChar) !== -1 ? RE_MD_FENCE.exec(l) : null
+      if (close && close[1][0] === fenceChar && close[1].length >= fenceLen && close[2].trim() === '') {
+        fenceChar = ''
+        out.push(trim ? l.replace(RE_TRAILING_WS, '') : l)
+      }
+      else {
+        out.push(l)
+      }
+      continue
+    }
+
+    if (l.length === 0 || l.trim() === '') {
+      blank++
+      if (blank <= maxConsecutive)
+        out.push('')
+      continue
+    }
+    blank = 0
+
+    if (l.indexOf('```') !== -1 || l.indexOf('~~~') !== -1) {
+      const open = RE_MD_FENCE.exec(l)
+      if (open && !(open[1][0] === '`' && open[2].includes('`'))) {
+        fenceChar = open[1][0]
+        fenceLen = open[1].length
+        out.push(trim ? l.replace(RE_TRAILING_WS, '') : l)
+        continue
+      }
+    }
+
+    const last = l.charCodeAt(l.length - 1)
+    if (!trim || (last !== 32 && last !== 9)) {
+      out.push(l)
+      continue
+    }
+
+    const trimmed = l.replace(RE_TRAILING_WS, '')
+    const next = rawLines[i + 1]
+    const hardBreak = l.endsWith('  ')
+      && next !== undefined
+      && next.trim() !== ''
+      && !RE_MD_ATX_HEADING.test(l)
+    out.push(hardBreak ? `${trimmed}  ` : trimmed)
+  }
+
+  return out
+}
+
 function collapseBlankLines(lines: string[], maxConsecutive: number): string[] {
   const out: string[] = []
   let blank = 0
@@ -815,7 +899,10 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
   const rawLines = normalized.split('\n')
   let lines: string[]
 
-  if (cfg.format.trimTrailingWhitespace) {
+  if (isMarkdownFileExt(filePath)) {
+    lines = normalizeMarkdownLines(rawLines, cfg)
+  }
+  else if (cfg.format.trimTrailingWhitespace) {
     // Combine trimming and blank line collapsing in one pass
     lines = []
     let blank = 0
