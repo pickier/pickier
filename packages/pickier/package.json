@@ -41,6 +41,7 @@
   "scripts": {
     "build": "bun --bun build.ts",
     "build:bin": "bun --bun build.ts && bun run compile",
+    "build:native": "bun scripts/build-native.ts",
     "compile": "bun build ./bin/cli.ts --compile --minify --outfile bin/pickier",
     "compile:all": "bun run compile:linux-x64 && bun run compile:linux-arm64 && bun run compile:linux-x64-musl && bun run compile:linux-arm64-musl && bun run compile:windows-x64 && bun run compile:windows-arm64 && bun run compile:darwin-x64 && bun run compile:darwin-arm64",
     "compile:linux-x64": "bun build ./bin/cli.ts --compile --minify --target=bun-linux-x64 --outfile bin/pickier-linux-x64",
@@ -61,7 +62,7 @@
     "zip:windows-arm64": "zip -j bin/pickier-windows-arm64.zip bin/pickier-windows-arm64.exe",
     "zip:darwin-x64": "zip -j bin/pickier-darwin-x64.zip bin/pickier-darwin-x64",
     "zip:darwin-arm64": "zip -j bin/pickier-darwin-arm64.zip bin/pickier-darwin-arm64",
-    "prepublishOnly": "bun --bun run build && bun run compile:all && bun run zip",
+    "prepublishOnly": "bun --bun run build && bun scripts/build-native.ts --required && bun run compile:all && bun run zip",
     "test": "PICKIER_NO_AUTO_CONFIG=1 bun test --coverage",
     "test:core": "PICKIER_NO_AUTO_CONFIG=1 bun test test/core",
     "test:format": "PICKIER_NO_AUTO_CONFIG=1 bun test test/format",

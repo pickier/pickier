@@ -1,4 +1,4 @@
-import type { LintIssue, PickierConfig } from './types'
+import type { LintIssue, LintOptions, PickierConfig } from './types'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { plannedCheckRules } from './linter'
@@ -55,11 +55,46 @@ export function nativeRequest(cfg: PickierConfig): { request: NativeRequest, rul
   }
 }
 
-/** The native binary: a build next to this package, or null when there is none. */
+/** Files the native engine lints: what the TypeScript linter treats as code. */
+export function isNativeFile(path: string): boolean {
+  return /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(path)
+}
+
+/**
+ * The native request for a run, or null when the run must stay on the
+ * TypeScript path: no binary, a run that fixes or formats, custom plugins,
+ * PICKIER_NATIVE=0, or any rule whose native port is not verified.
+ */
+export function nativePlan(cfg: PickierConfig, options: LintOptions): { request: NativeRequest, binary: string } | null {
+  if (process.env.PICKIER_NATIVE === '0' || options.fix || options._formatOnly)
+    return null
+  if ((cfg.plugins ?? []).length > 0)
+    return null
+  const binary = nativeBinary()
+  if (!binary)
+    return null
+  const { request, ruleIds } = nativeRequest(cfg)
+  if (!ruleIds.every(id => NATIVE_RULES.has(id)))
+    return null
+  return { request, binary }
+}
+
+/**
+ * The native binary: $PICKIER_NATIVE_BINARY, the one shipped in this package
+ * for this platform (dist/native/<platform>-<arch>, built by
+ * scripts/build-native.ts), or a development build in packages/zig. Null when
+ * there is none.
+ */
 export function nativeBinary(): string | null {
+  if (process.env.PICKIER_NATIVE_BINARY)
+    return existsSync(process.env.PICKIER_NATIVE_BINARY) ? process.env.PICKIER_NATIVE_BINARY : null
+  const platform = `${process.platform}-${process.arch}`
+  const exe = process.platform === 'win32' ? 'pickier-native.exe' : 'pickier-native'
   const candidates = [
+    // from the bundle (dist/*.js) and from source (src/*.ts)
+    resolve(__dirname, 'native', platform, exe),
+    resolve(__dirname, '../dist/native', platform, exe),
     resolve(__dirname, '../../zig/zig-out/bin/pickier-zig'),
-    resolve(__dirname, '../../../zig/zig-out/bin/pickier-zig'),
   ]
   return candidates.find(p => existsSync(p)) ?? null
 }

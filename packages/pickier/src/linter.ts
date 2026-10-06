@@ -7,6 +7,7 @@ import { formatStylish, formatVerbose } from './formatter'
 import { cacheApplies, openLintCache } from './cache'
 import { resetLexCache } from './lexer'
 import { createLazyLogger, flushLogs } from './logger'
+import { isNativeFile, lintNative, nativePlan } from './native'
 import { lintInWorkers, workerThreadsFor } from './parallel'
 import { getLazyPlugins } from './plugins/lazy'
 import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
@@ -2354,11 +2355,36 @@ async function lintFiles(globs: string[], options: LintOptions): Promise<number>
 
     // Many files: spread them over worker threads. Diagnostics and traces
     // narrate the run in order, so those runs stay on this thread.
-    const lintAll = async (list: string[]): Promise<LintIssue[][]> => {
+    const lintOnTypeScript = async (list: string[]): Promise<LintIssue[][]> => {
       const workerCount = enableDiagnostics || ENV.TRACE ? 0 : workerThreadsFor(list.length)
       return workerCount > 1
         ? lintInWorkers(list, options, workerCount, processFile)
         : processWithConcurrency(list, concurrency, processFile)
+    }
+
+    // TS/JS files go to the native engine when every rule this run applies
+    // to them has a verified native port (native.ts); it reports what this
+    // linter would. Files it declines, and everything else, are linted here.
+    const native = enableDiagnostics || ENV.TRACE ? null : nativePlan(cfg, options)
+    const lintAll = async (list: string[]): Promise<LintIssue[][]> => {
+      const results = new Array<LintIssue[] | undefined>(list.length)
+      if (native) {
+        const nativeIndexes = list.flatMap((f, i) => isNativeFile(f) ? [i] : [])
+        const out = nativeIndexes.length > 0 ? lintNative(nativeIndexes.map(i => list[i]!), native.request, native.binary) : null
+        if (out) {
+          nativeIndexes.forEach((fileIndex, k) => {
+            if (out[k])
+              results[fileIndex] = out[k]!
+          })
+        }
+        trace('native', { files: nativeIndexes.length, linted: out ? out.filter(Boolean).length : 0 })
+      }
+      const rest = list.flatMap((_, i) => results[i] === undefined ? [i] : [])
+      const linted = await lintOnTypeScript(rest.map(i => list[i]!))
+      rest.forEach((fileIndex, k) => {
+        results[fileIndex] = linted[k]!
+      })
+      return results as LintIssue[][]
     }
 
     let issueArrays: LintIssue[][]

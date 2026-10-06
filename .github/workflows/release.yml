@@ -25,6 +25,12 @@ jobs:
       - name: Setup Pantry
         uses: home-lang/pantry/packages/action@main
 
+      # Cross-compiles the native lint engine shipped in the package
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
       - name: Install Dependencies
         run: bun install
 

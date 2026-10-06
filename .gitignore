@@ -19,3 +19,4 @@ packages/pickier/bin/pickier
 pantry
 /bechmarks/results
 .pickiercache
+.zig-cache
