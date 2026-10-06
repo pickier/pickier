@@ -269,6 +269,12 @@ pub fn matchesRule(rule_id: []const u8, rules: RuleList) bool {
         if (std.mem.indexOfScalar(u8, pat, '/') != null) continue;
         if (rule_id.len > pat.len and std.mem.endsWith(u8, rule_id, pat) and rule_id[rule_id.len - pat.len - 1] == '/') return true;
     }
+    // And the other way round: a bare id matches a plugin-prefixed name for it
+    if (std.mem.indexOfScalar(u8, rule_id, '/') == null) {
+        for (rules) |pat| {
+            if (pat.len > rule_id.len and std.mem.endsWith(u8, pat, rule_id) and pat[pat.len - rule_id.len - 1] == '/') return true;
+        }
+    }
     return false;
 }
 
@@ -510,8 +516,11 @@ test "directives" {
     try std.testing.expect(isSuppressed("no-console", 1, &d));
     try std.testing.expect(isSuppressed("noConsole", 7, &d));
     try std.testing.expect(isSuppressed("quotes", 3, &d));
-    try std.testing.expect(isSuppressed("indent", 3, &d) == false);
+    // A plugin-prefixed name covers the bare id, and a bare name the prefixed one
+    try std.testing.expect(isSuppressed("indent", 3, &d));
     try std.testing.expect(isSuppressed("style/indent", 3, &d));
+    try std.testing.expect(!isSuppressed("other/indent", 3, &d));
+    try std.testing.expect(!isSuppressed("dent", 3, &d));
     try std.testing.expect(isSuppressed("general/prefer-const", 5, &d));
     try std.testing.expect(!isSuppressed("general/prefer-const", 7, &d));
     try std.testing.expect(!isSuppressed("quotes", 4, &d));

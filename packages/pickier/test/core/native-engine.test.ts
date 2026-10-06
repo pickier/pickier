@@ -37,6 +37,9 @@ const sources = [
     `}`,
     `// eslint-disable-next-line no-console`,
     `console.log(Buffer)`,
+    `// eslint-disable-next-line regexp/no-super-linear-backtracking`,
+    `export const backtracks = /(a+)+b/`,
+    `export const alsoBacktracks = /(a+)+b/`,
     ``,
   ],
   [

@@ -516,6 +516,14 @@ function matchesRule(ruleId: string, ruleSet: Set<string>): boolean {
         return true
     }
   }
+  // and the other way round: some rules report a bare id, while the help
+  // text and the docs name them with their plugin
+  if (!ruleId.includes('/')) {
+    for (const pat of ruleSet) {
+      if (pat.endsWith(`/${ruleId}`))
+        return true
+    }
+  }
   return false
 }
 

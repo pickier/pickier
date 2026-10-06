@@ -2,13 +2,28 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runLint } from '../../src/linter'
+import { runLint, runLintProgrammatic } from '../../src/linter'
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'pickier-lint-disable-next-line-'))
 }
 
 describe('disable-next-line directives', () => {
+  // The rule reports a bare id; the directive names it with its plugin, as the
+  // help text suggests. Each name covers the other.
+  it('suppresses a rule reporting a bare id when named with its plugin', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'a.ts'), [
+      'export const kept = /(a+)+b/',
+      '// eslint-disable-next-line regexp/no-super-linear-backtracking',
+      'export const suppressed = /(a+)+b/',
+      '',
+    ].join('\n'), 'utf8')
+    const { issues } = await runLintProgrammatic([join(dir, 'a.ts')], { reporter: 'json' })
+    const lines = issues.filter(i => i.ruleId.endsWith('no-super-linear-backtracking')).map(i => i.line)
+    expect(lines).toEqual([1])
+  })
+
   it('suppresses core rule using eslint-disable-next-line', async () => {
     const dir = tmp()
     const file = 'a.ts'
