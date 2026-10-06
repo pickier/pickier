@@ -145,6 +145,7 @@ All tests use Bun's test runner. `PICKIER_NO_AUTO_CONFIG=1` is set for you by `p
 - `PICKIER_TIMEOUT_MS`: Glob timeout in milliseconds (default: 8000)
 - `PICKIER_RULE_TIMEOUT_MS`: Individual rule timeout in milliseconds (default: 5000)
 - `PICKIER_FAIL_ON_WARNINGS=1`: Treat warnings as errors in exit code
+- `PICKIER_WORKERS`: Worker threads for a CLI run over many files (default: one per core above 32 files; `0` keeps everything on the main thread)
 
 ### Key Design Patterns
 

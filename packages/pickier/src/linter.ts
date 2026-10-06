@@ -1,18 +1,19 @@
 import type { LintIssue, LintOptions, PickierConfig, PickierPlugin, RuleContext, RulesConfigMap } from './types'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { Logger } from '@stacksjs/clarity'
+import type { LazyLogger } from './logger'
 import { detectQuoteIssues, formatCode, hasIndentIssue } from './format'
 import { formatStylish, formatVerbose } from './formatter'
-import { getAllPlugins } from './plugins'
+import { resetLexCache } from './lexer'
+import { createLazyLogger, flushLogs } from './logger'
+import { lintInWorkers, workerThreadsFor } from './parallel'
+import { getLazyPlugins } from './plugins/lazy'
 import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
 import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, getRuleSetting, isCodeFile, loadConfigFromPath, MAX_FIXER_PASSES, resolveRuleSeverity, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
-// Deferred logger — avoids constructor work on startup for format-only path
-let _logger: Logger | null = null
-function getLogger(): Logger {
-  if (!_logger)
-    _logger = new Logger('pickier:lint', { showTags: false })
+// Loads @stacksjs/clarity on first use; see logger.ts
+const _logger = createLazyLogger('pickier:lint')
+function getLogger(): LazyLogger {
   return _logger
 }
 
@@ -31,6 +32,7 @@ export async function lintText(
   if (signal?.aborted)
     throw new Error('AbortError')
 
+  beginFile()
   const suppress = parseDisableDirectives(text)
   const commentLines = getCommentLines(text)
   const issues = scanContentOptimized(filePath, text, cfg, suppress, commentLines)
@@ -71,6 +73,7 @@ export async function lintText(
  * drift apart.
  */
 export function fixText(text: string, cfg: PickierConfig, filePath = 'untitled'): string {
+  beginFile()
   // Built-in fixer: remove debugger statement lines (same gates as the scan)
   let fixed = removeDebuggerLines(filePath, text, cfg, parseDisableDirectives(text), getCommentLines(text))
   // Apply plugin rule fixers
@@ -212,6 +215,7 @@ export async function runLintProgrammatic(
   const processFile = async (file: string): Promise<LintIssue[]> => {
     if (signal?.aborted)
       throw new Error('AbortError')
+    beginFile()
     const src = readFileSync(file, 'utf8')
 
     // OPTIMIZATION: Parse directives and comment lines ONCE upfront
@@ -622,7 +626,7 @@ interface PluginPlan {
 const pluginPlanCache = new WeakMap<PickierConfig, PluginPlan>()
 
 function getPluginDefinitions(cfg: PickierConfig): PickierPlugin[] {
-  let pluginDefs: PickierPlugin[] = getAllPlugins()
+  let pluginDefs: PickierPlugin[] = getLazyPlugins()
 
   if (cfg.plugins && cfg.plugins.length > 0) {
     const coreNames = new Set(['pickier', 'style', 'regexp', 'ts'])
@@ -1065,125 +1069,178 @@ function fixIndentLineLocal(content: string, cfg: PickierConfig, suppress: Disab
  * /`([^`]+)`/g — three backticks — inverted the answer for every line after it
  * in the file, and quote checking then ran over template bodies.
  */
+// Scanning and fixing ask for the same file's template lines several times;
+// keep the last answer. Callers only read the set.
+let lastTemplateLines: { content: string, lines: Set<number> } | null = null
+
+/**
+ * Start linting a file. The scans the rules share (lexing, masking, template
+ * lines) are cached by content so each runs once per file - and only per
+ * file: linting the same text again redoes the work, as it would for a new
+ * file, rather than reusing a previous call's results.
+ */
+function beginFile(): void {
+  lastTemplateLines = null
+  resetLexCache()
+}
+
 function templateLiteralLines(content: string): Set<number> {
+  if (lastTemplateLines !== null && lastTemplateLines.content === content)
+    return lastTemplateLines.lines
+  const lines = scanTemplateLiteralLines(content)
+  lastTemplateLines = { content, lines }
+  return lines
+}
+
+// States for scanTemplateLiteralLines
+const S_CODE = 0
+const S_SINGLE = 1
+const S_DOUBLE = 2
+const S_LINE_COMMENT = 3
+const S_BLOCK_COMMENT = 4
+const S_REGEX = 5
+const S_REGEX_CLASS = 6
+// Stack frames
+const F_TEMPLATE = 1
+const F_INTERPOLATION = 2
+
+/**
+ * The lines that fall inside a multi-line template literal; see
+ * templateLiteralLines. A character loop over the whole file, written for
+ * how it runs on a cold start - once per file, mostly in the interpreter -
+ * so it compares character codes and keeps "inside a template" in a flag
+ * rather than allocating a string and calling a closure per character.
+ */
+function scanTemplateLiteralLines(content: string): Set<number> {
   const inside = new Set<number>()
   if (!content.includes('`'))
     return inside
 
   // Each open template pushes a frame; `${` inside one pushes an interpolation
   // frame, whose contents are code again and may open templates of their own.
-  const stack: Array<'template' | 'interpolation'> = []
-  let state: 'code' | 'single' | 'double' | 'line-comment' | 'block-comment' | 'regex' | 'regex-class' = 'code'
+  const stack: number[] = []
+  let inTemplate = false
+  let state = S_CODE
   let line = 1
-  let lastSignificant = ''
+  let lastAdded = 0
+  // Index of the last non-whitespace code character on this line, -1 for none
+  let lastSignificant = -1
   let lineStart = 0
+  const length = content.length
 
-  const inTemplate = (): boolean => stack[stack.length - 1] === 'template'
+  for (let i = 0; i < length; i++) {
+    const c = content.charCodeAt(i)
 
-  for (let i = 0; i < content.length; i++) {
-    const ch = content[i]
-    const next = content[i + 1]
-
-    if (ch === '\n') {
-      if (state === 'line-comment')
-        state = 'code'
+    if (c === 10) {
+      if (state === S_LINE_COMMENT)
+        state = S_CODE
       line++
       lineStart = i + 1
-      lastSignificant = ''
+      lastSignificant = -1
       continue
     }
 
-    if (inTemplate() && state === 'code')
+    if (state === S_CODE && inTemplate && lastAdded !== line) {
       inside.add(line)
-
-    switch (state) {
-      case 'single':
-      case 'double':
-        if (ch === '\\')
-          i++
-        else if ((state === 'single' && ch === '\'') || (state === 'double' && ch === '"'))
-          state = 'code'
-        continue
-
-      case 'line-comment':
-        continue
-
-      case 'block-comment':
-        if (ch === '*' && next === '/') {
-          i++
-          state = 'code'
-        }
-        continue
-
-      case 'regex':
-        if (ch === '\\')
-          i++
-        else if (ch === '[')
-          state = 'regex-class'
-        else if (ch === '/')
-          state = 'code'
-        continue
-
-      case 'regex-class':
-        if (ch === '\\')
-          i++
-        else if (ch === ']')
-          state = 'regex'
-        continue
+      lastAdded = line
     }
 
-    // state === 'code', which is also the inside of a template literal body.
-    if (inTemplate()) {
-      if (ch === '\\') {
+    if (state !== S_CODE) {
+      switch (state) {
+        case S_SINGLE:
+        case S_DOUBLE:
+          if (c === 92)
+            i++
+          else if ((state === S_SINGLE && c === 39) || (state === S_DOUBLE && c === 34))
+            state = S_CODE
+          break
+        case S_BLOCK_COMMENT:
+          if (c === 42 && content.charCodeAt(i + 1) === 47) {
+            i++
+            state = S_CODE
+          }
+          break
+        case S_REGEX:
+          if (c === 92)
+            i++
+          else if (c === 91)
+            state = S_REGEX_CLASS
+          else if (c === 47)
+            state = S_CODE
+          break
+        case S_REGEX_CLASS:
+          if (c === 92)
+            i++
+          else if (c === 93)
+            state = S_REGEX
+          break
+      }
+      continue
+    }
+
+    // Code, which is also the inside of a template literal body.
+    if (inTemplate) {
+      if (c === 92) {
         i++
         continue
       }
-      if (ch === '`') {
+      if (c === 96) {
         stack.pop()
+        inTemplate = stack.length > 0 && stack[stack.length - 1] === F_TEMPLATE
         continue
       }
-      if (ch === '$' && next === '{') {
-        stack.push('interpolation')
+      if (c === 36 && content.charCodeAt(i + 1) === 123) {
+        stack.push(F_INTERPOLATION)
+        inTemplate = false
         i++
         continue
       }
       continue
     }
 
-    if (ch === '`') {
-      stack.push('template')
-      inside.add(line)
+    if (c === 96) {
+      stack.push(F_TEMPLATE)
+      inTemplate = true
+      if (lastAdded !== line) {
+        inside.add(line)
+        lastAdded = line
+      }
       continue
     }
-    if (ch === '\'') {
-      state = 'single'
+    if (c === 39) {
+      state = S_SINGLE
       continue
     }
-    if (ch === '"') {
-      state = 'double'
+    if (c === 34) {
+      state = S_DOUBLE
       continue
     }
-    if (ch === '/' && next === '/') {
-      state = 'line-comment'
-      i++
-      continue
+    if (c === 47) {
+      const next = content.charCodeAt(i + 1)
+      if (next === 47) {
+        state = S_LINE_COMMENT
+        i++
+        continue
+      }
+      if (next === 42) {
+        state = S_BLOCK_COMMENT
+        i++
+        continue
+      }
+      if (isRegexStart(lastSignificant < 0 ? '' : content[lastSignificant]!, content.slice(lineStart, i + 1), i - lineStart)) {
+        state = S_REGEX
+        continue
+      }
     }
-    if (ch === '/' && next === '*') {
-      state = 'block-comment'
-      i++
-      continue
-    }
-    if (ch === '/' && isRegexStart(lastSignificant, content.slice(lineStart, i + 1), i - lineStart)) {
-      state = 'regex'
-      continue
-    }
-    if (ch === '}' && stack[stack.length - 1] === 'interpolation') {
+    if (c === 125 && stack.length > 0 && stack[stack.length - 1] === F_INTERPOLATION) {
       stack.pop()
+      inTemplate = stack.length > 0 && stack[stack.length - 1] === F_TEMPLATE
       continue
     }
 
-    if (!/\s/.test(ch))
-      lastSignificant = ch
+    // Not whitespace (as `/\s/` defines it)
+    if (!(c === 32 || (c >= 9 && c <= 13) || (c >= 128 && /\s/.test(content[i]!))))
+      lastSignificant = i
   }
 
   return inside
@@ -1244,6 +1301,9 @@ function topLevelOnly(condition: string): string {
 
 // Helper function to remove regex literals from a line
 function stripRegexLiterals(line: string): string {
+  // Only a `/` can start a regex or a comment; without one the line is copied as is
+  if (!line.includes('/'))
+    return line
   let result = ''
   let i = 0
   while (i < line.length) {
@@ -1314,6 +1374,9 @@ function isRegexStart(lastSignificant: string, line: string, idx: number): boole
 
 // Strip comments from a line, preserving string content
 function stripComments(line: string): string {
+  // Only a `/` can start a comment; without one the line is copied as is
+  if (!line.includes('/'))
+    return line
   let result = ''
   let i = 0
   let inString: 'single' | 'double' | 'template' | null = null
@@ -1584,7 +1647,8 @@ else {
           }
           lineHasCode = true
         }
-        else if (!/\s/.test(ch)) {
+        // Not whitespace as `/\s/` has it (ch is one character)
+        else if (ch !== ' ' && (ch < '\t' || ch > '\r') && (ch < '\u0080' || !/\s/.test(ch))) {
           lineHasCode = true
         }
         break
@@ -1967,7 +2031,117 @@ export function scanContent(filePath: string, content: string, cfg: PickierConfi
   return issues
 }
 
+/**
+ * Lint one file the way a CLI run does: format-only, or scan + plugin rules,
+ * then fixes when asked for. Shared by the main thread and the lint workers
+ * (lint-worker.ts) so both produce the same issues for the same file.
+ */
+export async function lintFileForRun(file: string, cfg: PickierConfig, options: LintOptions): Promise<LintIssue[]> {
+  beginFile()
+  const src = readFileSync(file, 'utf8')
+
+  // FAST PATH: format-only mode — just run formatCode() directly, skip scanning/plugins
+  if (options._formatOnly) {
+    const fixed = formatCode(src, cfg, file)
+    if (fixed !== src) {
+      if (!options.dryRun) {
+        writeFileSync(file, fixed, 'utf8')
+      }
+      else {
+        return [{
+          filePath: file,
+          line: 1,
+          column: 1,
+          ruleId: 'format',
+          message: 'File is not formatted',
+          severity: 'error',
+          help: 'Run pickier format with --write to apply formatting.',
+        }]
+      }
+    }
+    return []
+  }
+
+  // OPTIMIZATION: Parse directives and comment lines ONCE upfront
+  const suppress = parseDisableDirectives(src)
+  const isCodeFileForComments = /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(file)
+  const commentLines = isCodeFileForComments ? getCommentLines(src) : new Set<number>()
+
+  let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
+
+  // Run plugin rules (async with timeouts) and merge
+  try {
+    const pluginIssues = await applyPlugins(file, src, cfg)
+    for (const i of pluginIssues) {
+      if (isSuppressed(i.ruleId as string, i.line, suppress))
+        continue
+      if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
+        continue
+      issues.push({
+        filePath: i.filePath,
+        line: i.line,
+        column: i.column,
+        ruleId: i.ruleId,
+        message: i.message,
+        severity: i.severity,
+        ...(i.help && { help: i.help }),
+      })
+    }
+  }
+  catch {
+    // Already surfaced via applyPlugins error path; keep going
+  }
+
+  // Dedup issues by (filePath, line, column, ruleId) to handle aliased rules pointing to the same implementation
+  {
+    const seen = new Set<string>()
+    issues = issues.filter((i) => {
+      const key = `${i.line}:${i.column}:${i.ruleId}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  if (options.fix) {
+    const fixed = fixText(src, cfg, file)
+
+    // If content changed, re-scan the fixed version
+    if (fixed !== src) {
+      const newSuppress = parseDisableDirectives(fixed)
+      const newCommentLines = getCommentLines(fixed)
+      issues = scanContentOptimized(file, fixed, cfg, newSuppress, newCommentLines)
+
+      // Write file only if not dry-run
+      if (!options.dryRun) {
+        writeFileSync(file, fixed, 'utf8')
+      }
+
+      if (options.dryRun && (options.verbose !== undefined ? options.verbose : cfg.verbose)) {
+        getLogger().debug(colors.gray(`dry-run: would apply fixes in ${relative(process.cwd(), file)}`))
+      }
+    }
+  }
+
+  trace('scan done', relative(process.cwd(), file), issues.length)
+  return issues
+}
+
 export async function runLint(globs: string[], options: LintOptions): Promise<number> {
+  // Diagnostics and traces interleave with progress, so load the logger before
+  // the first one rather than letting them queue.
+  if (ENV.DIAGNOSTICS || ENV.TRACE)
+    await getLogger().ready()
+  try {
+    return await lintFiles(globs, options)
+  }
+  finally {
+    // The CLI exits as soon as this returns; write what is still queued first.
+    await flushLogs()
+  }
+}
+
+async function lintFiles(globs: string[], options: LintOptions): Promise<number> {
   trace('runLint:start', { globs, options })
   const enableDiagnostics = ENV.DIAGNOSTICS
   if (enableDiagnostics)
@@ -2160,103 +2334,21 @@ export async function runLint(globs: string[], options: LintOptions): Promise<nu
       getLogger().info(`[pickier:diagnostics] Starting to process ${files.length} files with concurrency ${concurrency}...`)
 
     let processedCount = 0
-    const formatOnly = !!options._formatOnly
     const processFile = async (file: string): Promise<LintIssue[]> => {
       if (enableDiagnostics) {
         processedCount++
         if (processedCount === 1 || processedCount % 10 === 0 || processedCount === files.length)
           getLogger().info(`[pickier:diagnostics] Processing file ${processedCount}/${files.length}: ${relative(process.cwd(), file)}`)
       }
-      const src = readFileSync(file, 'utf8')
-
-      // FAST PATH: format-only mode — just run formatCode() directly, skip scanning/plugins
-      if (formatOnly) {
-        const fixed = formatCode(src, cfg, file)
-        if (fixed !== src) {
-          if (!options.dryRun) {
-            writeFileSync(file, fixed, 'utf8')
-          }
-          else {
-            return [{
-              filePath: file,
-              line: 1,
-              column: 1,
-              ruleId: 'format',
-              message: 'File is not formatted',
-              severity: 'error',
-              help: 'Run pickier format with --write to apply formatting.',
-            }]
-          }
-        }
-        return []
-      }
-
-      // OPTIMIZATION: Parse directives and comment lines ONCE upfront
-      const suppress = parseDisableDirectives(src)
-      const isCodeFileForComments = /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(file)
-      const commentLines = isCodeFileForComments ? getCommentLines(src) : new Set<number>()
-
-      let issues = scanContentOptimized(file, src, cfg, suppress, commentLines)
-
-      // Run plugin rules (async with timeouts) and merge
-      try {
-        const pluginIssues = await applyPlugins(file, src, cfg)
-        for (const i of pluginIssues) {
-          if (isSuppressed(i.ruleId as string, i.line, suppress))
-            continue
-          if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
-            continue
-          issues.push({
-            filePath: i.filePath,
-            line: i.line,
-            column: i.column,
-            ruleId: i.ruleId,
-            message: i.message,
-            severity: i.severity,
-            ...(i.help && { help: i.help }),
-          })
-        }
-      }
-      catch {
-        // Already surfaced via applyPlugins error path; keep going
-      }
-
-      // Dedup issues by (filePath, line, column, ruleId) to handle aliased rules pointing to the same implementation
-      {
-        const seen = new Set<string>()
-        issues = issues.filter((i) => {
-          const key = `${i.line}:${i.column}:${i.ruleId}`
-          if (seen.has(key)) return false
-          seen.add(key)
-          return true
-        })
-      }
-
-      if (options.fix) {
-        const fixed = fixText(src, cfg, file)
-
-        // If content changed, re-scan the fixed version
-        if (fixed !== src) {
-          const newSuppress = parseDisableDirectives(fixed)
-          const newCommentLines = getCommentLines(fixed)
-          issues = scanContentOptimized(file, fixed, cfg, newSuppress, newCommentLines)
-
-          // Write file only if not dry-run
-          if (!options.dryRun) {
-            writeFileSync(file, fixed, 'utf8')
-          }
-
-          if (options.dryRun && (options.verbose !== undefined ? options.verbose : cfg.verbose)) {
-            getLogger().debug(colors.gray(`dry-run: would apply fixes in ${relative(process.cwd(), file)}`))
-          }
-        }
-      }
-
-      trace('scan done', relative(process.cwd(), file), issues.length)
-      return issues
+      return lintFileForRun(file, cfg, options)
     }
 
-    const issueArrays = await processWithConcurrency(files, concurrency, processFile)
+    // Many files: spread them over worker threads. Diagnostics and traces
+    // narrate the run in order, so those runs stay on this thread.
+    const workerCount = enableDiagnostics || ENV.TRACE ? 0 : workerThreadsFor(files.length)
+    const issueArrays = workerCount > 1
+      ? await lintInWorkers(files, options, workerCount, processFile)
+      : await processWithConcurrency(files, concurrency, processFile)
     const allIssues = issueArrays.flat()
     if (enableDiagnostics)
       getLogger().info(`[pickier:diagnostics] Processing complete! Found ${allIssues.length} issues total`)

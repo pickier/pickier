@@ -195,14 +195,7 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
       // No initializer — the line can't be turned into `const`.
       return null
     }
-    // Everything but the declaration itself, BEFORE it included: a function
-    // or method written above a `let` runs after it and can reassign it.
-    // `class A { bump() { counter++ } }` then `let counter = 0` was reported
-    // as never reassigned, and `--fix` made it a `const` that throws on the
-    // first call. Searching too widely only means not suggesting `const` for
-    // a shadowed name, which is the safe direction for an auto-fix.
     const restStartIdx = text.indexOf(line)
-    const rest = `${text.slice(0, Math.max(0, restStartIdx))}\n${text.slice(restStartIdx + line.length)}`
     // Longest first, so an operator that is a prefix of another cannot claim
     // the match: `&=` would otherwise shadow `&&=`. The three logical
     // assignments were missing entirely, and this rule is auto-fixable — so
@@ -211,14 +204,6 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
     // code into a TypeError on the next call.
     const assignOps = ['>>>=', '**=', '<<=', '>>=', '??=', '||=', '&&=', '+=', '-=', '*=', '/=', '%=', '&=', '^=', '|=', '=']
     const assignPattern = `\\b${name}\\s*(?:${assignOps.map(op => op.replace(/[|\\^$*+?.(){}[\]]/g, r => `\\${r}`)).join('|')})`
-    const directAssign = new RegExp(assignPattern).test(rest)
-    // eslint-disable-next-line no-useless-escape
-    const incDecChanged = new RegExp(`(?:^|[^$\w])(?:\\+\\+|--)\\s*${name}\\b|\\b${name}\\s*(?:\\+\\+|--)`).test(rest)
-    // Destructuring reassignment: `[x, y] = …` or `{ x, y } = …` later
-    // in the file (issue #1357). The simple `\bname\s*=` regex above
-    // misses these because in destructuring `name` is followed by `,`,
-    // `]`, or `}`, not `=`.
-    const destructReassigned = destructuringReassignsName(rest, name)
 
     // A reassignment on the SAME line, after the initializer:
     // `let x = {}; try { x = f() } catch {}` is one line, so searching only
@@ -226,9 +211,31 @@ function analyzeLetDecl(line: string, text: string): Array<{ name: string, fixab
     // produced code that throws on the assignment.
     const initializerEnd = part.indexOf('=')
     const afterInitializer = initializerEnd >= 0 ? part.slice(initializerEnd + 1) : ''
-    const sameLineReassigned = new RegExp(assignPattern).test(afterInitializer)
 
-    result.push({ name, fixable: !directAssign && !incDecChanged && !destructReassigned && !sameLineReassigned })
+    // The name is fixable only if every check below comes up empty, and each
+    // is a pure test, so the first one that finds a reassignment settles it.
+    // They run cheapest first: the destructuring scan walks every bracket
+    // pair in the file and is by far the most expensive.
+    let reassigned = new RegExp(assignPattern).test(afterInitializer)
+    if (!reassigned) {
+      // Everything but the declaration itself, BEFORE it included: a function
+      // or method written above a `let` runs after it and can reassign it.
+      // `class A { bump() { counter++ } }` then `let counter = 0` was reported
+      // as never reassigned, and `--fix` made it a `const` that throws on the
+      // first call. Searching too widely only means not suggesting `const` for
+      // a shadowed name, which is the safe direction for an auto-fix.
+      const rest = `${text.slice(0, Math.max(0, restStartIdx))}\n${text.slice(restStartIdx + line.length)}`
+      reassigned = new RegExp(assignPattern).test(rest)
+        // eslint-disable-next-line no-useless-escape
+        || new RegExp(`(?:^|[^$\w])(?:\\+\\+|--)\\s*${name}\\b|\\b${name}\\s*(?:\\+\\+|--)`).test(rest)
+        // Destructuring reassignment: `[x, y] = …` or `{ x, y } = …` later
+        // in the file (issue #1357). The simple `\bname\s*=` regex above
+        // misses these because in destructuring `name` is followed by `,`,
+        // `]`, or `}`, not `=`.
+        || destructuringReassignsName(rest, name)
+    }
+
+    result.push({ name, fixable: !reassigned })
   }
   return result
 }

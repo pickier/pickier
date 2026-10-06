@@ -73,20 +73,21 @@ describe('import topology', () => {
 // ---------------------------------------------------------------------------
 
 describe('deferred Logger pattern', () => {
-  it('linter.ts defers Logger construction', () => {
-    const src = readFileSync(join(SRC_DIR, 'linter.ts'), 'utf8')
-    // Logger must be lazily constructed, not created at module level
-    expect(src).toContain('let _logger')
-    expect(src).toContain('function getLogger()')
-    // Must NOT have a top-level `new Logger` or `const logger = new Logger`
-    expect(src).not.toMatch(/^const logger\s*=\s*new Logger/m)
-  })
+  // Importing @stacksjs/clarity loads node:crypto, zlib and streams and runs
+  // its own config lookup, so nothing may import it at module level.
+  for (const file of ['linter.ts', 'formatter.ts']) {
+    it(`${file} never imports clarity up front`, () => {
+      const src = readFileSync(join(SRC_DIR, file), 'utf8')
+      expect(src).not.toMatch(/^import\s+\{[^}]*\}\s+from\s+'@stacksjs\/clarity'/m)
+      expect(src).toContain('createLazyLogger(')
+      expect(src).toContain('function getLogger()')
+    })
+  }
 
-  it('formatter.ts defers Logger construction', () => {
-    const src = readFileSync(join(SRC_DIR, 'formatter.ts'), 'utf8')
-    expect(src).toContain('let _logger')
-    expect(src).toContain('function getLogger()')
-    expect(src).not.toMatch(/^const logger\s*=\s*new Logger/m)
+  it('logger.ts imports clarity on first use', () => {
+    const src = readFileSync(join(SRC_DIR, 'logger.ts'), 'utf8')
+    expect(src).toContain("import('@stacksjs/clarity')")
+    expect(src).not.toMatch(/^import\s+\{[^}]*\}\s+from\s+'@stacksjs\/clarity'/m)
   })
 })
 
@@ -156,12 +157,12 @@ describe('format-only fast path in linter.ts', () => {
   it('has formatOnly fast path that calls formatCode() directly', () => {
     // The format-only path must call formatCode() directly, not applyPluginFixes()
     // applyPluginFixes iterates 13 plugins/hundreds of rules for zero benefit on code files
-    expect(src).toMatch(/if\s*\(formatOnly\)\s*\{[\s\S]*?formatCode\(src/)
+    expect(src).toMatch(/if\s*\(options\._formatOnly\)\s*\{[\s\S]*?formatCode\(src/)
   })
 
   it('format-only path does NOT call applyPluginFixes', () => {
     // Extract the format-only block and verify it doesn't call applyPluginFixes
-    const match = src.match(/if\s*\(formatOnly\)\s*\{([\s\S]*?)\n\s{6}\}/)
+    const match = src.match(/if\s*\(options\._formatOnly\)\s*\{([\s\S]*?)\n\s{2}\}/)
     expect(match).not.toBeNull()
     expect(match![1]).not.toContain('applyPluginFixes')
   })

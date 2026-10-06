@@ -8,6 +8,9 @@ export const importDedupeRule: RuleModule = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+      // The pattern needs the word; most lines do not have it
+      if (!line.includes('import'))
+        continue
       const m = line.match(/^\s*import\s*\{([^}]*)\}\s*from\s*['"][^'"]+['"]/)
       if (!m)
         continue

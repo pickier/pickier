@@ -1,15 +1,15 @@
 import type { FormatOptions, LintIssue, PickierConfig, PickierPlugin } from './types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
-import { Logger } from '@stacksjs/clarity'
+import type { LazyLogger } from './logger'
 import { formatCode } from './format'
-import { getAllPlugins } from './plugins'
+import { createLazyLogger } from './logger'
+import { getLazyPlugins } from './plugins/lazy'
 import { colors, createIgnoreMatcher, ENV, expandPatterns, glob, isRuleOff, loadConfigFromPath, MAX_FIXER_PASSES, UNIVERSAL_IGNORES, withAlwaysIgnores } from './utils'
 
-let _logger: Logger | null = null
-function getLogger(): Logger {
-  if (!_logger)
-    _logger = new Logger('pickier', { showTags: false })
+// Loads @stacksjs/clarity on first use; see logger.ts
+const _logger = createLazyLogger('pickier')
+function getLogger(): LazyLogger {
   return _logger
 }
 
@@ -36,7 +36,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 }
 
 export function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
-  const pluginDefs: Array<PickierPlugin> = getAllPlugins()
+  const pluginDefs: Array<PickierPlugin> = getLazyPlugins()
 
   // Fixers here run unless explicitly switched off, but the opt-out itself has
   // to be found wherever the user wrote it — `rules` or `pluginRules`, under

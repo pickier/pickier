@@ -222,6 +222,7 @@ export interface EnvConfig {
   readonly DIAGNOSTICS: boolean
   readonly FAIL_ON_WARNINGS: boolean
   readonly NO_AUTO_CONFIG: boolean
+  readonly WORKERS: number | null
 }
 
 export const ENV: EnvConfig = {
@@ -252,6 +253,17 @@ export const ENV: EnvConfig = {
   /** Disable auto-loading of config. Set PICKIER_NO_AUTO_CONFIG=1 to disable. */
   get NO_AUTO_CONFIG(): boolean {
     return process.env.PICKIER_NO_AUTO_CONFIG === '1'
+  },
+  /**
+   * Worker threads for a CLI run over many files. Unset picks one per core
+   * (leaving one for the main thread); 0 or 1 lints on the main thread only.
+   */
+  get WORKERS(): number | null {
+    const raw = process.env.PICKIER_WORKERS
+    if (raw === undefined || raw === '')
+      return null
+    const n = Number(raw)
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null
   },
 }
 

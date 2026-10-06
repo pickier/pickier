@@ -108,6 +108,39 @@ export const noUnusedVarsRule: RuleModule = {
     // template content in both loops.
     const lineStartsInTemplate = lineStartsInTemplateBody(text, lexed)
 
+    // `\bname\b` anywhere but line `i`. That was a regex over the other lines
+    // joined afresh for every declaration - quadratic in file length. The
+    // lines are joined once instead, and a match counts unless it lies on
+    // line `i`: a name never spans a line break, and the characters around
+    // each kept match are the same in both texts. A `$` in the name is an
+    // anchor in this pattern and depends on where the text ends, so those
+    // names keep the original construction.
+    let joined: string | null = null
+    let lineStarts: number[] = []
+    const referencedOutsideLine = (name: string, i: number): boolean => {
+      const refRe = new RegExp(`\\b${name}\\b`, 'g')
+      if (name.includes('$'))
+        return refRe.test(`${lines.slice(0, i).join('\n')}\n${lines.slice(i + 1).join('\n')}`)
+      if (joined === null) {
+        joined = lines.join('\n')
+        lineStarts = Array.from({ length: lines.length })
+        let at = 0
+        for (let k = 0; k < lines.length; k++) {
+          lineStarts[k] = at
+          at += lines[k].length + 1
+        }
+      }
+      const start = lineStarts[i]
+      const end = start + lines[i].length
+      for (let m = refRe.exec(joined); m !== null; m = refRe.exec(joined)) {
+        if (m.index < start || m.index >= end)
+          return true
+        if (m[0].length === 0)
+          refRe.lastIndex++
+      }
+      return false
+    }
+
     const declRe = new RegExp('^\\s*(?:const|let|var)\\s+(.+?)' + ';' + '?\\s*$')
     for (let i = 0; i < lines.length; i++) {
       // Skip lines inside template literal body (generated code, not real code)
@@ -339,9 +372,7 @@ else {
           // of a module and used by a function above it read as unused - which
           // is a perfectly ordinary way to write a file, and the autofix for it
           // renames the declaration and leaves the use pointing at nothing.
-          const elsewhere = `${lines.slice(0, i).join('\n')}\n${lines.slice(i + 1).join('\n')}`
-          const refRe = new RegExp(`\\b${name}\\b`, 'g')
-          if (!refRe.test(elsewhere)) {
+          if (!referencedOutsideLine(name, i)) {
             issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is assigned a value but never used. Allowed unused vars must match pattern: ${varsIgnorePattern}`, severity: 'error', help: `Either use this variable in your code, remove it, or prefix it with an underscore (_${name}) to mark it as intentionally unused` })
           }
         }
@@ -956,11 +987,14 @@ else {
 
       let bodyText = lines[startLine].slice(arrowCol + 2)
       updateState(bodyText)
+      // Whether bodyText.trim() is non-empty, kept up to date as lines are
+      // appended instead of trimming the whole growing body every time.
+      let bodyHasContent = bodyText.trim() !== ''
 
       let nextLine = startLine + 1
       while (nextLine < lines.length) {
         const previousLine = nextLine === startLine + 1 ? bodyText : lines[nextLine - 1]
-        const shouldContinue = !bodyText.trim()
+        const shouldContinue = !bodyHasContent
           || isOpen()
           || endsWithContinuation(previousLine)
           || startsWithContinuation(lines[nextLine])
@@ -969,6 +1003,7 @@ else {
           break
 
         bodyText += `\n${lines[nextLine]}`
+        bodyHasContent ||= lines[nextLine].trim() !== ''
         updateState(lines[nextLine])
         nextLine++
       }
@@ -1089,7 +1124,11 @@ else {
       // Mask template literal body content using stack-based tracking that persists across lines.
       // Content inside ${} expressions is preserved (it's real code), body content is masked.
       // This handles both single-line and multi-line templates correctly, including nested templates.
-      {
+      // Outside every string and template, a line without a quote or a
+      // backtick passes through the loop below unchanged; skip it.
+      const plainLine = !mainEscaped && !mainInSingle && !mainInDouble && mainTmplStack.length === 0
+        && !codeClean.includes('`') && !codeClean.includes('\'') && !codeClean.includes('"')
+      if (!plainLine) {
         let masked = ''
         for (let ci = 0; ci < codeClean.length; ci++) {
           const ch = codeClean[ci]
