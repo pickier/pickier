@@ -425,9 +425,73 @@ function isSpacingCharCode(c: number): boolean {
   return c === 123 || c === 44 || c === 61 || c === 43 || c === 45 || c === 42 || c === 47 || c === 59 || c === 60 || c === 62
 }
 
-function normalizeSpacingLine(line: string): string {
+const RE_WHITESPACE_CHAR = /\s/
+
+/**
+ * Whether `RE_MULTI_SPACE` (`/\s{2,}/`) matches anywhere in `s` from `from`
+ * on: two whitespace characters in a row, with the same definition of
+ * whitespace. Most lines have none, and this is cheaper than the regex call
+ * plus the slicing around it.
+ */
+function hasWhitespaceRun(s: string, from: number): boolean {
+  let prev = false
+  for (let i = from; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    const ws = c === 32 || (c >= 9 && c <= 13) || (c >= 128 && RE_WHITESPACE_CHAR.test(s[i]))
+    if (ws && prev)
+      return true
+    prev = ws
+  }
+  return false
+}
+
+/**
+ * `line` is the code with its indentation already removed; `indentLen` is how
+ * long the indentation it will be printed with is. None of the rules can
+ * match across indentation, so running them on the bare code gives the same
+ * result as running them on the indented line, without first building and
+ * flattening that line.
+ */
+const OP_PLUS = 1
+const OP_MINUS = 2
+const OP_STAR = 4
+const OP_SLASH = 8
+const OP_LT = 16
+const OP_GT = 32
+
+function isWordCharCode(c: number): boolean {
+  return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c === 95
+}
+
+/**
+ * Which operator rules can match `t`, as a bit set. Each needs more than its
+ * character: `+ - * /` a word character on both sides (`/(\w)\+(\w)/`), `<`
+ * and `>` a word character, `)` or `]` before and a digit after. The passes
+ * before them only insert whitespace, which never creates such a pair, so a
+ * rule whose pair is absent here cannot match when its turn comes. `>` is in
+ * nearly every line (`=>`, generics) and almost never before a digit.
+ */
+function operatorCandidates(t: string): number {
+  let ops = 0
+  for (let i = 1; i < t.length - 1; i++) {
+    const c = t.charCodeAt(i)
+    if (c === 43 || c === 45 || c === 42 || c === 47) {
+      if (isWordCharCode(t.charCodeAt(i - 1)) && isWordCharCode(t.charCodeAt(i + 1)))
+        ops |= c === 43 ? OP_PLUS : c === 45 ? OP_MINUS : c === 42 ? OP_STAR : OP_SLASH
+    }
+    else if (c === 60 || c === 62) {
+      const next = t.charCodeAt(i + 1)
+      const prev = t.charCodeAt(i - 1)
+      if (next >= 48 && next <= 57 && (isWordCharCode(prev) || prev === 41 || prev === 93))
+        ops |= c === 60 ? OP_LT : OP_GT
+    }
+  }
+  return ops
+}
+
+function normalizeSpacingLine(line: string, indentLen: number): string {
   // Fast path: skip very short lines (closing braces, etc.)
-  if (line.length < 4)
+  if (indentLen + line.length < 4)
     return line
 
   // Fast path: skip comment lines
@@ -467,28 +531,31 @@ function normalizeSpacingLine(line: string): string {
     t = t.replace(RE_COMMA_SPACE, ', $1')
   if (t.includes('='))
     t = t.replace(RE_EQUALS_SPACE, ' = ')
-  if (t.includes('+'))
+  const ops = operatorCandidates(t)
+  if (ops & OP_PLUS)
     t = t.replace(RE_PLUS_OP, '$1 + $2')
-  if (t.includes('-'))
+  if (ops & OP_MINUS)
     t = t.replace(RE_MINUS_OP, '$1 - $2')
-  if (t.includes('*'))
+  if (ops & OP_STAR)
     t = t.replace(RE_STAR_OP, '$1 * $2')
-  if (t.includes('/'))
+  if (ops & OP_SLASH)
     t = t.replace(RE_SLASH_OP, '$1 / $2')
   if (t.includes(';'))
     t = t.replace(RE_SEMI_SPACE, '; $1')
-  if (t.includes('<'))
+  if (ops & OP_LT)
     t = t.replace(RE_LT_OP, '$1 < $2')
-  if (t.includes('>'))
+  if (ops & OP_GT)
     t = t.replace(RE_GT_OP, '$1 > $2')
 
   // Collapse multi-spaces in code (not leading whitespace)
-  if (firstNonSpace > 0) {
-    const rest = t.slice(firstNonSpace)
-    t = t.slice(0, firstNonSpace) + rest.replace(RE_MULTI_SPACE, ' ')
-  }
-  else {
-    t = t.replace(RE_MULTI_SPACE, ' ')
+  if (hasWhitespaceRun(t, firstNonSpace)) {
+    if (firstNonSpace > 0) {
+      const rest = t.slice(firstNonSpace)
+      t = t.slice(0, firstNonSpace) + rest.replace(RE_MULTI_SPACE, ' ')
+    }
+    else {
+      t = t.replace(RE_MULTI_SPACE, ' ')
+    }
   }
 
   return strings.length > 0 ? unmaskStrings(t, strings) : t
@@ -670,8 +737,7 @@ function blockCommentStateAfter(line: string, startsIn: boolean): boolean {
  * Combines fixQuotes + fixIndentation + normalizeCodeSpacing + removeStylisticSemicolons
  * into ONE split/join cycle instead of four separate ones.
  */
-function processCodeLinesFused(content: string, cfg: PickierConfig): string {
-  const lines = content.split('\n')
+function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
   const len = lines.length
   const result = new Array<string>(len)
   const preferred = cfg.format.quotes
@@ -753,10 +819,9 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // statement they continue — previously they were flattened (#1369)
     const continuationBump = RE_CONTINUATION_LINE.test(trimmed) ? 1 : 0
 
-    const establishedIndent = line.slice(0, wsEnd)
-    line = cfg.format.preserveCodeIndentation
-      ? establishedIndent + trimmed
-      : makeIndent(indentLevel + hangDepth + continuationBump, cfg) + trimmed
+    const indent = cfg.format.preserveCodeIndentation
+      ? line.slice(0, wsEnd)
+      : makeIndent(indentLevel + hangDepth + continuationBump, cfg)
 
     // Opens a block: ends in `{`, `[` or `(` (`trimmed` has no trailing whitespace)
     const lastCode = trimmed.charCodeAt(trimmed.length - 1)
@@ -772,17 +837,20 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
       hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
     }
 
-    // Phase 3: Normalize spacing
-    line = normalizeSpacingLine(line)
+    // Phase 3: Normalize spacing. The rules run on the code alone and the
+    // indentation is put in front afterwards; it is all spaces or tabs, so
+    // the anchored semicolon patterns and trimEnd behave as on the full line.
+    let body = normalizeSpacingLine(trimmed, indent.length)
+    let dropLine = false
 
     // Phase 4: Remove stylistic semicolons (if enabled)
     if (doSemiRemoval) {
-      if (!RE_FOR_LOOP.test(line)) {
-        if (RE_EMPTY_SEMI.test(line)) {
-          line = ''
+      if (!RE_FOR_LOOP.test(body)) {
+        if (RE_EMPTY_SEMI.test(body)) {
+          dropLine = true
         }
         else {
-          line = line.replace(RE_DUP_SEMI, ';')
+          body = body.replace(RE_DUP_SEMI, ';')
         }
       }
     }
@@ -791,8 +859,16 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     // with an assignment operator. Run the configured whitespace guarantee
     // after every code transformation; template text bypasses this pipeline,
     // and an opening template's intentional separator is restored below.
-    if (cfg.format.trimTrailingWhitespace)
-      line = line.trimEnd()
+    if (dropLine) {
+      line = ''
+    }
+    else if (cfg.format.trimTrailingWhitespace) {
+      body = body.trimEnd()
+      line = body.length === 0 ? '' : indent + body
+    }
+    else {
+      line = indent + body
+    }
 
     if (splitIdx >= 0) {
       // Restore a single separating space the prefix may have had before the
@@ -807,7 +883,7 @@ function processCodeLinesFused(content: string, cfg: PickierConfig): string {
     result[idx] = line
   }
 
-  return result.join('\n')
+  return result
 }
 
 // A fence opener/closer: 3+ backticks or tildes, indentation allowed (fences
@@ -970,7 +1046,21 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
     lines = collapseBlankLines(rawLines, Math.max(0, cfg.format.maxConsecutiveBlankLines))
   }
 
-  let joined = lines.join('\n')
+  let joined: string
+  if (isCodeFileExt(filePath) && !(lines.length > 0 && lines[0].startsWith('#!'))) {
+    // TS/JS without a shebang (so never shell): leading blank lines, imports
+    // and the code pass all work on the one array, joined once at the end.
+    let first = 0
+    while (first < lines.length && lines[first] === '')
+      first++
+    if (first > 0)
+      lines = lines.slice(first)
+    lines = formatImportLines(lines) ?? lines
+    joined = processCodeLinesFused(lines, cfg).join('\n')
+    return applyFinalNewline(joined, cfg)
+  }
+
+  joined = lines.join('\n')
   // Remove any leading blank lines at the top of the file
   joined = joined.replace(RE_LEADING_BLANKS, '')
 
@@ -998,16 +1088,22 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
   }
   // FUSED: quotes + indentation + spacing + semicolons in ONE split/join pass
   else if (isCodeFileExt(filePath)) {
-    joined = processCodeLinesFused(joined, cfg)
+    joined = processCodeLinesFused(joined.split('\n'), cfg).join('\n')
   }
   else {
     joined = fixQuotes(joined, cfg.format.quotes, filePath)
   }
 
-  // Final newline policy: replace the whole trailing run of newlines, however
-  // long, so a second pass never changes it. Trimming one newline at a time
-  // left runs that blank-line collapsing does not reach (an unclosed markdown
-  // fence, maxConsecutiveBlankLines > 1) shrinking on every run.
+  return applyFinalNewline(joined, cfg)
+}
+
+/**
+ * Final newline policy: replace the whole trailing run of newlines, however
+ * long, so a second pass never changes it. Trimming one newline at a time
+ * left runs that blank-line collapsing does not reach (an unclosed markdown
+ * fence, maxConsecutiveBlankLines > 1) shrinking on every run.
+ */
+function applyFinalNewline(joined: string, cfg: PickierConfig): string {
   let end = joined.length
   while (end > 0 && joined.charCodeAt(end - 1) === 10)
     end--
@@ -1336,10 +1432,31 @@ function maskStrings(input: string): { text: string, strings: string[] } {
   return { text: parts.join(''), strings }
 }
 
+/**
+ * Put the masked strings back: every `@@S<n>@@`, scanned left to right
+ * without rescanning what was inserted — what `/@@S(\d+)@@/g` did, minus the
+ * regex and callback per line.
+ */
 function unmaskStrings(text: string, strings: string[]): string {
   if (strings.length === 0)
     return text
-  return text.replace(/@@S(\d+)@@/g, (_, idx: string) => strings[Number(idx)] ?? '')
+  let out = ''
+  let from = 0
+  let i = text.indexOf('@@S')
+  while (i !== -1) {
+    let j = i + 3
+    while (j < text.length && text.charCodeAt(j) >= 48 && text.charCodeAt(j) <= 57)
+      j++
+    if (j > i + 3 && text.charCodeAt(j) === 64 && text.charCodeAt(j + 1) === 64) {
+      out += text.slice(from, i) + (strings[Number(text.slice(i + 3, j))] ?? '')
+      from = j + 2
+      i = text.indexOf('@@S', from)
+    }
+    else {
+      i = text.indexOf('@@S', i + 1)
+    }
+  }
+  return from === 0 ? text : out + text.slice(from)
 }
 
 type ImportKind = 'value' | 'type' | 'side-effect'
@@ -1397,7 +1514,21 @@ export function formatImports(source: string): string {
   if (firstChar !== 'i' && firstChar !== ' ' && firstChar !== '\t' && firstChar !== '/' && firstChar !== '\n')
     return source
 
-  const lines = source.split('\n')
+  const out = formatImportLines(source.split('\n'))
+  return out === null ? source : out.join('\n')
+}
+
+/**
+ * The import organizer on a file already split into lines. Returns the new
+ * lines, or null when the file is left as it is, so formatCode can keep
+ * working on one array instead of joining and re-splitting the file.
+ */
+function formatImportLines(lines: string[]): string[] | null {
+  // Same fast path as formatImports, on the first character of the joined text
+  const firstChar = lines.length === 0 ? undefined : lines[0].length > 0 ? lines[0][0] : lines.length > 1 ? '\n' : undefined
+  if (firstChar !== 'i' && firstChar !== ' ' && firstChar !== '\t' && firstChar !== '/' && firstChar !== '\n')
+    return null
+
   const imports: ParsedImport[] = []
   // Comments must survive import organization (#1369 — they were silently
   // deleted before): lines before the first import stay above the block,
@@ -1449,10 +1580,10 @@ export function formatImports(source: string): string {
       stmtEnd++
     }
     if (!RE_IMPORT_COMPLETE.test(stmt))
-      return source
+      return null
     const parsed = parseImportStatement(stmt)
     if (!parsed)
-      return source
+      return null
     // comments buffered since the previous import are interleaved — keep them
     if (pendingStart >= 0) {
       for (let k = pendingStart; k < idx; k++) {
@@ -1467,18 +1598,30 @@ export function formatImports(source: string): string {
     sawImport = true
   }
   if (imports.length === 0)
-    return source
+    return null
 
   // Trailing comments (no import after them) belong to the following code
   const restStart = pendingStart >= 0 ? pendingStart : lastEnd
-  const rest = lines.slice(restStart).join('\n')
+  const restLines = lines.slice(restStart)
+  // Leading blank lines dropped: what `rest.replace(/^\n+/, '')` did to the joined text
+  let restFrom = 0
+  while (restFrom < restLines.length && restLines[restFrom] === '')
+    restFrom++
+  const restClean = restFrom === 0 ? restLines : restLines.slice(restFrom)
 
   // Remove unused only for simple named (no alias). Keep defaults, namespaces, and all type specifiers.
   const usedCache = new Map<string, boolean>()
   const used = (name: string): boolean => {
     let hit = usedCache.get(name)
     if (hit === undefined) {
-      hit = hasIdentifierToken(rest, name)
+      // An identifier never spans a line break, so each line can be searched alone
+      hit = false
+      for (const l of restLines) {
+        if (hasIdentifierToken(l, name)) {
+          hit = true
+          break
+        }
+      }
       usedCache.set(name, hit)
     }
     return hit
@@ -1620,23 +1763,28 @@ export function formatImports(source: string): string {
     return a.source.localeCompare(b.source)
   })
 
-  const head = preamble.length > 0 ? `${preamble.join('\n')}\n` : ''
-
-  // If no imports remain after filtering, return the rest without import block
+  // If no imports remain after filtering, return the rest without import block.
+  // Every line before the rest ended in a newline, so an empty rest still
+  // leaves one behind.
   if (entries.length === 0) {
-    const restClean = rest.replace(/^\n+/, '')
-    const kept = [...interleaved]
-    if (head || kept.length > 0)
-      return `${head}${kept.length > 0 ? `${kept.join('\n')}\n` : ''}${restClean}`
+    if (preamble.length > 0 || interleaved.length > 0)
+      return [...preamble, ...interleaved, ...(restClean.length > 0 ? restClean : [''])]
     return restClean
   }
 
-  const rendered = entries.map(renderImport).join('\n')
-  const mid = interleaved.length > 0 ? `\n${interleaved.join('\n')}` : ''
-  // ensure a trailing blank line after imports if there is following code
-  const restClean = rest.replace(/^\n+/, '')
-  const sep = restClean.length > 0 ? '\n\n' : '\n'
-  return `${head}${rendered}${mid}${sep}${restClean}`
+  const out = [...preamble]
+  for (const imp of entries) {
+    const rendered = renderImport(imp)
+    if (rendered.includes('\n'))
+      out.push(...rendered.split('\n'))
+    else
+      out.push(rendered)
+  }
+  out.push(...interleaved)
+  // A blank line between the imports and the code, or the final newline
+  out.push('')
+  out.push(...restClean)
+  return out
 }
 
 function renderImport(imp: ParsedImport): string {

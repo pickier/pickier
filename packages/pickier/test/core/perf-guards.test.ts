@@ -407,7 +407,7 @@ describe('normalizeSpacingLine character pre-check', () => {
 
   it('skips each regex pass whose literal character is absent', () => {
     const fnBody = src.match(/function normalizeSpacingLine\([\s\S]*?\n\}/)![0]
-    for (const ch of [',', '=', '+', '-', '*', '/', ';', '<', '>'])
+    for (const ch of [',', '=', ';'])
       expect(fnBody).toContain(`if (t.includes('${ch}'))`)
   })
 
