@@ -8,9 +8,10 @@
 //!     "rules": [ { "id": "general/no-unused-vars", "severity": "error", "options": {...} }, ... ],
 //!     "files": [ "/abs/a.ts", ... ] }
 //!
-//! - and writes a JSON array with one entry per file, in the same order: the
-//! file's issues (see `lintOne` for the encoding), or `null` when the file
-//! could not be read or was declined (the CLI then lints it itself).
+//! - and writes `{"v":<protocol_version>,"f":[...]}`, with one entry per file
+//! in the same order: the file's issues (see `lintOne` for the encoding), or
+//! `null` when the file could not be read or was declined (the CLI then lints
+//! it itself).
 //! Exit status 2 means the request asked for something this engine does not
 //! implement, and nothing was written.
 
@@ -21,6 +22,10 @@ const registry = @import("registry.zig");
 
 const Allocator = std.mem.Allocator;
 const gpa = std.heap.smp_allocator;
+
+/// The output format's version, which the CLI checks before decoding: a CLI
+/// paired with an engine of another version lints on the TypeScript path.
+pub const protocol_version = 2;
 
 const Job = struct {
     io: std.Io,
@@ -104,12 +109,12 @@ pub fn run(io: std.Io, arena: Allocator) !u8 {
     if (job.failed.load(.acquire)) return 1;
 
     var out: std.ArrayList(u8) = .empty;
-    try out.append(arena, '[');
+    try out.print(arena, "{{\"v\":{d},\"f\":[", .{protocol_version});
     for (results, 0..) |r, i| {
         if (i > 0) try out.append(arena, ',');
         try out.appendSlice(arena, r orelse "null");
     }
-    try out.appendSlice(arena, "]\n");
+    try out.appendSlice(arena, "]}\n");
     var stdout_buf: [65536]u8 = undefined;
     var w = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
     try w.interface.writeAll(out.items);
@@ -145,9 +150,11 @@ fn lintOne(job: *Job, path: []const u8) ![]u8 {
 
     const issues = try pipeline.lintFile(arena, path, content, job.settings);
 
-    // `{"s":[strings],"i":[line,column,ruleId,message,severity,help, ...]}`:
-    // each issue is six numbers, the strings indexes into `s` (help -1 when
-    // there is none, severity 0 error / 1 warning). Rule ids, messages and
+    // `{"s":[strings],"i":[line,column,ruleId,message,severity,help,rule, ...]}`:
+    // each issue is seven numbers, the strings indexes into `s` (help -1 when
+    // there is none, severity 0 error / 1 warning), and the reporting rule's
+    // index in the request's `rules` (-1 for a built-in check), which lets the
+    // CLI merge these issues with ones from rules it ran itself. Rule ids, messages and
     // help repeat across a file's issues; sending each once keeps a run with
     // tens of thousands of issues from being mostly JSON.
     var table: Strings = .{ .index = std.StringHashMap(u32).init(arena) };
@@ -157,13 +164,14 @@ fn lintOne(job: *Job, path: []const u8) ![]u8 {
         const rule = try table.intern(arena, issue.rule_id);
         const message = try table.intern(arena, issue.message);
         const help: i64 = if (issue.help) |h| try table.intern(arena, h) else -1;
-        try numbers.print(arena, "{d},{d},{d},{d},{d},{d}", .{
+        try numbers.print(arena, "{d},{d},{d},{d},{d},{d},{d}", .{
             issue.line,
             issue.column,
             rule,
             message,
             @as(u8, if (issue.severity == .@"error") 0 else 1),
             help,
+            issue.rule_index,
         });
     }
     var json: std.ArrayList(u8) = .empty;

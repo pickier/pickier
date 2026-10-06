@@ -104,7 +104,7 @@ pub fn lintFile(allocator: Allocator, path: []const u8, content: []const u8, set
     try builtins.scan(allocator, path, content, settings, &suppress, &comment_lines, &issues);
 
     var raw: std.ArrayList(Issue) = .empty;
-    for (settings.rules) |rule| {
+    for (settings.rules, 0..) |rule, rule_index| {
         if (!ruleApplies(rule.id, path)) continue;
         const check = registry.lookup(rule.id) orelse return error.UnsupportedRule;
         raw.clearRetainingCapacity();
@@ -118,6 +118,7 @@ pub fn lintFile(allocator: Allocator, path: []const u8, content: []const u8, set
         try check(&ctx, &raw);
         for (raw.items) |found| {
             var issue = found;
+            issue.rule_index = @intCast(rule_index);
             if (issue.help == null or issue.help.?.len == 0)
                 issue.help = try defaultHelp(allocator, rule.id);
             if (rule.severity) |sev| issue.severity = sev;

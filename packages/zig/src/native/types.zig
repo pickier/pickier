@@ -33,6 +33,9 @@ pub const Issue = struct {
     message: []const u8,
     severity: Severity,
     help: ?[]const u8 = null,
+    /// Index of the reporting rule in `Settings.rules`; -1 for a built-in check.
+    /// Set by the pipeline, not by rules.
+    rule_index: i32 = -1,
 };
 
 pub const QuoteStyle = enum { single, double };

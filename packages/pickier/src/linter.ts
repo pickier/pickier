@@ -7,7 +7,7 @@ import { formatStylish, formatVerbose } from './formatter'
 import { cacheApplies, openLintCache } from './cache'
 import { resetLexCache } from './lexer'
 import { createLazyLogger, flushLogs } from './logger'
-import { isNativeFile, lintNative, nativePlan } from './native'
+import { isNativeFile, lintNative, lintNativeAsync, mergeIssues, nativePlan } from './native'
 import { lintInWorkers, workerThreadsFor } from './parallel'
 import { getLazyPlugins } from './plugins/lazy'
 import { computeLineStartsInTemplate } from './rules/general/_template-tracking'
@@ -777,72 +777,86 @@ function shouldRunPlannedRule(rule: PlannedRule, filePath: string, content: stri
   }
 }
 
-export async function applyPlugins(filePath: string, content: string, cfg: PickierConfig): Promise<Array<any>> /* PluginLintIssue[] */ {
+/**
+ * Run the planned plugin rules on one file. With `skip`, the rules with those
+ * plan ids are left out and each issue carries `pos`, its rule's position in
+ * the plan.
+ */
+export async function applyPlugins(filePath: string, content: string, cfg: PickierConfig, skip?: ReadonlySet<string>): Promise<Array<any>> /* PluginLintIssue[] */ {
   const issues: Array<any> = []
   const plan = getPluginPlan(cfg)
 
   const baseCtx: RuleContext = { filePath, config: cfg }
 
-  for (const planned of plan.checkRules) {
-    if (!shouldRunPlannedRule(planned, filePath, content))
+  for (let pos = 0; pos < plan.checkRules.length; pos++) {
+    const planned = plan.checkRules[pos]!
+    if (skip?.has(planned.fullRuleId) || !shouldRunPlannedRule(planned, filePath, content))
       continue
+    const first = issues.length
+    await runPlannedRule(planned, filePath, content, baseCtx, issues)
+    if (skip) {
+      for (let k = first; k < issues.length; k++)
+        issues[k].pos = pos
+    }
+  }
+  return issues
+}
 
-    const { fullRuleId, rule, severity: overrideSeverity } = planned
-    if (!rule || typeof (rule as any).check !== 'function') {
-      // If a rule is referenced in config but has no implementation (e.g.
-      // JSON-stripped functions), only raise an internal error when configured
-      // as 'error'. Otherwise, skip silently.
-      if (overrideSeverity === 'error') {
-        issues.push({
-          filePath,
-          line: 1,
-          column: 1,
-          ruleId: `${fullRuleId}-internal` as any,
-          message: 'Rule missing implementation (check function is undefined)',
-          severity: 'error',
-        })
-      }
-      continue
-    }
-    try {
-      trace('rule:start', fullRuleId)
-      const ruleTimeoutMs = ENV.RULE_TIMEOUT_MS
-      const ctx: RuleContext = { ...baseCtx, options: planned.options }
-      const started = performance.now()
-      const out = await withTimeout(Promise.resolve().then(() => (rule as any).check(content, ctx)), ruleTimeoutMs, `rule:${fullRuleId}`)
-      const elapsed = performance.now() - started
-      if (elapsed > ruleTimeoutMs) {
-        issues.push({
-          filePath,
-          line: 1,
-          column: 1,
-          ruleId: `${fullRuleId}-internal` as any,
-          message: `Rule exceeded timeout budget: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms`,
-          severity: 'error',
-        })
-      }
-      trace('rule:end', fullRuleId, Array.isArray(out) ? out.length : 0)
-      for (const i of out) {
-        // Ensure all issues have help text
-        const issueWithHelp = ensureHelpText(i, fullRuleId)
-        if (overrideSeverity)
-          issues.push({ ...issueWithHelp, severity: overrideSeverity })
-        else
-          issues.push(issueWithHelp)
-      }
-    }
-    catch (e: any) {
+async function runPlannedRule(planned: PlannedRule, filePath: string, content: string, baseCtx: RuleContext, issues: Array<any>): Promise<void> {
+  const { fullRuleId, rule, severity: overrideSeverity } = planned
+  if (!rule || typeof (rule as any).check !== 'function') {
+    // If a rule is referenced in config but has no implementation (e.g.
+    // JSON-stripped functions), only raise an internal error when configured
+    // as 'error'. Otherwise, skip silently.
+    if (overrideSeverity === 'error') {
       issues.push({
         filePath,
         line: 1,
         column: 1,
         ruleId: `${fullRuleId}-internal` as any,
-        message: `Rule threw: ${e?.message || e}`,
+        message: 'Rule missing implementation (check function is undefined)',
         severity: 'error',
       })
     }
+    return
   }
-  return issues
+  try {
+    trace('rule:start', fullRuleId)
+    const ruleTimeoutMs = ENV.RULE_TIMEOUT_MS
+    const ctx: RuleContext = { ...baseCtx, options: planned.options }
+    const started = performance.now()
+    const out = await withTimeout(Promise.resolve().then(() => (rule as any).check(content, ctx)), ruleTimeoutMs, `rule:${fullRuleId}`)
+    const elapsed = performance.now() - started
+    if (elapsed > ruleTimeoutMs) {
+      issues.push({
+        filePath,
+        line: 1,
+        column: 1,
+        ruleId: `${fullRuleId}-internal` as any,
+        message: `Rule exceeded timeout budget: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms`,
+        severity: 'error',
+      })
+    }
+    trace('rule:end', fullRuleId, Array.isArray(out) ? out.length : 0)
+    for (const i of out) {
+      // Ensure all issues have help text
+      const issueWithHelp = ensureHelpText(i, fullRuleId)
+      if (overrideSeverity)
+        issues.push({ ...issueWithHelp, severity: overrideSeverity })
+      else
+        issues.push(issueWithHelp)
+    }
+  }
+  catch (e: any) {
+    issues.push({
+      filePath,
+      line: 1,
+      column: 1,
+      ruleId: `${fullRuleId}-internal` as any,
+      message: `Rule threw: ${e?.message || e}`,
+      severity: 'error',
+    })
+  }
 }
 
 /** Files where a backtick means a template literal rather than a code fence. */
@@ -2072,6 +2086,9 @@ export async function lintFileForRun(file: string, cfg: PickierConfig, options: 
     return []
   }
 
+  if (options._nativeRules)
+    return lintRemainingRules(file, src, cfg, options._nativeRules)
+
   // OPTIMIZATION: Parse directives and comment lines ONCE upfront
   const suppress = parseDisableDirectives(src)
   const isCodeFileForComments = /\.(?:ts|js|tsx|jsx|mts|mjs|cts|cjs)$/.test(file)
@@ -2134,6 +2151,41 @@ export async function lintFileForRun(file: string, cfg: PickierConfig, options: 
   }
 
   trace('scan done', relative(process.cwd(), file), issues.length)
+  return issues
+}
+
+let remainderSkip: { ids: string[], set: ReadonlySet<string> } | null = null
+
+/**
+ * The plugin rules of a run that the native engine did not run, on a file it
+ * linted: the issues lintFileForRun would add for them, before dedupe, each
+ * with its rule's plan position for mergeIssues (native.ts).
+ */
+async function lintRemainingRules(file: string, src: string, cfg: PickierConfig, nativeRules: string[]): Promise<LintIssue[]> {
+  if (remainderSkip?.ids !== nativeRules)
+    remainderSkip = { ids: nativeRules, set: new Set(nativeRules) }
+  const found = await applyPlugins(file, src, cfg, remainderSkip.set)
+  if (found.length === 0)
+    return found
+  const suppress = parseDisableDirectives(src)
+  const commentLines = getCommentLines(src)
+  const issues: LintIssue[] = []
+  for (const i of found) {
+    if (isSuppressed(i.ruleId as string, i.line, suppress))
+      continue
+    if (commentLines.has(i.line) && shouldSkipCommentOnlyPluginIssue(i.ruleId as string))
+      continue
+    issues.push({
+      filePath: i.filePath,
+      line: i.line,
+      column: i.column,
+      ruleId: i.ruleId,
+      message: i.message,
+      severity: i.severity,
+      ...(i.help && { help: i.help }),
+      pos: i.pos,
+    } as LintIssue)
+  }
   return issues
 }
 
@@ -2355,29 +2407,49 @@ async function lintFiles(globs: string[], options: LintOptions): Promise<number>
 
     // Many files: spread them over worker threads. Diagnostics and traces
     // narrate the run in order, so those runs stay on this thread.
-    const lintOnTypeScript = async (list: string[]): Promise<LintIssue[][]> => {
+    const lintOnTypeScript = async (list: string[], opts: LintOptions = options): Promise<LintIssue[][]> => {
+      if (list.length === 0)
+        return []
+      const lintHere = opts === options ? processFile : (file: string) => lintFileForRun(file, cfg, opts)
       const workerCount = enableDiagnostics || ENV.TRACE ? 0 : workerThreadsFor(list.length)
       return workerCount > 1
-        ? lintInWorkers(list, options, workerCount, processFile)
-        : processWithConcurrency(list, concurrency, processFile)
+        ? lintInWorkers(list, opts, workerCount, lintHere)
+        : processWithConcurrency(list, concurrency, lintHere)
     }
 
-    // TS/JS files go to the native engine when every rule this run applies
-    // to them has a verified native port (native.ts); it reports what this
-    // linter would. Files it declines, and everything else, are linted here.
+    // TS/JS files go to the native engine (native.ts), which reports what this
+    // linter would for the built-in checks and the rules it has ports of.
+    // Rules it has no port of run here on the same files meanwhile, and the
+    // two are merged. Files it declines, and everything else, are linted here.
     const native = enableDiagnostics || ENV.TRACE ? null : nativePlan(cfg, options)
     const lintAll = async (list: string[]): Promise<LintIssue[][]> => {
       const results = new Array<LintIssue[] | undefined>(list.length)
       if (native) {
         const nativeIndexes = list.flatMap((f, i) => isNativeFile(f) ? [i] : [])
-        const out = nativeIndexes.length > 0 ? lintNative(nativeIndexes.map(i => list[i]!), native.request, native.binary) : null
-        if (out) {
-          nativeIndexes.forEach((fileIndex, k) => {
-            if (out[k])
-              results[fileIndex] = out[k]!
-          })
+        const nativeFiles = nativeIndexes.map(i => list[i]!)
+        if (nativeFiles.length > 0 && native.hybrid) {
+          const [out, remaining] = await Promise.all([
+            lintNativeAsync(nativeFiles, native.request, native.binary, native.positions),
+            lintOnTypeScript(nativeFiles, { ...options, _nativeRules: native.nativeRules }),
+          ])
+          if (out) {
+            nativeIndexes.forEach((fileIndex, k) => {
+              if (out[k])
+                results[fileIndex] = mergeIssues(out[k]!, remaining[k]!)
+            })
+          }
+          trace('native', { files: nativeFiles.length, linted: out ? out.filter(Boolean).length : 0, hybrid: true })
         }
-        trace('native', { files: nativeIndexes.length, linted: out ? out.filter(Boolean).length : 0 })
+        else if (nativeFiles.length > 0) {
+          const out = lintNative(nativeFiles, native.request, native.binary)
+          if (out) {
+            nativeIndexes.forEach((fileIndex, k) => {
+              if (out[k])
+                results[fileIndex] = out[k]!
+            })
+          }
+          trace('native', { files: nativeFiles.length, linted: out ? out.filter(Boolean).length : 0 })
+        }
       }
       const rest = list.flatMap((_, i) => results[i] === undefined ? [i] : [])
       const linted = await lintOnTypeScript(rest.map(i => list[i]!))

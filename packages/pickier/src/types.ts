@@ -145,6 +145,12 @@ export interface LintOptions {
   verbose?: boolean
   /** @internal Fast path: skip scanning/plugin checks, only apply fixers */
   _formatOnly?: boolean
+  /**
+   * @internal Plan ids of the rules the native engine ran on these files:
+   * lint them with only the remaining plugin rules, each issue tagged with
+   * its rule's plan position (see mergeIssues in native.ts).
+   */
+  _nativeRules?: string[]
 }
 
 export interface FormatOptions {
