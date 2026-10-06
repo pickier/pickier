@@ -116,7 +116,7 @@ fn reportJson(
     io: std.Io,
     allocator: Allocator,
 ) !void {
-    var buf = std.ArrayList(u8){};
+    var buf: std.ArrayList(u8) = .empty;
     defer buf.deinit(allocator);
 
     try buf.appendSlice(allocator, "{\n  \"errors\": ");

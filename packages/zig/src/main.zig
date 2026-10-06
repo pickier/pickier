@@ -27,7 +27,7 @@ const CliOptions = struct {
     max_warnings: i32 = -1,
     ext: ?[]const u8 = null,
     config_path: ?[]const u8 = null,
-    files: std.ArrayList([]const u8) = .{},
+    files: std.ArrayList([]const u8) = .empty,
 };
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, subcmd, "lint")) {
-        var modified_args = std.ArrayList([]const u8){};
+        var modified_args: std.ArrayList([]const u8) = .empty;
         defer modified_args.deinit(allocator);
         try modified_args.append(allocator, "--mode");
         try modified_args.append(allocator, "lint");
@@ -78,7 +78,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, subcmd, "format")) {
-        var modified_args = std.ArrayList([]const u8){};
+        var modified_args: std.ArrayList([]const u8) = .empty;
         defer modified_args.deinit(allocator);
         try modified_args.append(allocator, "--mode");
         try modified_args.append(allocator, "format");
@@ -168,7 +168,7 @@ fn parseArgs(args: []const []const u8, allocator: std.mem.Allocator) !CliOptions
 // Run command — main entry point
 // ---------------------------------------------------------------------------
 fn runCommand(args: []const [:0]const u8, allocator: std.mem.Allocator, io: std.Io) !u8 {
-    var plain_args = std.ArrayList([]const u8){};
+    var plain_args: std.ArrayList([]const u8) = .empty;
     defer plain_args.deinit(allocator);
     for (args) |a| try plain_args.append(allocator, a);
     return runCommandSlice(plain_args.items, allocator, io);
@@ -206,7 +206,7 @@ fn runCommandSlice(args: []const []const u8, allocator: std.mem.Allocator, io: s
     const ignores = cfg.ignores;
 
     // Resolve file list — expand directories
-    var all_files = std.ArrayList([]const u8){};
+    var all_files: std.ArrayList([]const u8) = .empty;
     defer {
         for (all_files.items) |f| allocator.free(f);
         all_files.deinit(allocator);
@@ -300,7 +300,7 @@ fn walkFiles(
     dir.close(io);
 
     // Iterative directory traversal
-    var stack = std.ArrayList([]const u8){};
+    var stack: std.ArrayList([]const u8) = .empty;
     defer {
         for (stack.items) |item| allocator.free(item);
         stack.deinit(allocator);
@@ -432,7 +432,7 @@ fn runLintMode(
     io: std.Io,
 ) !u8 {
     const format_cfg = cfg.toFormatConfig();
-    var all_issues = std.ArrayList(scanner.LintIssue){};
+    var all_issues: std.ArrayList(scanner.LintIssue) = .empty;
     defer {
         for (all_issues.items) |issue| {
             _ = issue;
@@ -459,7 +459,7 @@ fn runLintMode(
         defer allocator.free(file_issues);
 
         // Run plugin rules
-        var plugin_issues = std.ArrayList(scanner.LintIssue){};
+        var plugin_issues: std.ArrayList(scanner.LintIssue) = .empty;
         defer plugin_issues.deinit(allocator);
         try rules.runPluginRules(file_path, content, cfg, &suppress, &plugin_issues, allocator);
 
@@ -525,7 +525,7 @@ fn applyBuiltinFixes(content: []const u8, file_path: []const u8, cfg: *const cfg
     _ = file_path;
     if (cfg.rules.no_debugger == .off) return content;
 
-    var result = std.ArrayList(u8){};
+    var result: std.ArrayList(u8) = .empty;
     defer result.deinit(allocator);
 
     var pos: usize = 0;
@@ -549,7 +549,7 @@ fn applyBuiltinFixes(content: []const u8, file_path: []const u8, cfg: *const cfg
 // Extension parsing from --ext flag
 // ---------------------------------------------------------------------------
 fn parseExtensions(ext_csv: []const u8, allocator: std.mem.Allocator) ![]const cfg_mod.Extension {
-    var exts = std.ArrayList(cfg_mod.Extension){};
+    var exts: std.ArrayList(cfg_mod.Extension) = .empty;
     defer exts.deinit(allocator);
 
     var iter = std.mem.splitScalar(u8, ext_csv, ',');

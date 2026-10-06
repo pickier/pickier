@@ -176,7 +176,7 @@ fn isSchemeChar(ch: u8) bool {
 
 test "validate-https detects http" {
     const alloc = std.testing.allocator;
-    var issues = std.ArrayList(LintIssue){};
+    var issues: std.ArrayList(LintIssue) = .empty;
     defer issues.deinit(alloc);
     try checkValidateHttps("lock.yaml", "resolved: http://registry.npmjs.org/foo\n", .@"error", &issues, alloc);
     try std.testing.expect(issues.items.len == 1);
@@ -184,7 +184,7 @@ test "validate-https detects http" {
 
 test "validate-https allows https" {
     const alloc = std.testing.allocator;
-    var issues = std.ArrayList(LintIssue){};
+    var issues: std.ArrayList(LintIssue) = .empty;
     defer issues.deinit(alloc);
     try checkValidateHttps("lock.yaml", "resolved: https://registry.npmjs.org/foo\n", .@"error", &issues, alloc);
     try std.testing.expect(issues.items.len == 0);

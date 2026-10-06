@@ -410,7 +410,7 @@ pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfi
     if (root.get("ignores")) |ignores_val| {
         if (ignores_val == .array) {
             // Build a set of all ignores: defaults + user
-            var list = std.ArrayList([]const u8){};
+            var list: std.ArrayList([]const u8) = .empty;
             // Add defaults first
             for (&default_ignores) |ig| {
                 try list.append(allocator, ig);
@@ -444,7 +444,7 @@ pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfi
             }
         }
         if (!found_tw_rule) {
-            var list = std.ArrayList(PluginRuleEntry){};
+            var list: std.ArrayList(PluginRuleEntry) = .empty;
             for (cfg.plugin_rules) |entry| try list.append(allocator, entry);
             try list.append(allocator, .{ .rule_id = "pickier/sort-tailwind-classes", .severity = .warn });
             cfg.plugin_rules = try list.toOwnedSlice(allocator);
@@ -454,7 +454,7 @@ pub fn parseJsonValue(value: std.json.Value, allocator: Allocator) !PickierConfi
     // Parse pluginRules — merge with defaults (user overrides take precedence)
     if (root.get("pluginRules")) |pr_val| {
         if (pr_val == .object) {
-            var list = std.ArrayList(PluginRuleEntry){};
+            var list: std.ArrayList(PluginRuleEntry) = .empty;
             // Copy defaults
             for (&default_plugin_rules) |entry| {
                 try list.append(allocator, entry);

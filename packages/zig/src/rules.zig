@@ -3095,7 +3095,7 @@ fn extractQuotedStringAt(content: []const u8, pos: usize, q: u8) ?struct { value
 /// Split a Tailwind class string on whitespace, but NOT inside [...] brackets.
 /// This handles arbitrary values like p-[calc(100% - 1rem)] correctly.
 fn tailwindSplitClasses(classes_str: []const u8, allocator: Allocator) !std.ArrayList([]const u8) {
-    var list = std.ArrayList([]const u8){};
+    var list: std.ArrayList([]const u8) = .empty;
     var depth: usize = 0;
     var start: usize = 0;
     var i: usize = 0;

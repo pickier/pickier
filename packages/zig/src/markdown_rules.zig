@@ -783,7 +783,7 @@ fn checkNoBareUrls(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: 
 
 fn checkFencedCodeLanguage(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
     // Collect all lines into a list for backward-walk (matching TS approach)
-    var lines_list = std.ArrayList([]const u8){};
+    var lines_list: std.ArrayList([]const u8) = .empty;
     defer lines_list.deinit(alloc);
     var liter = LineIter{ .content = md };
     while (liter.next()) |l| {
@@ -828,7 +828,7 @@ fn checkFencedCodeLanguage(fp: []const u8, md: []const u8, fm: u32, sev: Severit
 
 fn checkNoEmphasisAsHeading(fp: []const u8, md: []const u8, fm: u32, sev: Severity, sup: *const directives_mod.DisableDirectives, issues: *std.ArrayList(LintIssue), alloc: Allocator) !void {
     // Collect all lines first so we can peek at the next line
-    var lines_list = std.ArrayList([]const u8){};
+    var lines_list: std.ArrayList([]const u8) = .empty;
     defer lines_list.deinit(alloc);
     var it = LineIter{ .content = md };
     while (it.next()) |line| {
@@ -1917,7 +1917,7 @@ fn isListItem(t: []const u8) bool {
 
 test "no-multiple-space-atx" {
     const alloc = std.testing.allocator;
-    var issues = std.ArrayList(LintIssue){};
+    var issues: std.ArrayList(LintIssue) = .empty;
     defer issues.deinit(alloc);
     var sup = try directives_mod.parseDisableDirectives("", alloc);
     defer sup.deinit(alloc);
@@ -1927,7 +1927,7 @@ test "no-multiple-space-atx" {
 
 test "no-empty-links" {
     const alloc = std.testing.allocator;
-    var issues = std.ArrayList(LintIssue){};
+    var issues: std.ArrayList(LintIssue) = .empty;
     defer issues.deinit(alloc);
     var sup = try directives_mod.parseDisableDirectives("", alloc);
     defer sup.deinit(alloc);

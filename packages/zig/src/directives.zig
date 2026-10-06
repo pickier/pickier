@@ -46,7 +46,7 @@ pub const RuleSet = struct {
     has_wildcard: bool = false,
 
     pub fn init() RuleSet {
-        return .{ .rules = .{} };
+        return .{ .rules = .empty };
     }
 
     pub fn deinit(self: *RuleSet, allocator: Allocator) void {
@@ -240,7 +240,7 @@ fn parseRuleList(rule_list: []const u8, set: *RuleSet, allocator: Allocator) !vo
 
 /// Extract and sort keys from a HashMap
 fn sortedKeys(map: *const std.AutoHashMap(u32, RuleSet), allocator: Allocator) ![]u32 {
-    var keys = std.ArrayList(u32){};
+    var keys: std.ArrayList(u32) = .empty;
     defer keys.deinit(allocator);
 
     var it = map.iterator();

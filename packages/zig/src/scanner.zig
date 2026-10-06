@@ -40,7 +40,7 @@ pub fn scanContent(
     comment_lines: *const std.AutoHashMap(u32, void),
     allocator: Allocator,
 ) ![]LintIssue {
-    var issues = std.ArrayList(LintIssue){};
+    var issues: std.ArrayList(LintIssue) = .empty;
 
     const is_code = format.isCodeFile(file_path);
     const is_md = std.mem.endsWith(u8, file_path, ".md");

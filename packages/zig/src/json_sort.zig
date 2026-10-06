@@ -297,17 +297,17 @@ fn isDepsKey(key: []const u8) bool {
 
 /// Sort an object's keys: ordered keys first, then remaining alphabetically
 fn sortObjectKeys(obj: *const std.json.ObjectMap, order: []const []const u8, allocator: Allocator) !std.json.ObjectMap {
-    var result = std.json.ObjectMap.init(allocator);
+    var result: std.json.ObjectMap = .empty;
 
     // Place ordered keys first
     for (order) |key| {
         if (obj.get(key)) |val| {
-            try result.put(try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
+            try result.put(allocator, try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
         }
     }
 
     // Collect remaining keys and sort them
-    var remaining = std.ArrayList([]const u8){};
+    var remaining: std.ArrayList([]const u8) = .empty;
     var iter = obj.iterator();
     while (iter.next()) |entry| {
         var found = false;
@@ -329,7 +329,7 @@ fn sortObjectKeys(obj: *const std.json.ObjectMap, order: []const []const u8, all
 
     for (remaining.items) |key| {
         if (obj.get(key)) |val| {
-            try result.put(try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
+            try result.put(allocator, try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
         }
     }
 
@@ -338,7 +338,7 @@ fn sortObjectKeys(obj: *const std.json.ObjectMap, order: []const []const u8, all
 
 /// Sort object keys alphabetically
 fn sortObjectKeysAlpha(obj: *const std.json.ObjectMap, allocator: Allocator) !std.json.ObjectMap {
-    var keys = std.ArrayList([]const u8){};
+    var keys: std.ArrayList([]const u8) = .empty;
     var iter = obj.iterator();
     while (iter.next()) |entry| {
         try keys.append(allocator, entry.key_ptr.*);
@@ -350,10 +350,10 @@ fn sortObjectKeysAlpha(obj: *const std.json.ObjectMap, allocator: Allocator) !st
         }
     }.lessThan);
 
-    var result = std.json.ObjectMap.init(allocator);
+    var result: std.json.ObjectMap = .empty;
     for (keys.items) |key| {
         if (obj.get(key)) |val| {
-            try result.put(try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
+            try result.put(allocator, try allocator.dupe(u8, key), try cloneJsonValue(val, allocator));
         }
     }
     return result;
@@ -390,10 +390,10 @@ fn cloneJsonValue(val: std.json.Value, allocator: Allocator) !std.json.Value {
             return .{ .array = new_arr };
         },
         .object => |obj| {
-            var new_obj = std.json.ObjectMap.init(allocator);
+            var new_obj: std.json.ObjectMap = .empty;
             var iter = obj.iterator();
             while (iter.next()) |entry| {
-                try new_obj.put(
+                try new_obj.put(allocator, 
                     try allocator.dupe(u8, entry.key_ptr.*),
                     try cloneJsonValue(entry.value_ptr.*, allocator),
                 );
@@ -405,7 +405,7 @@ fn cloneJsonValue(val: std.json.Value, allocator: Allocator) !std.json.Value {
 
 /// Serialize JSON value to pretty-printed string (2-space indent, matching TS JSON.stringify(x, null, 2))
 fn jsonStringify(value: std.json.Value, allocator: Allocator) ![]u8 {
-    var buf = std.ArrayList(u8){};
+    var buf: std.ArrayList(u8) = .empty;
     defer buf.deinit(allocator);
     try buf.ensureTotalCapacity(allocator, 4096);
     try writeJsonValue(value, &buf, allocator, 0);

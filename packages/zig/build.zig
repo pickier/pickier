@@ -4,11 +4,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Get dependencies
-    const zig_cli_dep = b.dependency("zig-cli", .{
-        .target = target,
-        .optimize = optimize,
-    });
     const zig_config_dep = b.dependency("zig-config", .{
         .target = target,
         .optimize = optimize,
@@ -19,10 +14,9 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        .strip = if (optimize != .Debug) true else null,
+        .strip = if (isDebug(optimize)) null else true,
         .imports = &.{
-            .{ .name = "zig-cli", .module = zig_cli_dep.module("zig-cli") },
-            .{ .name = "zig-config", .module = zig_config_dep.module("zig-config") },
+            .{ .name = "zig-config", .module = zig_config_dep.module("zig_config") },
         },
     });
 
@@ -37,8 +31,11 @@ pub fn build(b: *std.Build) void {
     // Run step
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
+    // `zig build run -- <args>`: Zig 0.17 replaced `b.args` with addPassthruArgs()
+    if (comptime @hasField(std.Build, "args")) {
+        if (b.args) |args| run_cmd.addArgs(args);
+    } else {
+        run_cmd.addPassthruArgs();
     }
 
     const run_step = b.step("run", "Run pickier-zig");
@@ -135,4 +132,10 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_rules_tests.step);
     test_step.dependOn(&run_markdown_rules_tests.step);
     test_step.dependOn(&run_lockfile_rules_tests.step);
+}
+
+/// Zig 0.17 renamed the optimize modes (`.Debug` -> `.debug`), keeping the old
+/// names only as declarations, which an enum literal comparison cannot see.
+fn isDebug(optimize: anytype) bool {
+    return optimize == @field(@TypeOf(optimize), "Debug");
 }
