@@ -56,37 +56,66 @@ pub fn splitNewlines(allocator: std.mem.Allocator, text: []const u8) ![][]const 
     return lines.toOwnedSlice(allocator);
 }
 
-/// UTF-16 code units in `bytes` (JavaScript `.length`). Invalid UTF-8 counts
-/// one unit per byte, which is what Bun's decoder does with U+FFFD.
+/// UTF-16 code units in `bytes` (JavaScript `.length`). Invalid UTF-8
+/// decodes as the WHATWG decoder (and so Bun) does: one U+FFFD for each
+/// maximal ill-formed subpart.
 pub fn utf16Len(bytes: []const u8) usize {
     var n: usize = 0;
     var i: usize = 0;
     while (i < bytes.len) {
-        const b = bytes[i];
-        if (b < 0x80) {
+        if (bytes[i] < 0x80) {
             n += 1;
             i += 1;
             continue;
         }
-        const len = std.unicode.utf8ByteSequenceLength(b) catch {
-            n += 1;
-            i += 1;
-            continue;
-        };
-        if (i + len > bytes.len) {
-            n += 1;
-            i += 1;
-            continue;
-        }
-        _ = std.unicode.utf8Decode(bytes[i .. i + len]) catch {
-            n += 1;
-            i += 1;
-            continue;
-        };
-        n += if (len == 4) 2 else 1;
-        i += len;
+        const seq = decodeStep(bytes, i);
+        n += seq.units;
+        i += seq.len;
     }
     return n;
+}
+
+const Step = struct { len: usize, units: usize };
+
+/// One step of the WHATWG UTF-8 decoder at a non-ASCII byte: a whole
+/// character (2 units outside the BMP), or one U+FFFD for the bytes up to
+/// where the sequence went wrong.
+fn decodeStep(bytes: []const u8, i: usize) Step {
+    const b = bytes[i];
+    var need: usize = 0;
+    var lo: u8 = 0x80;
+    var hi: u8 = 0xBF;
+    switch (b) {
+        0xC2...0xDF => need = 1,
+        0xE0 => {
+            need = 2;
+            lo = 0xA0;
+        },
+        0xE1...0xEC, 0xEE, 0xEF => need = 2,
+        0xED => {
+            need = 2;
+            hi = 0x9F;
+        },
+        0xF0 => {
+            need = 3;
+            lo = 0x90;
+        },
+        0xF1...0xF3 => need = 3,
+        0xF4 => {
+            need = 3;
+            hi = 0x8F;
+        },
+        else => return .{ .len = 1, .units = 1 },
+    }
+    var k: usize = 1;
+    while (k <= need) : (k += 1) {
+        if (i + k >= bytes.len) return .{ .len = k, .units = 1 };
+        const c = bytes[i + k];
+        if (c < lo or c > hi) return .{ .len = k, .units = 1 };
+        lo = 0x80;
+        hi = 0xBF;
+    }
+    return .{ .len = need + 1, .units = if (need == 3) 2 else 1 };
 }
 
 /// The UTF-16 index of byte offset `byte_index` in `bytes`: the 0-based
@@ -192,6 +221,17 @@ test "utf16 lengths" {
     try std.testing.expectEqual(@as(usize, 1), utf16Len("é"));
     try std.testing.expectEqual(@as(usize, 2), utf16Len("😀"));
     try std.testing.expectEqual(@as(usize, 3), utf16Index("é😀x", 6));
+}
+
+test "utf16 lengths of invalid UTF-8" {
+    // A truncated sequence is one U+FFFD; a stray continuation byte is one each
+    try std.testing.expectEqual(@as(usize, 2), utf16Len("\xE2\x80a"));
+    try std.testing.expectEqual(@as(usize, 2), utf16Len("\x80\x80"));
+    // An overlong or surrogate lead stops at its second byte
+    try std.testing.expectEqual(@as(usize, 3), utf16Len("\xE0\x80\x80"));
+    try std.testing.expectEqual(@as(usize, 3), utf16Len("\xED\xA0\x80"));
+    try std.testing.expectEqual(@as(usize, 1), utf16Len("\xF0\x9F\x98"));
+    try std.testing.expectEqual(@as(usize, 2), utf16Len("\xF4\x90"));
 }
 
 test "shell shebang" {

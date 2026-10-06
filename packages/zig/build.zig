@@ -124,7 +124,7 @@ pub fn build(b: *std.Build) void {
 
     // Tests - the native lint engine (JavaScript string helpers, rule ports)
     const native_test_mod = b.createModule(.{
-        .root_source_file = b.path("src/native/pc_test_root.zig"),
+        .root_source_file = b.path("src/native/test_root.zig"),
         .target = target,
         .optimize = optimize,
     });
