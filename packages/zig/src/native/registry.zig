@@ -22,6 +22,9 @@ const entries = [_]Entry{
     .{ .id = "regexp/no-unused-capturing-group", .check = @import("rules/no_unused_capturing_group.zig").check },
     .{ .id = "regexp/no-useless-lazy", .check = @import("rules/no_useless_lazy.zig").check },
     .{ .id = "ts/no-top-level-await", .check = @import("rules/no_top_level_await.zig").check },
+    .{ .id = "style/no-multi-spaces", .check = @import("rules/no_multi_spaces.zig").check },
+    .{ .id = "style/no-multiple-empty-lines", .check = @import("rules/no_multiple_empty_lines.zig").check },
+    .{ .id = "style/no-trailing-spaces", .check = @import("rules/no_trailing_spaces.zig").check },
 };
 
 pub fn lookup(id: []const u8) ?types.CheckFn {
