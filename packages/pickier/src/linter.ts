@@ -735,6 +735,14 @@ function getPluginPlan(cfg: PickierConfig): PluginPlan {
   return plan
 }
 
+/**
+ * The plugin rules a run with `cfg` checks, in the order it checks them, for
+ * the native engine (native.ts) to reproduce.
+ */
+export function plannedCheckRules(cfg: PickierConfig): Array<{ id: string, plugin: string, severity?: 'error' | 'warning', options?: unknown }> {
+  return getPluginPlan(cfg).checkRules.map(r => ({ id: r.fullRuleId, plugin: r.pluginName, severity: r.severity, options: r.options }))
+}
+
 function isShellPath(filePath: string, content: string): boolean {
   return /\.(?:sh|bash|zsh|ksh|dash)$/.test(filePath)
     || /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/.test(content)

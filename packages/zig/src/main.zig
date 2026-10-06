@@ -6,6 +6,7 @@ const scanner = @import("scanner.zig");
 const dir_mod = @import("directives.zig");
 const reporter = @import("reporter.zig");
 const rules = @import("rules.zig");
+const native_batch = @import("native/batch.zig");
 const zig_config = @import("zig-config");
 
 const version = "0.1.0";
@@ -57,6 +58,12 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.mem.eql(u8, subcmd, "help") or std.mem.eql(u8, subcmd, "--help") or std.mem.eql(u8, subcmd, "-h")) {
         printHelp(io);
+        return;
+    }
+
+    if (std.mem.eql(u8, subcmd, "lint-batch")) {
+        const code = try native_batch.run(io, init.arena.allocator());
+        if (code != 0) std.process.exit(code);
         return;
     }
 

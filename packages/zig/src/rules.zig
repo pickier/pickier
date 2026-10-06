@@ -10,7 +10,7 @@ const lockfile_rules = @import("lockfile_rules.zig");
 // Plugin rules — ported from TS plugins (pickier, style, ts, markdown)
 // ---------------------------------------------------------------------------
 
-const LintIssue = scanner.LintIssue;
+pub const LintIssue = scanner.LintIssue;
 const Severity = LintIssue.Severity;
 
 /// Run all plugin rules on a file's content and append issues
