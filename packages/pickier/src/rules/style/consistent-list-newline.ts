@@ -1,11 +1,37 @@
 import type { SourceMap } from '../../ast'
 import type { RuleModule } from '../../types'
 import { buildSourceMap, findMatching, tokenize } from '../../ast'
+import { maskNonCode } from '../../lexer'
 
-// Heuristic port of src-2 `consistent-list-newline` using Pickier's tokenizer.
-// Checks object/array literals and named import/export specifier lists.
-// - If contents span multiple lines, require each comma-separated item to begin on its own line ("wrap").
-// - If contents are single-line, require no newlines inside ("inline").
+// Heuristic port of antfu's `consistent-list-newline` using Pickier's tokenizer.
+// Checks object/array literals and named import/export specifier lists: the
+// first item sets the style. If it starts on a new line after the opening
+// bracket, every item must start on its own line ("wrap"); if it shares the
+// bracket's line, no item may start on a new line ("inline"). Line breaks
+// inside an item - a nested object, a multi-line call - do not count.
+
+/** Words that start a statement: a `{` holding one is a block, not a list. */
+const STATEMENT_START = new Set(['const', 'let', 'var', 'return', 'if', 'for', 'while', 'do', 'switch', 'throw', 'try', 'break', 'continue', 'function', 'class', 'debugger'])
+
+type Token = ReturnType<typeof tokenize>[number]
+
+/** Whether the tokens inside a `{ }` are statements or type members rather than list items. */
+function isBlockBody(tokens: Token[]): boolean {
+  let depth = 0
+  for (const t of tokens) {
+    if (t.type !== 'Punct')
+      continue
+    if (t.value === '(' || t.value === '[' || t.value === '{')
+      depth++
+    else if ((t.value === ')' || t.value === ']' || t.value === '}') && depth > 0)
+      depth--
+    else if (t.value === ';' && depth === 0)
+      return true
+  }
+  const [first, second] = tokens
+  return first?.type === 'Word' && STATEMENT_START.has(first.value)
+    && !(second?.type === 'Punct' && [':', ',', '(', '}', '?'].includes(second.value))
+}
 
 function checkDelimited(
   text: string,
@@ -20,95 +46,106 @@ function checkDelimited(
   const close = findMatching(text, openIdx, openChar, closeChar)
   if (close <= openIdx)
     return
-  const inner = text.slice(openIdx + 1, close)
-  const hasNewline = /\r?\n/.test(inner)
+  const tokens = tokenize(text.slice(openIdx + 1, close))
+  if (openChar === '{' && isBlockBody(tokens))
+    return
 
-  // Split on top-level commas inside the braces/brackets
+  // Split on the list's own commas: not those inside a nested bracket, or
+  // inside type arguments such as `Map<string, number>`
   const parts: Array<{ start: number, end: number }> = []
   let depth = 0
+  let angle = 0
   let start = openIdx + 1
-  const tokens = tokenize(text.slice(openIdx + 1, close))
-  let _rel = 0
+  let prev: Token | undefined
   for (const t of tokens) {
-    const s = openIdx + 1 + t.start
-    const e = openIdx + 1 + t.end
-    _rel = e
     if (t.type === 'Punct') {
-      if (t.value === openChar) {
+      const v = t.value
+      const touchesPrev = prev !== undefined && prev.end === t.start
+      if (v === '(' || v === '[' || v === '{') {
         depth++
       }
-      else if (t.value === closeChar && depth > 0) {
+      else if ((v === ')' || v === ']' || v === '}') && depth > 0) {
         depth--
       }
-      else if (t.value === ',' && depth === 0) {
-        parts.push({ start, end: s })
-        start = e
+      else if (v === '<' && touchesPrev && prev!.type === 'Word') {
+        angle++
+      }
+      else if (v === '>' && angle > 0 && !(touchesPrev && prev!.value === '=')) {
+        angle--
+      }
+      else if (v === ',' && depth === 0 && angle === 0) {
+        parts.push({ start, end: openIdx + 1 + t.start })
+        start = openIdx + 1 + t.end
       }
     }
+    prev = t
   }
   parts.push({ start, end: close })
 
-  if (!hasNewline) {
-    // Inline expected: if any newline in inner, flag
-    for (const p of parts) {
-      const slice = text.slice(p.start, p.end)
-      if (/\r?\n/.test(slice)) {
-        const loc = sourceMap().indexToLoc(p.start)
-        issues.push({ filePath: ctxFile, line: loc.line, column: loc.column, ruleId, message: 'Should not have line breaks between items', severity: 'warning' })
-        break
-      }
-    }
+  // Where each item starts and whether a line break comes before it; the
+  // part after a trailing comma is empty and not an item
+  const items = parts.map(p => ({ p, gap: skipGap(text, p.start, p.end) })).filter(x => x.gap.at < x.p.end)
+  if (items.length < 2)
     return
-  }
-
-  // Multi-line expected: each item should start on its own line (ignoring whitespace)
-  // Special-case: if we see multiple commas before the first newline, it's definitely a violation
-  const firstNl = inner.indexOf('\n')
-  if (firstNl > 0) {
-    const beforeFirstNl = inner.slice(0, firstNl)
-    const commas = (beforeFirstNl.match(/,/g) || []).length
-    const afterFirstNl = inner.slice(firstNl + 1)
-    const moreNewlines = afterFirstNl.includes('\n')
-    const afterHasComma = afterFirstNl.includes(',')
-    // If most items are already inline before the first newline and the tail has no further newline
-    // (i.e., only one leftover item), prefer "no line breaks" suggestion
-    if (commas >= 1 && /\S,\s*\S/.test(beforeFirstNl) && !moreNewlines && !afterHasComma) {
-      const loc = sourceMap().indexToLoc(openIdx + 1 + firstNl + 1)
-      issues.push({ filePath: ctxFile, line: loc.line, column: loc.column, ruleId, message: 'Should not have line breaks between items', severity: 'warning' })
+  const wrap = items[0]!.gap.newline
+  for (let k = 1; k < items.length; k++) {
+    if (items[k]!.gap.newline !== wrap) {
+      const loc = sourceMap().indexToLoc(items[k]!.gap.at)
+      issues.push({ filePath: ctxFile, line: loc.line, column: loc.column, ruleId, message: wrap ? 'Should have line breaks between items' : 'Should not have line breaks between items', severity: 'warning' })
       return
-    }
-    else if (commas >= 1 && /\S,\s*\S/.test(beforeFirstNl)) {
-      const loc = sourceMap().indexToLoc(openIdx + 1 + beforeFirstNl.search(/,\s*\S/))
-      issues.push({ filePath: ctxFile, line: loc.line, column: loc.column, ruleId, message: 'Should have line breaks between items', severity: 'warning' })
-      return
-    }
-  }
-
-  // Each item must follow a newline (and indentation), unless only
-  // whitespace comes before it. Scanning back from each item and comparing
-  // with the first non-whitespace character keeps a long list linear.
-  const firstContent = inner.search(/\S/)
-  const contentFrom = firstContent === -1 ? Infinity : openIdx + 1 + firstContent
-  for (const p of parts) {
-    let j = p.start
-    while (j > openIdx + 1 && (text[j - 1] === ' ' || text[j - 1] === '\t')) j--
-    const afterNewline = j > openIdx + 1 && text[j - 1] === '\n'
-    if (!afterNewline && contentFrom < p.start) {
-      const loc = sourceMap().indexToLoc(p.start)
-      issues.push({ filePath: ctxFile, line: loc.line, column: loc.column, ruleId, message: 'Should have line breaks between items', severity: 'warning' })
-      break
     }
   }
 }
 
+/**
+ * Whitespace and comments from `from`, up to `end`: where the next item
+ * starts, and whether a line break came before it.
+ */
+function skipGap(text: string, from: number, end: number): { at: number, newline: boolean } {
+  let i = from
+  let newline = false
+  while (i < end) {
+    const c = text[i]
+    if (c === '\n') {
+      newline = true
+      i++
+    }
+    else if (c === ' ' || c === '\t' || c === '\r') {
+      i++
+    }
+    else if (c === '/' && text[i + 1] === '/') {
+      while (i < end && text[i] !== '\n') i++
+    }
+    else if (c === '/' && text[i + 1] === '*') {
+      const close = text.indexOf('*/', i + 2)
+      i = close === -1 || close + 2 > end ? end : close + 2
+    }
+    else {
+      break
+    }
+  }
+  return { at: i, newline }
+}
+
 export const consistentListNewlineRule: RuleModule = {
   meta: { docs: 'Enforce consistent newlines for list-like constructs (objects, arrays, named imports/exports)' },
-  check: (text, ctx) => {
+  check: (source, ctx) => {
+    // Comments, strings, template text and regex patterns blanked - same
+    // length and line breaks - so a bracket or comma in them is never a list
+    const text = maskNonCode(source)
     const issues: ReturnType<RuleModule['check']> = []
     const ruleId = 'style/consistent-list-newline'
     // One line map for the file, built on the first issue
     let map: SourceMap | undefined
     const sourceMap = () => map ??= buildSourceMap(text)
+    // An import or export list is reached from its keyword and from its `{`
+    const checked = new Set<number>()
+    const check = (open: number, openChar: string, closeChar: string) => {
+      if (checked.has(open))
+        return
+      checked.add(open)
+      checkDelimited(text, ctx.filePath, issues, open, openChar, closeChar, ruleId, sourceMap)
+    }
 
     // Objects { ... }
     for (let i = 0; i < text.length; i++) {
@@ -122,24 +159,27 @@ export const consistentListNewlineRule: RuleModule = {
         if (k >= 0 && text[k] === ')') {
           continue
         }
+        // `=> {` is a function body: an arrow returning an object writes `=> ({`
+        if (k >= 1 && text[k] === '>' && text[k - 1] === '=')
+          continue
         const prev = text.slice(Math.max(0, i - 60), i)
         if (/\b(?:function|class|interface|type|enum|try|catch|finally|if|else|for|while|switch)\b[\s\S]*$/.test(prev))
           continue
-        checkDelimited(text, ctx.filePath, issues, i, '{', '}', ruleId, sourceMap)
+        check(i, '{', '}')
       }
       else if (ch === '[') {
-        checkDelimited(text, ctx.filePath, issues, i, '[', ']', ruleId, sourceMap)
+        check(i, '[', ']')
       }
       else if (ch === 'i' && text.startsWith('import', i)) {
         // named import: import { a, b } from 'x'
         const open = text.indexOf('{', i)
         if (open > -1)
-          checkDelimited(text, ctx.filePath, issues, open, '{', '}', ruleId, sourceMap)
+          check(open, '{', '}')
       }
       else if (ch === 'e' && text.startsWith('export', i)) {
         const open = text.indexOf('{', i)
         if (open > -1)
-          checkDelimited(text, ctx.filePath, issues, open, '{', '}', ruleId, sourceMap)
+          check(open, '{', '}')
       }
     }
 

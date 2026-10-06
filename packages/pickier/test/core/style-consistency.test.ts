@@ -139,7 +139,7 @@ describe('style.indent-unindent (more cases)', () => {
 
 describe('style.consistent-list-newline', () => {
   it('requires newline per item when multi-line', () => {
-    const src = '{ a,\n  b, c,\n  d\n}\n'
+    const src = '{\n  a,\n  b, c,\n  d\n}\n'
     const issues = scanContent('/v/obj.ts', src, cfg())
     expect(issues.some(i => i.ruleId === 'style/consistent-list-newline' && /Should have line breaks/.test(i.message))).toBe(true)
   })
