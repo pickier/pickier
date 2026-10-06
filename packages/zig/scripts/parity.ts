@@ -64,6 +64,9 @@ function config() {
     const alias = BUILTIN_ALIASES[only]!.find(a => !a.includes('/'))
     off[alias ?? only] = (cfg.rules as any)[only] ?? (cfg.rules as any)[alias ?? ''] ?? 'warn'
   }
+  // A rule that is off by default is switched on at its default severity
+  if (!BUILTINS.includes(only) && !(only in (cfg.pluginRules ?? {})))
+    off[only] = 'warn'
   cfg.rules = { ...(cfg.rules as any), ...off }
   cfg.pluginRules = { ...(cfg.pluginRules as any), ...Object.fromEntries(Object.entries(off).filter(([k]) => k.includes('/'))) }
   return cfg
