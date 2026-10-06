@@ -1,5 +1,5 @@
 import type { LintIssue, LintOptions, PickierConfig } from './types'
-import { existsSync } from 'node:fs'
+import { chmodSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { plannedCheckRules } from './linter'
 import { resolveRuleSeverity } from './utils'
@@ -195,19 +195,45 @@ export function nativeBinary(): string | null {
  * run's plan (-1 for a built-in check), for mergeIssues.
  */
 export function lintNative(files: string[], request: NativeRequest, binary: string, threads?: number, positions?: number[]): Array<LintIssue[] | null> | null {
-  const r = Bun.spawnSync([binary, 'lint-batch'], { stdin: Buffer.from(nativeInput(files, request, threads)), stdout: 'pipe', stderr: 'pipe' })
-  if (r.exitCode !== 0)
+  const input = Buffer.from(nativeInput(files, request, threads))
+  const r = startable(binary, () => Bun.spawnSync([binary, 'lint-batch'], { stdin: input, stdout: 'pipe', stderr: 'pipe' }))
+  if (!r || r.exitCode !== 0)
     return null
   return decodeNative(r.stdout.toString(), files, positions)
 }
 
 /** lintNative, leaving this thread free while the engine runs. */
 export async function lintNativeAsync(files: string[], request: NativeRequest, binary: string, positions?: number[]): Promise<Array<LintIssue[] | null> | null> {
-  const proc = Bun.spawn([binary, 'lint-batch'], { stdin: Buffer.from(nativeInput(files, request)), stdout: 'pipe', stderr: 'ignore' })
+  const input = Buffer.from(nativeInput(files, request))
+  const proc = startable(binary, () => Bun.spawn([binary, 'lint-batch'], { stdin: input, stdout: 'pipe', stderr: 'ignore' }))
+  if (!proc)
+    return null
   const [out, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
   if (exitCode !== 0)
     return null
   return decodeNative(out, files, positions)
+}
+
+/**
+ * Start the engine, or null when it cannot be started - the run then lints
+ * on the TypeScript path. A package manager that unpacked the binary without
+ * its executable bit gets it back once.
+ */
+function startable<T>(binary: string, spawn: () => T): T | null {
+  try {
+    return spawn()
+  }
+  catch (e: any) {
+    if (e?.code !== 'EACCES')
+      return null
+    try {
+      chmodSync(binary, 0o755)
+      return spawn()
+    }
+    catch {
+      return null
+    }
+  }
 }
 
 function nativeInput(files: string[], request: NativeRequest, threads?: number): string {

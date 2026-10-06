@@ -1,5 +1,5 @@
 import { afterAll, afterEach, describe, expect, it } from 'bun:test'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { defaultConfig } from '../../src/config'
@@ -120,6 +120,17 @@ describe.skipIf(!binary)('with the engine built', () => {
     expect(existsSync(marker)).toBe(true)
     expect(native.out).toBe(typescript.out)
     expect(native.code).toBe(typescript.code)
+  })
+
+  // A package manager can unpack the binary without its executable bit
+  it('restores a missing executable bit and runs', () => {
+    const copy = join(root, 'not-executable')
+    copyFileSync(binary!, copy)
+    chmodSync(copy, 0o644)
+    const typescript = run({ PICKIER_NATIVE: '0' })
+    const native = run({ PICKIER_NATIVE_BINARY: copy })
+    expect(native.out).toBe(typescript.out)
+    expect(statSync(copy).mode & 0o111).not.toBe(0)
   })
 
   it('reports what TypeScript reports when it runs only some of the rules', () => {
