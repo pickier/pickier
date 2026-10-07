@@ -23,7 +23,7 @@ jobs:
       # the native lint engine shipped in the package - and the package
       # dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@4fd7d56fd1f3149299f8c4b7b65620efcf6e0324 # main
+        uses: pantry-pm/pantry/packages/action@0de606e02ac6bfa01f08927c4dd5d1f9693fe7d1 # main
 
       - name: Publish
         working-directory: packages/pickier
