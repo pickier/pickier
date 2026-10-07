@@ -22,7 +22,7 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@v0.11.73
+        uses: pantry-pm/pantry/packages/action@4fd7d56fd1f3149299f8c4b7b65620efcf6e0324 # main
 
       - name: Lint
         run: bun run lint
@@ -35,7 +35,7 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@v0.11.73
+        uses: pantry-pm/pantry/packages/action@4fd7d56fd1f3149299f8c4b7b65620efcf6e0324 # main
 
       - name: Typecheck
         run: bun --bun run typecheck
@@ -48,7 +48,7 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@v0.11.73
+        uses: pantry-pm/pantry/packages/action@4fd7d56fd1f3149299f8c4b7b65620efcf6e0324 # main
 
       - name: Unit Test
         run: bun run test
@@ -64,7 +64,7 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@v0.11.73
+        uses: pantry-pm/pantry/packages/action@4fd7d56fd1f3149299f8c4b7b65620efcf6e0324 # main
 
       - name: Native unit tests
         working-directory: packages/zig
