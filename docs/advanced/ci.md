@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pantry-pm/pantry/packages/action@main
+      - uses: pantry-pm/pantry/packages/action@v0.11.74
       - name: Format (check)
         run: bunx pickier format . --check
       - name: Lint

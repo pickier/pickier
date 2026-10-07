@@ -489,7 +489,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pantry-pm/pantry/packages/action@main
+      - uses: pantry-pm/pantry/packages/action@v0.11.74
       - run: bunx pickier run . --mode lint
 ```
 

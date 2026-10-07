@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pantry-pm/pantry/packages/action@main
+      - uses: pantry-pm/pantry/packages/action@v0.11.74
 
       - name: Lint
         run: bunx pickier lint .
@@ -75,7 +75,7 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: pantry-pm/pantry/packages/action@main
+      - uses: pantry-pm/pantry/packages/action@v0.11.74
 
       - name: Fix lint issues
         run: bunx pickier lint . --fix
@@ -104,7 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pantry-pm/pantry/packages/action@main
+      - uses: pantry-pm/pantry/packages/action@v0.11.74
         with:
           packages: bun.sh@${{ matrix.bun-version }}
 
