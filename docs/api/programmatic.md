@@ -6,15 +6,17 @@ Use Pickier programmatically in your own scripts and tools.
 
 ```bash
 bun add pickier
-
 # or
-
 npm install pickier
-```## Core Functions
+```
+
+## Core Functions
 
 ### runLint()
 
-Run the complete linting workflow with file globbing, scanning, and reporting.```typescript
+Run the complete linting workflow with file globbing, scanning, and reporting.
+
+```typescript
 import type { LintOptions } from 'pickier'
 import { runLint } from 'pickier'
 
@@ -32,20 +34,25 @@ async function lint() {
   const code = await runLint(globs, options)
   return code
 }
+```
 
-```**Options:**- `fix: boolean`- Auto-fix problems
--`dryRun: boolean`- Simulate fixes without writing
--`reporter: 'stylish' | 'json' | 'compact'`- Output format
--`maxWarnings: number`- Maximum warnings before error exit (-1 disables)
--`config: string`- Path to config file
--`ignorePath: string`- Path to ignore file
--`ext: string`- Comma-separated extensions
--`cache: boolean`- Enable caching (reserved)
--`verbose: boolean`- Verbose output
+**Options:**
+
+- `fix: boolean` - Auto-fix problems
+- `dryRun: boolean` - Simulate fixes without writing
+- `reporter: 'stylish' | 'json' | 'compact'` - Output format
+- `maxWarnings: number` - Maximum warnings before error exit (-1 disables)
+- `config: string` - Path to config file
+- `ignorePath: string` - Path to ignore file
+- `ext: string` - Comma-separated extensions
+- `cache: boolean` - Enable caching (reserved)
+- `verbose: boolean` - Verbose output
 
 ### runLintProgrammatic()
 
-Programmatic linting API that returns structured results instead of exit codes.```typescript
+Programmatic linting API that returns structured results instead of exit codes.
+
+```typescript
 import type { LintOptions } from 'pickier'
 import { runLintProgrammatic } from 'pickier'
 
@@ -70,8 +77,11 @@ async function lintProgrammatic() {
 
   return result
 }
-```**Result Type:**```typescript
+```
 
+**Result Type:**
+
+```typescript
 interface LintResult {
   errors: number
   warnings: number
@@ -87,16 +97,22 @@ interface LintIssue {
   severity: 'error' | 'warn'
   help?: string
 }
+```
 
-```### lintText()
+### lintText()
 
-Lint a single string of code with optional cancellation support.```typescript
+Lint a single string of code with optional cancellation support.
+
+```typescript
 import { lintText } from 'pickier'
 import type { PickierConfig } from 'pickier'
 
 async function lintString() {
-  const code = `const x = 1
-    console.log(x)`
+  const code = `
+    const x = 1
+    console.log(x)
+    debugger
+  `
 
   const config: PickierConfig = {
     rules: {
@@ -117,8 +133,11 @@ async function lintString() {
 
   return issues
 }
-```**Cancellation Example:**```typescript
+```
 
+**Cancellation Example:**
+
+```typescript
 const controller = new AbortController()
 
 // Cancel after 5 seconds
@@ -131,10 +150,13 @@ try {
     console.log('Linting was cancelled')
   }
 }
+```
 
-```### runFormat()
+### runFormat()
 
-Run the complete formatting workflow with file globbing and writing.```typescript
+Run the complete formatting workflow with file globbing and writing.
+
+```typescript
 import type { FormatOptions } from 'pickier'
 import { runFormat } from 'pickier'
 
@@ -151,22 +173,31 @@ async function format() {
   const code = await runFormat(globs, options)
   return code
 }
-```**Options:**- `write: boolean`- Write changes to disk
+```
 
--`check: boolean`- Check without writing
--`config: string`- Path to config file
--`ignorePath: string`- Path to ignore file
--`ext: string`- Comma-separated extensions
--`verbose: boolean`- Verbose output**Note:**When neither`check`nor`write`is set, formatting runs in check mode.
+**Options:**
+
+- `write: boolean` - Write changes to disk
+- `check: boolean` - Check without writing
+- `config: string` - Path to config file
+- `ignorePath: string` - Path to ignore file
+- `ext: string` - Comma-separated extensions
+- `verbose: boolean` - Verbose output
+
+**Note:** When neither `check` nor `write` is set, formatting runs in check mode.
 
 ### formatCode()
 
-Format a single string of code.```typescript
+Format a single string of code.
+
+```typescript
 import { formatCode } from 'pickier'
 import type { PickierConfig } from 'pickier'
 
 function formatString() {
-  const code = `const x="hello";console.log(x)`const config: PickierConfig = {
+  const code = `const x="hello";console.log(x)`
+
+  const config: PickierConfig = {
     format: {
       quotes: 'single',
       semi: false,
@@ -177,9 +208,14 @@ function formatString() {
   const formatted = formatCode(code, config, 'test.ts')
   console.log(formatted)
   // Output: const x = 'hello'\nconsole.log(x)
-}```### run()
+}
+```
 
-Unified entry point that routes to lint or format mode.```typescript
+### run()
+
+Unified entry point that routes to lint or format mode.
+
+```typescript
 import { run } from 'pickier'
 
 async function unified() {
@@ -193,18 +229,24 @@ async function unified() {
   const code = await run(globs, options)
   return code
 }
+```
 
-```## Configuration
+## Configuration
 
 ### Loading Configuration
 
-Pickier automatically loads configuration from project root:```typescript
+Pickier automatically loads configuration from project root:
+
+```typescript
 import { config } from 'pickier'
 
 console.log(config.rules.noDebugger) // 'error'
 console.log(config.format.quotes)     // 'single'
-```### Using Custom Configuration```typescript
+```
 
+### Using Custom Configuration
+
+```typescript
 import type { PickierConfig } from 'pickier'
 
 const customConfig: PickierConfig = {
@@ -221,11 +263,13 @@ const customConfig: PickierConfig = {
 }
 
 const code = await runLint(['.'], { config: './custom.config.ts' })
+```
 
-```## Advanced Usage
+## Advanced Usage
 
-### Parallel Linting with Concurrency Control```typescript
+### Parallel Linting with Concurrency Control
 
+```typescript
 import { runLintProgrammatic } from 'pickier'
 
 async function lintParallel() {
@@ -238,8 +282,11 @@ async function lintParallel() {
 
   return result
 }
-```### Batch Processing Multiple Directories```typescript
+```
 
+### Batch Processing Multiple Directories
+
+```typescript
 async function lintMultiple() {
   const directories = ['src', 'tests', 'scripts']
   const results = []
@@ -257,8 +304,11 @@ async function lintMultiple() {
   console.log(`Total: ${totalErrors} errors, ${totalWarnings} warnings`)
   return results
 }
+```
 
-```### Custom Reporter Integration```typescript
+### Custom Reporter Integration
+
+```typescript
 async function customReporting() {
   const result = await runLintProgrammatic(['.'], {
     reporter: 'json',
@@ -276,8 +326,11 @@ async function customReporting() {
   const report = generateHTMLReport(result.issues)
   await writeFile('lint-report.html', report)
 }
-```### CI/CD Integration```typescript
+```
 
+### CI/CD Integration
+
+```typescript
 async function ciLint() {
   // Fail on warnings in CI
   process.env.PICKIER_FAIL_ON_WARNINGS = '1'
@@ -295,8 +348,11 @@ async function ciLint() {
 
   console.log('CI passed: No errors found')
 }
+```
 
-```### Watching for Changes```typescript
+### Watching for Changes
+
+```typescript
 import { watch } from 'node:fs'
 import { runLint } from 'pickier'
 
@@ -319,8 +375,11 @@ function watchLint() {
     process.exit(0)
   })
 }
-```### Error Handling```typescript
+```
 
+### Error Handling
+
+```typescript
 async function lintWithErrorHandling() {
   try {
     const result = await runLintProgrammatic(['.'], {
@@ -343,10 +402,13 @@ async function lintWithErrorHandling() {
     throw error
   }
 }
+```
 
-```## TypeScript Types
+## TypeScript Types
 
-Pickier provides full TypeScript types for all APIs:```typescript
+Pickier provides full TypeScript types for all APIs:
+
+```typescript
 import type {
   // Config types
   PickierConfig,
@@ -366,10 +428,13 @@ import type {
   RuleContext,
   PickierPlugin,
 } from 'pickier'
-```## Examples
+```
 
-### Example 1: Pre-commit Hook```typescript
+## Examples
 
+### Example 1: Pre-commit Hook
+
+```typescript
 import { runLint } from 'pickier'
 import { execSync } from 'node:child_process'
 
@@ -404,8 +469,11 @@ async function precommit() {
 
   console.log('Pre-commit checks passed')
 }
+```
 
-```### Example 2: Custom Build Tool Integration```typescript
+### Example 2: Custom Build Tool Integration
+
+```typescript
 import { runLint, runFormat } from 'pickier'
 
 async function buildPipeline() {
@@ -435,8 +503,11 @@ async function buildPipeline() {
 
   console.log('Build pipeline completed successfully')
 }
-```### Example 3: Documentation Generator```typescript
+```
 
+### Example 3: Documentation Generator
+
+```typescript
 import { runLintProgrammatic } from 'pickier'
 
 async function generateDocs() {
@@ -455,22 +526,25 @@ async function generateDocs() {
   // Generate markdown report
   let markdown = '# Lint Report\n\n'
   for (const [rule, issues] of byRule) {
-    markdown += `## ${rule} (${issues.length} issues)\n\n`for (const issue of issues) {
-      markdown +=`- ${issue.filePath}:${issue.line} - ${issue.message}\n`}
+    markdown += `## ${rule} (${issues.length} issues)\n\n`
+    for (const issue of issues) {
+      markdown += `- ${issue.filePath}:${issue.line} - ${issue.message}\n`
+    }
     markdown += '\n'
   }
 
   await writeFile('lint-report.md', markdown)
-}```
+}
+```
 
 ## Best Practices
 
-1.**Use runLintProgrammatic() for tooling**- Returns structured data instead of exit codes
-2.**Handle AbortSignal**- Support cancellation in long-running operations
-3.**Configure environment variables**- Control behavior without changing code
-4.**Batch operations**- Process multiple directories efficiently
-5.**Error handling**- Catch and handle different error types appropriately
-6.**Type safety**- Use TypeScript types for better developer experience
+1. **Use runLintProgrammatic() for tooling** - Returns structured data instead of exit codes
+2. **Handle AbortSignal** - Support cancellation in long-running operations
+3. **Configure environment variables** - Control behavior without changing code
+4. **Batch operations** - Process multiple directories efficiently
+5. **Error handling** - Catch and handle different error types appropriately
+6. **Type safety** - Use TypeScript types for better developer experience
 
 ## See Also
 

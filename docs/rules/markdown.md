@@ -1,6 +1,6 @@
 # markdown
 
-The `markdown`plugin provides comprehensive linting rules for Markdown files, helping ensure consistency and best practices in your documentation.
+The `markdown` plugin provides comprehensive linting rules for Markdown files, helping ensure consistency and best practices in your documentation.
 
 - Category: Plugin
 - Rules: 53 total
@@ -11,18 +11,18 @@ The `markdown`plugin provides comprehensive linting rules for Markdown files, he
 
 The markdown plugin implements all standard markdownlint rules (MD001-MD060), organized into the following categories:
 
--**Headings**(11 rules) - Heading structure, style, and formatting
--**Lists**(6 rules) - List style, indentation, and spacing
--**Whitespace**(8 rules) - Trailing spaces, blank lines, and indentation
--**Links**(9 rules) - Link syntax, references, and validation
--**Code**(5 rules) - Code block formatting and style
--**Emphasis**(5 rules) - Emphasis and strong formatting
--**HTML**(6 rules) - HTML usage, images, and other elements
--**Tables**(3 rules) - Table formatting and structure
+- **Headings** (11 rules) - Heading structure, style, and formatting
+- **Lists** (6 rules) - List style, indentation, and spacing
+- **Whitespace** (8 rules) - Trailing spaces, blank lines, and indentation
+- **Links** (9 rules) - Link syntax, references, and validation
+- **Code** (5 rules) - Code block formatting and style
+- **Emphasis** (5 rules) - Emphasis and strong formatting
+- **HTML** (6 rules) - HTML usage, images, and other elements
+- **Tables** (3 rules) - Table formatting and structure
 
 ## Configuration
 
-Enable markdown linting by adding rules to your`pluginRules`:
+Enable markdown linting by adding rules to your `pluginRules`:
 
 ```ts
 export default {
@@ -37,32 +37,54 @@ export default {
     'markdown/ul-style': ['error', { style: 'dash' }],
   }
 }
-```## Auto-Fix Support
+```
 
-Many markdown rules support automatic fixes with the`--fix`flag:```bash
+## Auto-Fix Support
+
+Many markdown rules support automatic fixes with the `--fix` flag:
+
+```bash
 pickier lint docs --fix
+```
 
-```The following rules can be auto-fixed:**Whitespace (5 rules):**-`no-trailing-spaces`- Remove trailing spaces
--`no-hard-tabs`- Convert tabs to spaces
--`no-multiple-blanks`- Reduce consecutive blank lines
--`single-trailing-newline`- Ensure single trailing newline**Headings (6 rules):**-`no-missing-space-atx`- Add space after hash
--`no-multiple-space-atx`- Reduce to single space
--`no-trailing-punctuation`- Remove punctuation
--`blanks-around-headings`- Add blank lines around headings
--`heading-start-left`- Remove leading whitespace
--`no-multiple-space-blockquote`- Fix blockquote spacing**Lists (3 rules):**-`list-marker-space`- Fix list marker spacing
--`ul-style`- Convert to consistent marker style
--`ol-prefix`- Fix ordered list numbering**Code & Emphasis (5 rules):**-`code-fence-style`- Convert fence style (backtick/tilde)
--`emphasis-style`- Convert emphasis markers
--`strong-style`- Convert strong markers
--`no-space-in-emphasis`- Remove spaces in emphasis
--`no-space-in-code`- Remove spaces in code spans**Links & Other (4 rules):**-`no-bare-urls`- Wrap URLs in angle brackets
--`blanks-around-fences`- Add blank lines around code blocks
--`blanks-around-lists`- Add blank lines around lists
+The following rules can be auto-fixed:
+
+**Whitespace (5 rules):**
+- `no-trailing-spaces` - Remove trailing spaces
+- `no-hard-tabs` - Convert tabs to spaces
+- `no-multiple-blanks` - Reduce consecutive blank lines
+- `single-trailing-newline` - Ensure single trailing newline
+
+**Headings (6 rules):**
+- `no-missing-space-atx` - Add space after hash
+- `no-multiple-space-atx` - Reduce to single space
+- `no-trailing-punctuation` - Remove punctuation
+- `blanks-around-headings` - Add blank lines around headings
+- `heading-start-left` - Remove leading whitespace
+- `no-multiple-space-blockquote` - Fix blockquote spacing
+
+**Lists (3 rules):**
+- `list-marker-space` - Fix list marker spacing
+- `ul-style` - Convert to consistent marker style
+- `ol-prefix` - Fix ordered list numbering
+
+**Code & Emphasis (5 rules):**
+- `code-fence-style` - Convert fence style (backtick/tilde)
+- `emphasis-style` - Convert emphasis markers
+- `strong-style` - Convert strong markers
+- `no-space-in-emphasis` - Remove spaces in emphasis
+- `no-space-in-code` - Remove spaces in code spans
+
+**Links & Other (4 rules):**
+- `no-bare-urls` - Wrap URLs in angle brackets
+- `blanks-around-fences` - Add blank lines around code blocks
+- `blanks-around-lists` - Add blank lines around lists
 
 ## Quick Start Preset
 
-For a sensible default configuration, enable these commonly-used rules:```ts
+For a sensible default configuration, enable these commonly-used rules:
+
+```ts
 export default {
   pluginRules: {
     // Heading rules
@@ -93,231 +115,335 @@ export default {
     'markdown/no-alt-text': 'error',
   }
 }
-```## Heading Rules
+```
+
+## Heading Rules
 
 ### heading-increment (MD001)
+Heading levels should only increment by one level at a time.
 
-Heading levels should only increment by one level at a time.```ts
+```ts
 'markdown/heading-increment': 'error'
+```
 
-```**Auto-fixable:**No**Invalid:**```markdown
+**Auto-fixable:** No
 
+**Invalid:**
+```markdown
 # H1
-
 ### H3 (skipped H2)
+```
 
-```**Valid:**```markdown
-
+**Valid:**
+```markdown
 # H1
-
 ## H2
-
 ### H3
+```
 
-```### heading-style (MD003)
+### heading-style (MD003)
+Heading style should be consistent.
 
-Heading style should be consistent.```ts
+```ts
 'markdown/heading-style': ['error', { style: 'atx' | 'setext' | 'consistent' }]
-```Options:
+```
 
--`atx`- Use`#`style headings
--`setext`- Use underline style headings
--`consistent`(default) - Be consistent throughout the document
+Options:
+- `atx` - Use `#` style headings
+- `setext` - Use underline style headings
+- `consistent` (default) - Be consistent throughout the document
 
 ### no-missing-space-atx (MD018)
+ATX style headings must have a space after the hash.
 
-ATX style headings must have a space after the hash.```ts
+```ts
 'markdown/no-missing-space-atx': 'error'
+```
 
-```**Invalid:**`#Heading`**Valid:**`# Heading`**Auto-fixable:**Yes
+**Invalid:** `#Heading`
+**Valid:** `# Heading`
+
+**Auto-fixable:** Yes
 
 ### no-duplicate-heading (MD024)
-
 Multiple headings should not have the same content.
 
 ```ts
-
 'markdown/no-duplicate-heading': 'error'
+```
 
-```### single-title (MD025)
+### single-title (MD025)
+Document should have only one top-level heading (h1).
 
-Document should have only one top-level heading (h1).```ts
+```ts
 'markdown/single-title': 'error'
-```### no-trailing-punctuation (MD026)
+```
 
-Headings should not end with punctuation.```ts
+### no-trailing-punctuation (MD026)
+Headings should not end with punctuation.
+
+```ts
 'markdown/no-trailing-punctuation': ['error', { punctuation: '.,;:!?' }]
+```
 
-```**Invalid:**`# Heading.`**Valid:**`# Heading`## List Rules
+**Invalid:** `# Heading.`
+**Valid:** `# Heading`
+
+## List Rules
 
 ### ul-style (MD004)
+Unordered list style should be consistent.
 
-Unordered list style should be consistent.```ts
+```ts
 'markdown/ul-style': ['error', { style: 'asterisk' | 'dash' | 'plus' | 'consistent' }]
-```**Consistent example:**```markdown
+```
 
+**Consistent example:**
+```markdown
 - Item 1
 - Item 2
 - Item 3
+```
 
-```### ul-indent (MD007)
+### ul-indent (MD007)
+Unordered list indentation should be consistent.
 
-Unordered list indentation should be consistent.```ts
+```ts
 'markdown/ul-indent': ['error', { indent: 2 }]
-```Default: 2 spaces per level
+```
+
+Default: 2 spaces per level
 
 ### ol-prefix (MD029)
+Ordered list item prefix style.
 
-Ordered list item prefix style.```ts
+```ts
 'markdown/ol-prefix': ['error', { style: 'one' | 'ordered' | 'one_or_ordered' }]
+```
 
-```Options:
-
--`one`- All items use`1.`-`ordered`- Sequential numbering`1. 2. 3.`-`one_or_ordered`(default) - Either style is acceptable
+Options:
+- `one` - All items use `1.`
+- `ordered` - Sequential numbering `1. 2. 3.`
+- `one_or_ordered` (default) - Either style is acceptable
 
 ### list-marker-space (MD030)
+Spaces after list markers should be consistent.
 
-Spaces after list markers should be consistent.```ts
+```ts
 'markdown/list-marker-space': ['error', { ul_single: 1, ol_single: 1 }]
-```### blanks-around-lists (MD032)
+```
 
-Lists should be surrounded by blank lines.```ts
+### blanks-around-lists (MD032)
+Lists should be surrounded by blank lines.
+
+```ts
 'markdown/blanks-around-lists': 'error'
+```
 
-```## Whitespace Rules
+## Whitespace Rules
 
 ### no-trailing-spaces (MD009)
+Lines should not end with trailing spaces.
 
-Lines should not end with trailing spaces.```ts
+```ts
 'markdown/no-trailing-spaces': ['error', { br_spaces: 2 }]
-```Options:
+```
 
--`br_spaces`- Number of spaces allowed for hard line breaks (default: 2)**Auto-fixable:**Yes
+Options:
+- `br_spaces` - Number of spaces allowed for hard line breaks (default: 2)
+
+**Auto-fixable:** Yes
 
 ### no-hard-tabs (MD010)
+Spaces should be used instead of hard tabs.
 
-Spaces should be used instead of hard tabs.```ts
+```ts
 'markdown/no-hard-tabs': 'error'
+```
 
-```### no-multiple-blanks (MD012)
+### no-multiple-blanks (MD012)
+Multiple consecutive blank lines should not be used.
 
-Multiple consecutive blank lines should not be used.```ts
+```ts
 'markdown/no-multiple-blanks': ['error', { maximum: 1 }]
-```### blanks-around-fences (MD031)
+```
 
-Fenced code blocks should be surrounded by blank lines.```ts
+### blanks-around-fences (MD031)
+Fenced code blocks should be surrounded by blank lines.
+
+```ts
 'markdown/blanks-around-fences': 'error'
+```
 
-```### single-trailing-newline (MD047)
+### single-trailing-newline (MD047)
+Files should end with a single newline character.
 
-Files should end with a single newline character.```ts
+```ts
 'markdown/single-trailing-newline': 'error'
-```## Code Rules
+```
+
+## Code Rules
 
 ### line-length (MD013)
+Lines should not exceed a specified length.
 
-Lines should not exceed a specified length.```ts
+```ts
 'markdown/line-length': ['warn', {
   line_length: 80,
   code_blocks: true,
   tables: true,
   headings: true
 }]
+```
 
-```### fenced-code-language (MD040)
+### fenced-code-language (MD040)
+Fenced code blocks should have a language specified.
 
-Fenced code blocks should have a language specified.```ts
+```ts
 'markdown/fenced-code-language': 'error'
-```**Invalid:**````markdown
+```
 
-```code();```
-````**Valid:**````markdown
-
-```javascript
-
+**Invalid:**
+````markdown
+```
 code();
+```
+````
 
-```````### code-fence-style (MD048)
+**Valid:**
+````markdown
+```javascript
+code();
+```
+````
 
-Code fence style should be consistent.```ts
+### code-fence-style (MD048)
+Code fence style should be consistent.
+
+```ts
 'markdown/code-fence-style': ['error', { style: 'backtick' | 'tilde' | 'consistent' }]
+```
 
-```## Link Rules
+## Link Rules
 
 ### no-bare-urls (MD034)
+Bare URLs should be wrapped in angle brackets.
 
-Bare URLs should be wrapped in angle brackets.```ts
+```ts
 'markdown/no-bare-urls': 'error'
+```
 
-```**Invalid:**`Check <http://example.co>m`**Valid:**`Check <http://example.com>`### no-empty-links (MD042)
+**Invalid:** `Check http://example.com`
+**Valid:** `Check <http://example.com>`
 
-Links should not be empty.```ts
+### no-empty-links (MD042)
+Links should not be empty.
+
+```ts
 'markdown/no-empty-links': 'error'
+```
 
-```**Invalid:**`[text]()`or`[](url)`**Valid:**`[text](url)`### descriptive-link-text (MD059)
+**Invalid:** `[text]()` or `[](url)`
+**Valid:** `[text](url)`
 
-Link text should be meaningful and descriptive.```ts
+### descriptive-link-text (MD059)
+Link text should be meaningful and descriptive.
+
+```ts
 'markdown/descriptive-link-text': 'warn'
+```
 
-```**Invalid:**`[click here](url)`**Valid:**`[Visit the documentation](url)`## Emphasis Rules
+**Invalid:** `[click here](url)`
+**Valid:** `[Visit the documentation](url)`
+
+## Emphasis Rules
 
 ### emphasis-style (MD049)
+Emphasis style should be consistent.
 
-Emphasis style should be consistent.```ts
+```ts
 'markdown/emphasis-style': ['error', { style: 'asterisk' | 'underscore' | 'consistent' }]
+```
 
-```### strong-style (MD050)
+### strong-style (MD050)
+Strong style should be consistent.
 
-Strong style should be consistent.```ts
+```ts
 'markdown/strong-style': ['error', { style: 'asterisk' | 'underscore' | 'consistent' }]
+```
 
-```### no-space-in-emphasis (MD037)
+### no-space-in-emphasis (MD037)
+Emphasis markers should not have spaces inside them.
 
-Emphasis markers should not have spaces inside them.```ts
+```ts
 'markdown/no-space-in-emphasis': 'error'
+```
 
-```**Invalid:**`**text**`**Valid:**`**text**`### no-space-in-code (MD038)
+**Invalid:** `** text **`
+**Valid:** `**text**`
 
-Code span elements should not have spaces inside the backticks.```ts
+### no-space-in-code (MD038)
+Code span elements should not have spaces inside the backticks.
+
+```ts
 'markdown/no-space-in-code': 'error'
+```
 
-```**Invalid:**`` `code` ``**Valid:**`` `code` ``## HTML and Other Rules
+**Invalid:** `` ` code ` ``
+**Valid:** `` `code` ``
+
+## HTML and Other Rules
 
 ### no-inline-html (MD033)
+Inline HTML should not be used.
 
-Inline HTML should not be used.```ts
+```ts
 'markdown/no-inline-html': ['warn', { allowed_elements: ['br', 'img'] }]
+```
 
-```### first-line-heading (MD041)
+### first-line-heading (MD041)
+First line in a file should be a top-level heading.
 
-First line in a file should be a top-level heading.```ts
+```ts
 'markdown/first-line-heading': 'warn'
+```
 
-```### no-alt-text (MD045)
+### no-alt-text (MD045)
+Images should have alternate text (alt text).
 
-Images should have alternate text (alt text).```ts
+```ts
 'markdown/no-alt-text': 'error'
+```
 
-```**Invalid:**`![](image.png)`**Valid:**`![Description](image.png)`## Table Rules
+**Invalid:** `![](image.png)`
+**Valid:** `![Description](image.png)`
+
+## Table Rules
 
 ### table-pipe-style (MD055)
+Table pipe style should be consistent.
 
-Table pipe style should be consistent.```ts
+```ts
 'markdown/table-pipe-style': ['error', {
   style: 'leading_and_trailing' | 'leading_only' | 'trailing_only' | 'no_leading_or_trailing'
 }]
+```
 
-```### table-column-count (MD056)
+### table-column-count (MD056)
+Table rows should have consistent column counts.
 
-Table rows should have consistent column counts.```ts
+```ts
 'markdown/table-column-count': 'error'
+```
 
-```### blanks-around-tables (MD058)
+### blanks-around-tables (MD058)
+Tables should be surrounded by blank lines.
 
-Tables should be surrounded by blank lines.```ts
+```ts
 'markdown/blanks-around-tables': 'error'
+```
 
-```## Complete Rule List
+## Complete Rule List
 
 All 53 markdown rules with their MD numbers:
 
@@ -379,17 +505,19 @@ All 53 markdown rules with their MD numbers:
 
 ## Best Practices
 
-1.**Start with core rules**- Enable essential rules like`heading-increment`, `no-trailing-spaces`, and `single-trailing-newline` first
-2.**Use consistent style**- Configure style rules (`ul-style`, `emphasis-style`, `strong-style`) to match your team's preferences
-3.**Warn before error**- Start new rules at `warn`to gauge noise before upgrading to`error`4.**Configure line length**- Set`line-length`to match your documentation style guide (80, 100, or 120 characters are common)
-5.**Enable code block rules**- Always specify language for fenced code blocks for better syntax highlighting
-6.**Validate links**- Use link validation rules to catch broken references and fragments
-7.**Pair with formatter**- Many whitespace rules work best when paired with auto-formatting
+1. **Start with core rules** - Enable essential rules like `heading-increment`, `no-trailing-spaces`, and `single-trailing-newline` first
+2. **Use consistent style** - Configure style rules (`ul-style`, `emphasis-style`, `strong-style`) to match your team's preferences
+3. **Warn before error** - Start new rules at `warn` to gauge noise before upgrading to `error`
+4. **Configure line length** - Set `line-length` to match your documentation style guide (80, 100, or 120 characters are common)
+5. **Enable code block rules** - Always specify language for fenced code blocks for better syntax highlighting
+6. **Validate links** - Use link validation rules to catch broken references and fragments
+7. **Pair with formatter** - Many whitespace rules work best when paired with auto-formatting
 
 ## Examples
 
-### Basic Configuration```ts
+### Basic Configuration
 
+```ts
 export default {
   lint: {
     extensions: ['md'], // Enable markdown linting
@@ -400,9 +528,11 @@ export default {
     'markdown/fenced-code-language': 'error',
   }
 }
+```
 
-```### Strict Documentation Standards```ts
+### Strict Documentation Standards
 
+```ts
 export default {
   pluginRules: {
     // Headings
@@ -440,7 +570,6 @@ export default {
     'markdown/blanks-around-tables': 'error',
   }
 }
-
 ```
 
 ## See Also

@@ -20,3 +20,6 @@ pantry
 /bechmarks/results
 .pickiercache
 .zig-cache
+
+# bunpress/stx build cache
+.stx/

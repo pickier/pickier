@@ -10,10 +10,11 @@ Organizing class members in a consistent order improves readability and maintain
 pluginRules: {
   sort-classes: [warn, { type: alphabetical, order: asc, ignoreCase: true }],
 }
-```Options:
+```
 
--`type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
+Options:
 
+- `type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
 - `order`: asc | desc (default: asc)
 - `ignoreCase`: boolean (default: true)
 - `specialCharacters`: keep | trim | remove (default: keep)
@@ -64,21 +65,25 @@ class User {
     }
   }
 }
-```After (alphabetical asc):```ts
+```
 
+After (alphabetical asc):
+
+```ts
 class User {
   activate() { this.isActive = true }
   addRole(role: string) { this.roles.push(role) }
-  constructor(username: string, email: string, isActive: boolean) { /*...*/ }
+  constructor(username: string, email: string, isActive: boolean) { /* ... */ }
   deactivate() { this.isActive = false }
-  getProfile() { /*...*/ }
-  removeRole(role: string) { /*...*/ }
-  setEmail(newEmail: string) { /*...*/ }
+  getProfile() { /* ... */ }
+  removeRole(role: string) { /* ... */ }
+  setEmail(newEmail: string) { /* ... */ }
 }
+```
 
-```## Best practices
+## Best practices
 
-- Choose`natural`when member names include numeric suffixes (e.g.,`step2`, `step10`)
-- Use `partitionByNewLine: true`to preserve intentional manual grouping
-- Keep the rule at`warn` initially to catch problematic cases without blocking
+- Choose `natural` when member names include numeric suffixes (e.g., `step2`, `step10`)
+- Use `partitionByNewLine: true` to preserve intentional manual grouping
+- Keep the rule at `warn` initially to catch problematic cases without blocking
 - Combine with code review guidelines for constructor-first or accessors-first conventions as needed

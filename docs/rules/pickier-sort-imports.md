@@ -13,16 +13,23 @@ Config (both forms accepted):
 pluginRules: { 'sort-imports': 'warn' }
 // or
 pluginRules: { 'pickier/sort-imports': 'warn' }
-```See Features » Import Management for the canonical import ordering.
+```
+
+See Features » Import Management for the canonical import ordering.
 
 ## Examples
 
-Before:```ts
+Before:
+
+```ts
 import type { T } from 'lib'
 import { A, B } from 'lib'
 import { a, b, c } from './x'
+```
 
-```After:```ts
+After:
+
+```ts
 import type { T } from 'lib'
 import { A, B } from 'lib'
 import { a, b, c } from './x'

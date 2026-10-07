@@ -1,4 +1,8 @@
-# Security Policy**PLEASE DON'T DISCLOSE SECURITY-RELATED ISSUES PUBLICLY, [SEE BELOW](#reporting-a-vulnerability).**## Supported Versions
+# Security Policy
+
+**PLEASE DON'T DISCLOSE SECURITY-RELATED ISSUES PUBLICLY, [SEE BELOW](#reporting-a-vulnerability).**
+
+## Supported Versions
 
 Only the latest major version receives security fixes.
 
@@ -8,9 +12,10 @@ If you discover a security vulnerability within this package, please send an ema
 
 ### Public PGP Key
 
-```-----BEGIN PGP PUBLIC KEY BLOCK-----
+```
+-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: OpenPGP v2.0.8
-Comment: <https://sela.io/pgp/>
+Comment: https://sela.io/pgp/
 
 mQINBGEO6uYBEACw8ldEmdK0xR2RjeGnAyNQItT83JG1BQmByttddyikolGHY0w1
 MLCSNAwveUT4f5vbDU41sH8QQDda+NBNIWNo+xtFahfWxi3gYpX0xltgPrYkuBIr
@@ -61,4 +66,5 @@ Lo2polLYC3wvFQl14tyT3OoDH+mkCPcD+GbDwYbWpcb+v6uCkquqAcHTrbYhwhxY
 kXSnpSzMVde7LbHMHiVr0Ubl3k4+1uNiKhY7CLW9pLJwJ4mUmG2VX3YPfG4shnYR
 HF/6SiI=
 =le/X
------END PGP PUBLIC KEY BLOCK-----```
+-----END PGP PUBLIC KEY BLOCK-----
+```

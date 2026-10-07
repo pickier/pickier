@@ -1,6 +1,6 @@
 # Types
 
-All types are exported from `pickier`and defined in`packages/pickier/src/types.ts`.
+All types are exported from `pickier` and defined in `packages/pickier/src/types.ts`.
 
 ## CLI Options
 
@@ -25,8 +25,11 @@ export interface LintOptions {
   cache?: boolean
   verbose?: boolean
 }
-```## Core Config Types```ts
+```
 
+## Core Config Types
+
+```ts
 export type RuleSeverity = 'off' | 'warn' | 'error'
 
 export type Extension =
@@ -67,8 +70,11 @@ export interface PickierConfig {
   plugins?: Array<PickierPlugin | string>
   pluginRules?: RulesConfigMap
 }
+```
 
-```## Plugin Authoring Types```ts
+## Plugin Authoring Types
+
+```ts
 export type RulesConfigMap = Record<string, RuleSeverity | [RuleSeverity, unknown]>
 
 export interface RuleMeta { docs?: string, recommended?: boolean, wip?: boolean }

@@ -5,21 +5,30 @@ Sorts contiguous groups of export statements.
 - Category: Plugin (built-in)
 - Default: off
 
-Options: `{ type?: 'alphabetical' | 'natural' | 'line-length' | 'unsorted'; order?: 'asc' | 'desc'; ignoreCase?: boolean; partitionByNewLine?: boolean }`Config:```ts
+Options: `{ type?: 'alphabetical' | 'natural' | 'line-length' | 'unsorted'; order?: 'asc' | 'desc'; ignoreCase?: boolean; partitionByNewLine?: boolean }`
+
+Config:
+
+```ts
 pluginRules: {
   'sort-exports': ['warn', { type: 'alphabetical', order: 'asc' }],
 }
+```
 
-```## Examples
+## Examples
 
-Before:```ts
+Before:
+
+```ts
 export const z = 1
 export const a = 2
-```After:```ts
+```
 
+After:
+
+```ts
 export const a = 2
 export const z = 1
-
 ```
 
 ## Best practices

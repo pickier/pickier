@@ -10,10 +10,11 @@ Sorting interface properties provides a clear and predictable structure, improvi
 pluginRules: {
   sort-interfaces: [warn, { type: alphabetical, order: asc, ignoreCase: true }],
 }
-```Options:
+```
 
--`type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
+Options:
 
+- `type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
 - `order`: asc | desc (default: asc)
 - `ignoreCase`: boolean (default: true)
 - `specialCharacters`: keep | trim | remove (default: keep)
@@ -37,8 +38,11 @@ interface User {
   address: Address
   id: string
 }
-```After (alphabetical asc):```ts
+```
 
+After (alphabetical asc):
+
+```ts
 interface User {
   address: Address
   email: string
@@ -48,10 +52,11 @@ interface User {
   phoneNumber?: string
   roles: string[]
 }
+```
 
-```## Best practices
+## Best practices
 
-- Prefer`natural`when keys include numbers (e.g.,`field2`, `field10`)
-- Use `partitionByNewLine: true`to preserve logical grouping (e.g., identification vs. metadata)
-- Consider`sortBy: value`to group by type when helpful (e.g., all`string` fields together)
+- Prefer `natural` when keys include numbers (e.g., `field2`, `field10`)
+- Use `partitionByNewLine: true` to preserve logical grouping (e.g., identification vs. metadata)
+- Consider `sortBy: value` to group by type when helpful (e.g., all `string` fields together)
 - Avoid combining with adjacent-overload-signatures rules to prevent conflicts

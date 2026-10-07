@@ -18,13 +18,13 @@ When you're working on improving code quality, these annotations become incredib
 
 ### Smart Code Actions
 
-Placing your cursor on any issue and pressing `Cmd+.`(or`Ctrl+.`on Windows/Linux) opens a menu of actions you can take. For issues that can be fixed automatically, you'll see a Fix option that corrects the problem instantly. You can also choose to disable the rule either for just that line or for the entire file, and there's always a link to view the full documentation if you want to understand the rule better.
+Placing your cursor on any issue and pressing `Cmd+.` (or `Ctrl+.` on Windows/Linux) opens a menu of actions you can take. For issues that can be fixed automatically, you'll see a Fix option that corrects the problem instantly. You can also choose to disable the rule either for just that line or for the entire file, and there's always a link to view the full documentation if you want to understand the rule better.
 
 This contextual menu adapts to each issue, showing you only the relevant actions. It's designed to keep you in flow without breaking your concentration.
 
 ### Problems Panel Integration
 
-All the issues Pickier finds show up in VS Code's Problems panel, which you can open with`Cmd+Shift+M`. They're organized by severity so you can tackle errors before warnings. Clicking any issue takes you straight to that line in your code. The panel also shows the full help text for each issue, making it easy to understand and fix problems even when you're not hovering over them.
+All the issues Pickier finds show up in VS Code's Problems panel, which you can open with `Cmd+Shift+M`. They're organized by severity so you can tackle errors before warnings. Clicking any issue takes you straight to that line in your code. The panel also shows the full help text for each issue, making it easy to understand and fix problems even when you're not hovering over them.
 
 ### Auto-fix on Save
 
@@ -33,28 +33,30 @@ If you enable the format-on-save option, Pickier will automatically fix all the 
 ## Installation
 
 ### From VS Code Marketplace
-
 1. Open VS Code
-2. Press `Cmd+Shift+X`to open Extensions
+2. Press `Cmd+Shift+X` to open Extensions
 3. Search for "Pickier"
 4. Click Install
 
-### From VSIX```bash
-
+### From VSIX
+```bash
 code --install-extension pickier-vscode-*.vsix
+```
 
-```## Quick Start
+## Quick Start
 
 1. Install the extension
 2. Open a TypeScript/JavaScript project
-3. Open any`.ts`or`.js`file
+3. Open any `.ts` or `.js` file
 4. Issues will appear automatically with red/yellow underlines
 
 ## Configuration
 
 ### Extension Settings
 
-Configure the extension in VS Code settings (Cmd+,):```json
+Configure the extension in VS Code settings (Cmd+,):
+
+```json
 {
   // Enable/disable the extension
   "pickier.enable": true,
@@ -86,9 +88,13 @@ Configure the extension in VS Code settings (Cmd+,):```json
   // Show Pickier output channel
   "pickier.showOutputChannel": false
 }
-```### Pickier Configuration
+```
 
-Create`pickier.config.ts`in your project root:```ts
+### Pickier Configuration
+
+Create `pickier.config.ts` in your project root:
+
+```ts
 import type { PickierConfig } from 'pickier'
 
 export default {
@@ -131,38 +137,57 @@ export default {
     '**/coverage/**',
   ],
 } satisfies PickierConfig
+```
 
-```## Usage
+## Usage
 
 ### Viewing Issues
 
 Issues appear in three places:
 
-1.**Inline**- Red/yellow underlines in the editor
-2.**CodeLens**- Stats at the top of each file
-3.**Problems Panel**- Cmd+Shift+M to see all issues
+1. **Inline** - Red/yellow underlines in the editor
+2. **CodeLens** - Stats at the top of each file
+3. **Problems Panel** - Cmd+Shift+M to see all issues
 
-### Fixing Issues**Auto-fix a single issue:**1. Place cursor on the issue
+### Fixing Issues
 
-2. Press`Cmd+.`(Quick Fix)
-3. Select "Fix: [description]"**Fix all issues in file:**1. Click "Fix all" in CodeLens, or
-2. Press`Cmd+Shift+P`3. Run "Pickier: Fix All Auto-fixable Issues"**Format entire file:**- Press`Shift+Alt+F`(default format shortcut), or
-- Press`Cmd+Shift+P`and run "Pickier: Format Document"
+**Auto-fix a single issue:**
+1. Place cursor on the issue
+2. Press `Cmd+.` (Quick Fix)
+3. Select "Fix: [description]"
 
-### Disabling Rules**Disable for one line:**1. Place cursor on the issue
+**Fix all issues in file:**
+1. Click "Fix all" in CodeLens, or
+2. Press `Cmd+Shift+P`
+3. Run "Pickier: Fix All Auto-fixable Issues"
 
-2. Press`Cmd+.`3. Select "Disable [rule] for this line"
+**Format entire file:**
+- Press `Shift+Alt+F` (default format shortcut), or
+- Press `Cmd+Shift+P` and run "Pickier: Format Document"
 
-This adds:```ts
+### Disabling Rules
+
+**Disable for one line:**
+1. Place cursor on the issue
+2. Press `Cmd+.`
+3. Select "Disable [rule] for this line"
+
+This adds:
+```ts
 // pickier-disable-next-line rule-name
-```**Disable for entire file:**1. Press `Cmd+.`on any issue
+```
 
+**Disable for entire file:**
+1. Press `Cmd+.` on any issue
 2. Select "Disable [rule] for entire file"
 
-This adds at top of file:```ts
-/*pickier-disable rule-name*/
+This adds at top of file:
+```ts
+/* pickier-disable rule-name */
+```
 
-```**Disable in config:**```ts
+**Disable in config:**
+```ts
 // pickier.config.ts
 export default {
   rules: {
@@ -172,10 +197,16 @@ export default {
     'pickier/sort-imports': 'off',  // Disable plugin rule
   },
 }
-```### Organizing Imports**Automatically:**- Click "📦 Organize Imports" in CodeLens (when available), or
+```
 
-- Press`Cmd+Shift+P` and run "Pickier: Organize Imports"**Enable in config:**```ts
+### Organizing Imports
 
+**Automatically:**
+- Click "📦 Organize Imports" in CodeLens (when available), or
+- Press `Cmd+Shift+P` and run "Pickier: Organize Imports"
+
+**Enable in config:**
+```ts
 // pickier.config.ts
 export default {
   pluginRules: {
@@ -183,21 +214,22 @@ export default {
     'pickier/sort-named-imports': 'error',
   },
 }
+```
 
-```## Commands
+## Commands
 
 Access via Command Palette (Cmd+Shift+P):
 
 | Command | Description |
 |---------|-------------|
-|`Pickier: Format Document`| Format the active file |
-|`Pickier: Format Selection`| Format selected text |
-|`Pickier: Lint Document`| Run linter on active file |
-|`Pickier: Lint Workspace`| Run linter on entire workspace |
-|`Pickier: Organize Imports`| Sort and organize imports |
-|`Pickier: Fix All Auto-fixable Issues`| Fix all auto-fixable issues in file |
-|`Pickier: Show Output Channel`| Show Pickier output logs |
-|`Pickier: Restart Extension` | Restart the extension |
+| `Pickier: Format Document` | Format the active file |
+| `Pickier: Format Selection` | Format selected text |
+| `Pickier: Lint Document` | Run linter on active file |
+| `Pickier: Lint Workspace` | Run linter on entire workspace |
+| `Pickier: Organize Imports` | Sort and organize imports |
+| `Pickier: Fix All Auto-fixable Issues` | Fix all auto-fixable issues in file |
+| `Pickier: Show Output Channel` | Show Pickier output logs |
+| `Pickier: Restart Extension` | Restart the extension |
 
 ## Supported Languages
 
@@ -215,7 +247,6 @@ Access via Command Palette (Cmd+Shift+P):
 ### Example 1: Viewing Hover Help
 
 ```ts
-
 // Hover over 'debugger' to see:
 // 🔴 no-debugger
 // Unexpected debugger statement
@@ -226,8 +257,12 @@ Access via Command Palette (Cmd+Shift+P):
 // --fix to auto-remove
 //
 // ✨ Auto-fix available
+debugger
+```
 
-```### Example 2: Using Code Actions```ts
+### Example 2: Using Code Actions
+
+```ts
 function test() {
   const unused = 'value'  // Place cursor here, press Cmd+.
   return 42
@@ -237,10 +272,14 @@ function test() {
 // - Disable no-unused-vars for this line
 // - Disable no-unused-vars for entire file
 // - View documentation
-```### Example 3: Fix All```ts
+```
 
+### Example 3: Fix All
+
+```ts
 // Before (5 errors, 2 warnings, 3 auto-fixable)
 function test() {
+  debugger  // auto-fixable
   let x = 10  // auto-fixable (prefer-const)
   const msg = 'Hello' + ' World'  // auto-fixable (prefer-template)
   const unused = 'value'  // NOT auto-fixable
@@ -253,65 +292,64 @@ function test() {
 // After (2 warnings, 0 auto-fixable)
 function test() {
   const x = 10  // fixed
-  const msg = `Hello World`// fixed
+  const msg = `Hello World`  // fixed
   const unused = 'value'  // remains
   console.log(x)  // remains
   return msg
-}```
+}
+```
 
 ## Troubleshooting
 
 ### Extension Not Working
 
-1.**Check extension is enabled**
-
+1. **Check extension is enabled**
    ```json
    { "pickier.enable": true }
    ```
 
-2.**Verify file is supported**- Only`.ts`, `.tsx`, `.js`, `.jsx`, etc. are supported
+2. **Verify file is supported**
+   - Only `.ts`, `.tsx`, `.js`, `.jsx`, etc. are supported
+   - Check `pickier.config.ts` extensions list
 
-- Check `pickier.config.ts`extensions list
-
-3.**Reload window**- Press`Cmd+Shift+P`
-
-- Run "Developer: Reload Window"
+3. **Reload window**
+   - Press `Cmd+Shift+P`
+   - Run "Developer: Reload Window"
 
 ### No Issues Showing
 
-1.**Save the file**- Linting may only run on save
-2.**Check config**- Ensure rules are enabled
-3.**View Output Channel**- Run "Pickier: Show Output Channel"
-
-- Look for errors
+1. **Save the file** - Linting may only run on save
+2. **Check config** - Ensure rules are enabled
+3. **View Output Channel**
+   - Run "Pickier: Show Output Channel"
+   - Look for errors
 
 ### CodeLens Not Appearing
 
-1.**Check setting**```json
+1. **Check setting**
+   ```json
    { "pickier.codeLens.enable": true }
 
    ```
 
-2.**Reload window**- CodeLens may need window reload after config change
+2. **Reload window**
+   - CodeLens may need window reload after config change
 
 ### Performance Issues
 
-1.**Disable lint on change**
-
+1. **Disable lint on change**
    ```json
    { "pickier.lintOnChange": false }
    ```
 
-2.**Reduce file scope**in`pickier.config.ts`
-
+2. **Reduce file scope** in `pickier.config.ts`
    ```ts
    {
      ignores: ['**/large-folder/**']
    }
    ```
 
-3.**Disable expensive rules**
-
+3. **Disable expensive rules**
    ```ts
    {
      pluginRules: {
@@ -324,24 +362,29 @@ function test() {
 
 ### Custom Configuration Path
 
-Point to a custom config file:```json
+Point to a custom config file:
+
+```json
 {
   "pickier.configPath": "configs/pickier.staging.ts"
 }
+```
 
-```### Workspace vs User Settings
+### Workspace vs User Settings
 
--**User settings**- Apply to all projects
--**Workspace settings**- Apply only to current project
+- **User settings** - Apply to all projects
+- **Workspace settings** - Apply only to current project
 
 Workspace settings override user settings.
 
 ### Multi-root Workspaces
 
-Each workspace folder can have its own`pickier.config.ts`.
+Each workspace folder can have its own `pickier.config.ts`.
 
-### Integration with Other Extensions**Disable conflicting formatters:**```json
+### Integration with Other Extensions
 
+**Disable conflicting formatters:**
+```json
 {
   "editor.defaultFormatter": "pickier.pickier-vscode",
   "prettier.enable": false,
@@ -350,44 +393,39 @@ Each workspace folder can have its own`pickier.config.ts`.
 ```
 
 **Format on save:**
-
 ```json
-
 {
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "pickier.pickier-vscode"
 }
-
 ```
 
 ### Pre-commit Hooks
 
 ```bash
-
 # .husky/pre-commit
-
 npx pickier run . --mode lint --fix
 ```
 
 ## FAQ
 
-### Q: How is this different from ESLint extension
+### Q: How is this different from ESLint extension?
 
 Pickier is faster and includes formatting, sorting, and linting in one tool. It's built with Bun for maximum performance.
 
-### Q: Can I use both Pickier and ESLint
+### Q: Can I use both Pickier and ESLint?
 
 Yes, but disable overlapping rules to avoid conflicts. Use ESLint for logical rules and Pickier for formatting/sorting.
 
-### Q: Why aren't issues showing in comments
+### Q: Why aren't issues showing in comments?
 
 This is intentional. Pickier v0.2+ skips linting inside comments to avoid false positives.
 
-### Q: How do I disable a rule temporarily
+### Q: How do I disable a rule temporarily?
 
-Use`// pickier-disable-next-line rule-name`or press Cmd+. and select "Disable for this line". The`eslint-disable-next-line` prefix also works for compatibility.
+Use `// pickier-disable-next-line rule-name` or press Cmd+. and select "Disable for this line". The `eslint-disable-next-line` prefix also works for compatibility.
 
-### Q: Can I customize the base documentation URL
+### Q: Can I customize the base documentation URL?
 
 Yes, configure in workspace settings (feature added in v0.2+).
 

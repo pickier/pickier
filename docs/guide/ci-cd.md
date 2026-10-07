@@ -6,6 +6,14 @@ This guide covers integrating Pickier into continuous integration and deployment
 
 ### Basic Lint Workflow
 
+[pantry](https://github.com/pantry-pm/pantry) sets up the job in one step: it installs what `deps.yaml` lists and the `package.json` dependencies, and caches both between runs.
+
+```yaml
+# deps.yaml
+dependencies:
+  bun.sh: ^1.4.2
+```
+
 ```yaml
 # .github/workflows/lint.yml
 name: Lint
@@ -21,13 +29,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - run: bun install
+      - uses: pantry-pm/pantry/packages/action@main
 
       - name: Lint
         run: bunx pickier lint .
@@ -66,14 +70,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v1
-
-      - run: bun install
+      - uses: pantry-pm/pantry/packages/action@main
 
       - name: Fix lint issues
         run: bunx pickier lint . --fix
@@ -89,7 +91,7 @@ jobs:
 
 ### Matrix Testing
 
-Test across multiple Node/Bun versions:
+Test across several Bun versions. Naming packages in `packages:` installs exactly those instead of what `deps.yaml` lists, and leaves the project's dependencies to you:
 
 ```yaml
 jobs:
@@ -97,14 +99,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        bun-version: ['1.0', '1.1', 'latest']
+        bun-version: ['1.3', '1.4']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: pantry-pm/pantry/packages/action@main
         with:
-          bun-version: ${{ matrix.bun-version }}
+          packages: bun.sh@${{ matrix.bun-version }}
 
       - run: bun install
       - run: bunx pickier lint .
@@ -257,7 +259,7 @@ FROM oven/bun:latest
 
 WORKDIR /app
 
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 COPY . .
@@ -325,17 +327,24 @@ fix:
 - name: Lint with JSON output
   run: |
     bunx pickier lint . --reporter json > lint-results.json
-    cat lint-results.json | jq '.length'
+    jq '.issues | length' lint-results.json
 ```
 
-### 2. Cache Dependencies
+The report is `{ "errors": number, "warnings": number, "issues": [...] }`.
+
+### 2. Cache Lint Results
+
+The pantry action already caches the toolchain and dependencies. For very large repositories, `--cache` also keeps each file's lint results, so a run only lints the files whose content changed:
 
 ```yaml
-- name: Cache Bun dependencies
-  uses: actions/cache@v3
+- uses: actions/cache@v5
   with:
-    path: ~/.bun/install/cache
-    key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+    path: .pickiercache
+    key: pickier-${{ github.sha }}
+    restore-keys: pickier-
+
+- name: Lint
+  run: bunx pickier lint . --cache
 ```
 
 ### 3. Fail Fast

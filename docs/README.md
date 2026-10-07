@@ -4,14 +4,14 @@ Welcome to the comprehensive Pickier documentation. This guide will help you get
 
 ## Quick Links
 
--**[Installation →](./install.md)**- Get Pickier up and running
--**[Usage Guide →](./usage.md)**- Basic usage and workflows
--**[Rules Reference →](./rules/index.md)**- Complete list of all linting rules
--**[Configuration →](./config.md)**- How to configure Pickier for your project
--**[CLI Reference →](./cli.md)**- Command-line interface documentation
--**[VS Code Extension →](./vscode.md)**- Editor integration guide
+- **[Installation →](./install.md)** - Get Pickier up and running
+- **[Usage Guide →](./usage.md)** - Basic usage and workflows
+- **[Rules Reference →](./rules/index.md)** - Complete list of all linting rules
+- **[Configuration →](./config.md)** - How to configure Pickier for your project
+- **[CLI Reference →](./cli.md)** - Command-line interface documentation
+- **[VS Code Extension →](./vscode.md)** - Editor integration guide
 
-## What is Pickier
+## What is Pickier?
 
 Pickier is a fast, all-in-one code quality tool built with Bun. It combines linting, formatting, and code organization into a single tool that runs significantly faster than traditional alternatives. Instead of juggling ESLint, Prettier, and various plugins, Pickier gives you everything you need in one package.
 
@@ -22,7 +22,9 @@ The fastest way to start using Pickier is through the CLI:
 ```bash
 bun add -D pickier
 bunx pickier run . --mode lint
-```For real-time feedback while coding, install the VS Code extension from the marketplace. It provides hover information, code actions, and automatic fixes right in your editor.
+```
+
+For real-time feedback while coding, install the VS Code extension from the marketplace. It provides hover information, code actions, and automatic fixes right in your editor.
 
 ## Core Features
 
@@ -36,7 +38,7 @@ Instead of maintaining separate configurations for ESLint, Prettier, and various
 
 ### Smart Auto-fixing
 
-Most issues Pickier finds can be fixed automatically. Run with the`--fix`flag and watch debugger statements disappear, quotes become consistent, and imports get sorted. The auto-fixing is intelligent enough to preserve your code's behavior while improving its style.
+Most issues Pickier finds can be fixed automatically. Run with the `--fix` flag and watch debugger statements disappear, quotes become consistent, and imports get sorted. The auto-fixing is intelligent enough to preserve your code's behavior while improving its style.
 
 ### Rich Editor Integration
 
@@ -88,41 +90,38 @@ You're managing multiple projects with different needs. Create base configuratio
 ### Rules and Severity
 
 Every rule in Pickier can be set to three levels:
-
--`'error'`- Fails builds and prevents commits
--`'warn'`- Shows warnings but doesn't fail
--`'off'`- Completely disabled
+- `'error'` - Fails builds and prevents commits
+- `'warn'` - Shows warnings but doesn't fail
+- `'off'` - Completely disabled
 
 Choose the level that matches the importance of each rule to your project.
 
 ### Auto-fix vs Manual
 
-Rules are marked as either auto-fixable (can be corrected automatically) or manual (require human judgment). The sparkle ✨ icon in the extension indicates auto-fixable rules. Use`--fix`to apply all auto-fixes at once.
+Rules are marked as either auto-fixable (can be corrected automatically) or manual (require human judgment). The sparkle ✨ icon in the extension indicates auto-fixable rules. Use `--fix` to apply all auto-fixes at once.
 
 ### Disable Comments
 
 Sometimes you need to break a rule temporarily. Use disable comments to suppress specific rules:
-
--`// pickier-disable-next-line rule-name`- Disables for one line
--`/*pickier-disable rule-name*/`- Disables until re-enabled
-
-- Both`pickier`and`eslint` prefixes work identically for compatibility
+- `// pickier-disable-next-line rule-name` - Disables for one line
+- `/* pickier-disable rule-name */` - Disables until re-enabled
+- Both `pickier` and `eslint` prefixes work identically for compatibility
 
 ### Plugin Architecture
 
 Pickier's rules are organized into plugins for better organization and discoverability:
 
--**Core**- Built-in rules always available (quotes, indent, debugger, console)
--**ESLint**(`eslint/`) - Legacy compatibility layer for ESLint rule names
--**General**(`general/`) - Error detection and possible problems (no-undef, no-const-assign, array-callback-return, etc.)
--**Quality**(`quality/`) - Best practices and code quality (eqeqeq, no-eval, no-var, prefer-arrow-callback, etc.)
--**Pickier**(`pickier/`) - Sorting and import organization (sort-imports, sort-objects, import-dedupe, etc.)
--**Style**(`style/`) - Code style enforcement (brace-style, curly, max-statements-per-line, etc.)
--**TypeScript**(`ts/`) - TypeScript-specific rules (no-explicit-any, prefer-optional-chain, no-floating-promises, etc.)
--**RegExp**(`regexp/`) - Regular expression safety (no-super-linear-backtracking, no-unused-capturing-group, etc.)
--**Markdown**(`markdown/`) - Markdown documentation linting with 53+ rules
+- **Core** - Built-in rules always available (quotes, indent, debugger, console)
+- **ESLint** (`eslint/`) - Legacy compatibility layer for ESLint rule names
+- **General** (`general/`) - Error detection and possible problems (no-undef, no-const-assign, array-callback-return, etc.)
+- **Quality** (`quality/`) - Best practices and code quality (eqeqeq, no-eval, no-var, prefer-arrow-callback, etc.)
+- **Pickier** (`pickier/`) - Sorting and import organization (sort-imports, sort-objects, import-dedupe, etc.)
+- **Style** (`style/`) - Code style enforcement (brace-style, curly, max-statements-per-line, etc.)
+- **TypeScript** (`ts/`) - TypeScript-specific rules (no-explicit-any, prefer-optional-chain, no-floating-promises, etc.)
+- **RegExp** (`regexp/`) - Regular expression safety (no-super-linear-backtracking, no-unused-capturing-group, etc.)
+- **Markdown** (`markdown/`) - Markdown documentation linting with 53+ rules
 
-Each plugin can be configured independently through the `pluginRules`configuration, giving you fine-grained control over your linting experience.
+Each plugin can be configured independently through the `pluginRules` configuration, giving you fine-grained control over your linting experience.
 
 ## Best Practices
 
@@ -132,7 +131,7 @@ Don't try to enable every rule at once. Start with the defaults, then gradually 
 
 ### Use Warnings First
 
-When introducing new rules, start them at`'warn'`level. Once the codebase is clean, promote them to`'error'`. This gives your team time to adapt without blocking their work.
+When introducing new rules, start them at `'warn'` level. Once the codebase is clean, promote them to `'error'`. This gives your team time to adapt without blocking their work.
 
 ### Automate Everything
 
@@ -156,14 +155,14 @@ The VS Code extension includes example files demonstrating every feature. Open t
 
 Found a bug or have a feature request? Visit the [GitHub repository](https://github.com/pickier/pickier) to file an issue or contribute.
 
-## What's Next
+## What's Next?
 
 Ready to dive deeper? Here are some suggested next steps:
 
--**Just installed?**→ Read the [Usage Guide](./usage.md)
--**Setting up a config?**→ Check the [Configuration Guide](./config.md)
--**Need a specific rule?**→ Browse the [Rules Reference](./rules/index.md)
--**Working in a team?**→ Read [Advanced Configuration](./advanced/configuration.md)
--**Using VS Code?**→ Install the [VS Code Extension](./vscode.md)
+- **Just installed?** → Read the [Usage Guide](./usage.md)
+- **Setting up a config?** → Check the [Configuration Guide](./config.md)
+- **Need a specific rule?** → Browse the [Rules Reference](./rules/index.md)
+- **Working in a team?** → Read [Advanced Configuration](./advanced/configuration.md)
+- **Using VS Code?** → Install the [VS Code Extension](./vscode.md)
 
 Happy linting! 🚀

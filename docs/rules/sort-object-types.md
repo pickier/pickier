@@ -10,10 +10,11 @@ Standardizing the order of members within object types enhances readability with
 pluginRules: {
   sort-object-types: [warn, { type: alphabetical, order: asc, ignoreCase: true }],
 }
-```Options:
+```
 
--`type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
+Options:
 
+- `type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
 - `order`: asc | desc (default: asc)
 - `ignoreCase`: boolean (default: true)
 - `specialCharacters`: keep | trim | remove (default: keep)
@@ -36,8 +37,11 @@ interface Company {
   industry: string
   founded: Date
 }
-```After (alphabetical asc by name):```ts
+```
 
+After (alphabetical asc by name):
+
+```ts
 interface Company {
   ceo: string
   departments: Department[]
@@ -46,9 +50,10 @@ interface Company {
   industry: string
   name: string
 }
+```
 
-```## Best practices
+## Best practices
 
-- Prefer`natural`when keys contain numbers
-- Use`partitionByNewLine: true`to maintain logical groupings
-- Consider`sortBy: value` to group by property types when beneficial
+- Prefer `natural` when keys contain numbers
+- Use `partitionByNewLine: true` to maintain logical groupings
+- Consider `sortBy: value` to group by property types when beneficial

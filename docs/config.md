@@ -1,9 +1,10 @@
 # Configuration
 
-Pickier uses a `pickier.config.ts`file in your project root for configuration. TypeScript, JavaScript, and JSON formats are supported.
+Pickier uses a `pickier.config.ts` file in your project root for configuration. TypeScript, JavaScript, and JSON formats are supported.
 
-## Quick Start```ts
+## Quick Start
 
+```ts
 import type { PickierConfig } from 'pickier'
 
 const config: PickierConfig = {
@@ -29,19 +30,21 @@ const config: PickierConfig = {
 }
 
 export default config
+```
 
-```## Configuration Options
+## Configuration Options
 
-### Core Settings**verbose**: Enable detailed logging and error context (default:`false`)
+### Core Settings
+
+**verbose**: Enable detailed logging and error context (default: `false`)
 
 ```ts
-
 verbose: true
+```
 
-```**ignores**: Glob patterns for files to skip (default: `['**/node_modules/**', '**/dist/**', '**/.git/**']`)
+**ignores**: Glob patterns for files to skip (default: `['**/node_modules/**', '**/dist/**', '**/.git/**']`)
 
 ```ts
-
 ignores: [
   '**/node_modules/**',
   '**/dist/**',
@@ -50,21 +53,41 @@ ignores: [
   '**/*.bench.ts',
   '**/*.config.ts',
 ]
+```
 
-```### Linting**lint.extensions**: File extensions to lint (default:`['ts', 'js', 'tsx', 'jsx']`)**lint.reporter**: Output format - `'stylish'`, `'json'`, or `'compact'`(default:`'stylish'`)**lint.maxWarnings**: Maximum warnings before failing, `-1`to disable (default:`-1`)
+### Linting
+
+**lint.extensions**: File extensions to lint (default: `['ts', 'js', 'tsx', 'jsx']`)
+
+**lint.reporter**: Output format - `'stylish'`, `'json'`, or `'compact'` (default: `'stylish'`)
+
+**lint.maxWarnings**: Maximum warnings before failing, `-1` to disable (default: `-1`)
 
 ```ts
-
 lint: {
   extensions: ['ts', 'js', 'html', 'css', 'md'],
   reporter: 'stylish',
   maxWarnings: 0,
 }
+```
 
-```### Formatting**format.trimTrailingWhitespace**: Remove trailing whitespace (default:`true`)**format.maxConsecutiveBlankLines**: Maximum consecutive blank lines (default: `1`)**format.finalNewline**: Final newline policy - `'one'`, `'two'`, or `'none'`(default:`'one'`)**format.indent**: Indentation size (default: `2`)**format.indentStyle**: Indentation type - `'spaces'`or`'tabs'`(default:`'spaces'`)**format.quotes**: Quote style - `'single'`or`'double'`(default:`'single'`)**format.semi**: Enforce semicolons - `false`removes unnecessary semicolons (default:`false`)
+### Formatting
+
+**format.trimTrailingWhitespace**: Remove trailing whitespace (default: `true`)
+
+**format.maxConsecutiveBlankLines**: Maximum consecutive blank lines (default: `1`)
+
+**format.finalNewline**: Final newline policy - `'one'`, `'two'`, or `'none'` (default: `'one'`)
+
+**format.indent**: Indentation size (default: `2`)
+
+**format.indentStyle**: Indentation type - `'spaces'` or `'tabs'` (default: `'spaces'`)
+
+**format.quotes**: Quote style - `'single'` or `'double'` (default: `'single'`)
+
+**format.semi**: Enforce semicolons - `false` removes unnecessary semicolons (default: `false`)
 
 ```ts
-
 format: {
   trimTrailingWhitespace: true,
   maxConsecutiveBlankLines: 1,
@@ -74,23 +97,26 @@ format: {
   quotes: 'single',
   semi: false,
 }
+```
 
-```### Rules
+### Rules
 
-Built-in rules with severity levels:`'off'`, `'warn'`, or `'error'`
+Built-in rules with severity levels: `'off'`, `'warn'`, or `'error'`
 
 ```ts
-
 rules: {
   noDebugger: 'error',
   noConsole: 'error',
   noTemplateCurlyInString: 'error',
   noCondAssign: 'error',
 }
+```
 
-```### Plugin Rules
+### Plugin Rules
 
-Enable plugin rules with consistent naming:```ts
+Enable plugin rules with consistent naming:
+
+```ts
 pluginRules: {
   'ts/prefer-const': 'error',
   'style/curly': 'error',
@@ -106,7 +132,9 @@ pluginRules: {
   'node/prefer-global/buffer': 'error',
   'node/prefer-global/process': 'error',
 }
-```### Tailwind CSS Class Ordering
+```
+
+### Tailwind CSS Class Ordering
 
 Enable canonical Tailwind class ordering via the `tailwind` block. Setting `enabled: true` automatically activates `pickier/sort-tailwind-classes` at `warn` severity:
 
@@ -135,28 +163,34 @@ See [sort-tailwind-classes rule docs](./rules/sort-tailwind-classes.md) for the 
 
 ## Rule Aliasing
 
-Pickier supports ESLint config aliases for compatibility:```ts
+```ts
 'antfu/curly' → 'style/curly'
 'antfu/if-newline' → 'style/if-newline'
 'antfu/no-top-level-await' → 'ts/no-top-level-await'
+```
 
-```## Disable Comments
+## Disable Comments
 
-ESLint-style disable comments work in Pickier:```ts
+ESLint-style disable comments work in Pickier:
+
+```ts
 // Disable next line
 // eslint-disable-next-line no-console
 console.log('Allowed')
 
 // Disable block
-/_eslint-disable no-console_/
+/* eslint-disable no-console */
 console.log('Allowed')
 console.error('Also allowed')
-/_eslint-enable no-console_/
+/* eslint-enable no-console */
 
 // Pickier prefix also works
 // pickier-disable-next-line no-console
-```## JSON Configuration```json
+```
 
+## JSON Configuration
+
+```json
 {
   "verbose": false,
   "ignores": ["**/node_modules/**", "**/dist/**"],
@@ -178,18 +212,17 @@ console.error('Also allowed')
     "noConsole": "warn"
   }
 }
+```
 
-```## Environment Variables
+## Environment Variables
 
--`PICKIER_NO_AUTO_CONFIG=1`: Disable automatic config loading
-
+- `PICKIER_NO_AUTO_CONFIG=1`: Disable automatic config loading
 - `PICKIER_TRACE=1`: Enable trace logging
 - `PICKIER_FAIL_ON_WARNINGS=1`: Treat warnings as errors
 
 ## Complete Example
 
 ```ts
-
 import type { PickierConfig } from 'pickier'
 
 const config: PickierConfig = {
@@ -239,22 +272,25 @@ const config: PickierConfig = {
 }
 
 export default config
+```
 
-```## ESLint Migration
+## ESLint Migration
 
 Common ESLint rules map to Pickier equivalents:
 
 | ESLint Rule | Pickier Equivalent |
 |-------------|-------------------|
-|`no-debugger`|`noDebugger`|
-|`no-console`|`noConsole`|
-|`no-cond-assign`|`noCondAssign`|
-|`prefer-const`|`ts/prefer-const`|
-|`curly`|`style/curly`|
-|`no-unused-vars`|`unused-imports/no-unused-vars`|
+| `no-debugger` | `noDebugger` |
+| `no-console` | `noConsole` |
+| `no-cond-assign` | `noCondAssign` |
+| `prefer-const` | `ts/prefer-const` |
+| `curly` | `style/curly` |
+| `no-unused-vars` | `unused-imports/no-unused-vars` |
 
 ## CLI Override
 
-Use`--config <path>`to specify a config file:```bash
+Use `--config <path>` to specify a config file:
+
+```bash
 pickier run . --config custom.config.ts
 ```

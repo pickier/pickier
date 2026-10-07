@@ -4,15 +4,15 @@ Fast, modern formatter and linter for TypeScript, JavaScript, JSON, HTML, CSS, M
 
 ## Features
 
--**Lightning Fast**: Built on Bun runtime for incredible performance
--**Real-time Linting**: See errors and warnings as you type
--**Auto-fix**: Automatically fix many issues with one command
--**Multiple Languages**: TypeScript, JavaScript, JSON, HTML, CSS, Markdown, YAML
--**Markdown Linting**: Comprehensive MD001-MD059 rule coverage
--**Problems Integration**: All issues appear in VS Code's Problems panel
--**Smart Underlines**: Visual indicators for errors (red) and warnings (yellow)
--**Hover Tooltips**: Detailed error/warning information on hover
--**Status Bar**: See issue count at a glance
+- **Lightning Fast**: Built on Bun runtime for incredible performance
+- **Real-time Linting**: See errors and warnings as you type
+- **Auto-fix**: Automatically fix many issues with one command
+- **Multiple Languages**: TypeScript, JavaScript, JSON, HTML, CSS, Markdown, YAML
+- **Markdown Linting**: Comprehensive MD001-MD059 rule coverage
+- **Problems Integration**: All issues appear in VS Code's Problems panel
+- **Smart Underlines**: Visual indicators for errors (red) and warnings (yellow)
+- **Hover Tooltips**: Detailed error/warning information on hover
+- **Status Bar**: See issue count at a glance
 
 ## Usage
 
@@ -28,15 +28,14 @@ The extension automatically lints files when you:
 
 Access commands via Command Palette (Cmd/Ctrl+Shift+P):
 
-- `Pickier: Format Document`- Format the current file
-
--`Pickier: Format Selection`- Format selected text
--`Pickier: Lint Document`- Lint the current file
--`Pickier: Lint Workspace`- Lint all files in workspace
--`Pickier: Fix All Auto-fixable Issues`- Apply all available fixes
--`Pickier: Organize Imports`- Sort and organize imports
--`Pickier: Show Output Channel`- Show detailed output
--`Pickier: Restart Extension`- Restart the extension
+- `Pickier: Format Document` - Format the current file
+- `Pickier: Format Selection` - Format selected text
+- `Pickier: Lint Document` - Lint the current file
+- `Pickier: Lint Workspace` - Lint all files in workspace
+- `Pickier: Fix All Auto-fixable Issues` - Apply all available fixes
+- `Pickier: Organize Imports` - Sort and organize imports
+- `Pickier: Show Output Channel` - Show detailed output
+- `Pickier: Restart Extension` - Restart the extension
 
 ### Configuration
 
@@ -51,15 +50,14 @@ Configure Pickier in VS Code settings:
   "pickier.formatOnPaste": false,
   "pickier.statusBar.showIssueCount": true
 }
-
 ```
 
 ### Visual Indicators
 
--**Red Squiggles**: Errors that must be fixed
--**Yellow Squiggles**: Warnings and style suggestions
--**Faded Text**: Unused variables/imports
--**Strikethrough**: Deprecated code
+- **Red Squiggles**: Errors that must be fixed
+- **Yellow Squiggles**: Warnings and style suggestions
+- **Faded Text**: Unused variables/imports
+- **Strikethrough**: Deprecated code
 
 ## Requirements
 
@@ -68,7 +66,9 @@ Configure Pickier in VS Code settings:
 
 ## Configuration File
 
-Create a `pickier.config.ts`in your project root:```typescript
+Create a `pickier.config.ts` in your project root:
+
+```typescript
 import type { PickierConfig } from 'pickier'
 
 export default {

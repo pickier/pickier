@@ -1,6 +1,10 @@
 # Postcardware
 
-Two things are true: Stacks OSS will always stay open-source, and we do love to receive postcards from wherever Stacks is used! 🌍_We also publish them on our website._## Address
+Two things are true: Stacks OSS will always stay open-source, and we do love to receive postcards from wherever Stacks is used! 🌍
+
+_We also publish them on our website._
+
+## Address
 
 Our address in the US is:
 

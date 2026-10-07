@@ -5,7 +5,7 @@ Limits the number of statements allowed on a single line. Useful to discourage m
 - Category: Plugin (built-in)
 - Default: off
 
-Options: `{ max?: number }`(default`1`)
+Options: `{ max?: number }` (default `1`)
 
 Config (both forms accepted):
 
@@ -15,11 +15,15 @@ pluginRules: {
   // or
   'style/max-statements-per-line': ['warn', { max: 1 }],
 }
-```Example:```ts
+```
 
+Example:
+
+```ts
 const a = 1; const b = 2 // two statements on one line
+```
 
-```Report: with`{ max: 1 }`, the second statement should be on a new line.
+Report: with `{ max: 1 }`, the second statement should be on a new line.
 
 ## Best practices
 

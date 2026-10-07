@@ -12,8 +12,9 @@ Operations:
 - remove unused simple named imports (aliases and all type imports are preserved)
 - merge multiple imports from the same source
 - keep default and namespace imports
-- split and collect `import type { ... }`- sort named specifiers alphabetically
-- flip simple one-letter aliases (e.g.,`import { X as Y }`becomes`{ Y as X }` when both are single letters) for a stable left-side key
+- split and collect `import type { ... }`
+- sort named specifiers alphabetically
+- flip simple one-letter aliases (e.g., `import { X as Y }` becomes `{ Y as X }` when both are single letters) for a stable left-side key
 - order modules and kinds deterministically
 
 ## Module ordering
@@ -39,54 +40,79 @@ import { x, y, z } from './util'
 function run() {
   console.log(B)
 }
-```After:```ts
+```
 
+After:
+
+```ts
 import { A, B } from 'lib'
 import { x, y, z } from './util'
 function run() {
   console.log(B)
 }
-
 ```
 
-`unused`was removed because it was not referenced and had no alias.
+`unused` was removed because it was not referenced and had no alias.
 
 ### Merging and separating type imports
 
-Before:```ts
+Before:
+
+```ts
 import type { T } from 'lib'
 import { A, B } from 'lib'
-```After:```ts
+```
 
+After:
+
+```ts
 import type { T } from 'lib'
 import { A, B } from 'lib'
+```
 
-```### Default, namespace, and named
+### Default, namespace, and named
 
-Before:```ts
+Before:
+
+```ts
 import { a, b, c } from 'pkg'
-import Pkg,*as All from 'pkg'
-```After:```ts
+import Pkg, * as All from 'pkg'
+```
 
-import Pkg,*as All from 'pkg'
+After:
+
+```ts
+import Pkg, * as All from 'pkg'
 import { a, b, c } from 'pkg'
+```
 
-```### Side-effect imports
+### Side-effect imports
 
-Side-effect imports are preserved and placed after type imports but before value imports.```ts
+Side-effect imports are preserved and placed after type imports but before value imports.
+
+```ts
 import type { Types } from 'lib'
 import { something } from './local'
 import 'reflect-metadata'
-```### Simple alias flipping
+```
+
+### Simple alias flipping
 
 Aliases where both sides are a single letter are flipped to normalize sorting by the left-side identifier.
 
-Before:```ts
-import { Z as Name, X as Y } from 'lib'
+Before:
 
-```After:```ts
+```ts
+import { Z as Name, X as Y } from 'lib'
+```
+
+After:
+
+```ts
 import { Z as Name, Y as X } from 'lib'
-```Only the simple single-letter case is flipped.
+```
+
+Only the simple single-letter case is flipped.
 
 ## Grouping and separation
 
@@ -95,14 +121,14 @@ If code follows the import block, the formatter ensures a trailing blank line af
 ## Unused named imports policy
 
 - Only simple named specifiers without an alias are candidates for removal
-- Default imports, namespace imports, and named specifiers with`as`aliases are kept
+- Default imports, namespace imports, and named specifiers with `as` aliases are kept
 - Type specifiers are always kept
 
 This heuristic balances cleanliness with safety.
 
 ## Edge cases
 
-- Multiple comment lines at the top are fine; imports begin when the first`import` is encountered
+- Multiple comment lines at the top are fine; imports begin when the first `import` is encountered
 - Inline ESLint/TS directives in the import block are preserved
 - Dynamic imports (`await import('x')`) are not affected (they are not `import` statements)
 

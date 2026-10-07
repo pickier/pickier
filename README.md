@@ -104,7 +104,7 @@ Lint files.
 | `--ext <exts>` | Comma-separated extensions (overrides config) | — |
 | `--ignore-path <file>` | Optional ignore file (e.g. `.gitignore`) | — |
 | `--config <path>` | Path to pickier config file | — |
-| `--cache` | Enable cache (reserved) | `false` |
+| `--cache` | Reuse results for unchanged files (stored in `.pickiercache`) | `false` |
 | `--verbose` | Verbose output | `false` |
 
 ### `pickier format [...globs]`
@@ -464,7 +464,7 @@ For casual chit-chat with others using this package:
 
 ## Postcardware
 
-“Software that is free, but hopes for a postcard.” We love receiving postcards from around the world showing where`pickier` is being used! We showcase them on our website too.
+“Software that is free, but hopes for a postcard.” We love receiving postcards from around the world showing where `pickier` is being used! We showcase them on our website too.
 
 Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094, United States 🌎
 

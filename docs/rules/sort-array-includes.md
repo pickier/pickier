@@ -10,10 +10,11 @@ Keeping arrays sorted improves scanability and reduces mistakes in membership ch
 pluginRules: {
   sort-array-includes: [warn, { type: alphabetical, order: asc, ignoreCase: true }],
 }
-```Options:
+```
 
--`type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
+Options:
 
+- `type`: alphabetical | natural | line-length | custom | unsorted (default: alphabetical)
 - `order`: asc | desc (default: asc)
 - `ignoreCase`: boolean (default: true)
 - `specialCharacters`: keep | trim | remove (default: keep)
@@ -44,8 +45,11 @@ function getProductCategories(product) {
   }
   return Unknown
 }
-```After (alphabetical asc):```ts
+```
 
+After (alphabetical asc):
+
+```ts
 if ([
   Drone,
   Headphones,
@@ -57,10 +61,11 @@ if ([
   Smartphone,
   Smartwatch,
   Tablet,
-].includes(product.name)) { /*...*/ }
+].includes(product.name)) { /* ... */ }
+```
 
-```## Best practices
+## Best practices
 
-- Use`natural`when values include numeric suffixes (e.g.,`item2`, `item10`)
-- Consider `partitionByNewLine: true`to preserve logical grouping inside long arrays
-- Keep at`warn` to surface unsorted lists without blocking
+- Use `natural` when values include numeric suffixes (e.g., `item2`, `item10`)
+- Consider `partitionByNewLine: true` to preserve logical grouping inside long arrays
+- Keep at `warn` to surface unsorted lists without blocking

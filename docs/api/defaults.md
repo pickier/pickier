@@ -4,7 +4,9 @@ Pickier ships with sensible defaults. You can import and inspect them:
 
 ```ts
 import { defaultConfig, config as loadedConfig } from 'pickier'
-```Static defaults from`packages/pickier/src/config.ts`:
+```
+
+Static defaults from `packages/pickier/src/config.ts`:
 
 ```ts
 export const defaultConfig = {
@@ -31,4 +33,6 @@ export const defaultConfig = {
   },
   verbose: false,
 }
-```At runtime,`config`is loaded via`bunfig`, which merges your local `pickier.config.*`over`defaultConfig`.
+```
+
+At runtime, `config` is loaded via `bunfig`, which merges your local `pickier.config.*` over `defaultConfig`.
