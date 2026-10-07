@@ -50,7 +50,7 @@ import { templateTagSpacingRule } from '../rules/style/template-tag-spacing'
 import { wrapIifeRule } from '../rules/style/wrap-iife'
 import { yieldStarSpacingRule } from '../rules/style/yield-star-spacing'
 
-import { codeOnly } from './utils'
+import { codeOnly, notMarkdown } from './utils'
 
 export const stylePlugin: PickierPlugin = {
   name: 'style',
@@ -62,9 +62,9 @@ export const stylePlugin: PickierPlugin = {
     'consistent-chaining': codeOnly(consistentChainingRule),
     'consistent-list-newline': codeOnly(consistentListNewlineRule),
     'indent-unindent': codeOnly(indentUnindentRule),
-    'no-multi-spaces': noMultiSpaces,
-    'no-multiple-empty-lines': noMultipleEmptyLines,
-    'no-trailing-spaces': noTrailingSpaces,
+    'no-multi-spaces': notMarkdown(noMultiSpaces),
+    'no-multiple-empty-lines': notMarkdown(noMultipleEmptyLines),
+    'no-trailing-spaces': notMarkdown(noTrailingSpaces),
     // Spacing rules
     'keyword-spacing': codeOnly(keywordSpacingRule),
     'arrow-spacing': codeOnly(arrowSpacingRule),

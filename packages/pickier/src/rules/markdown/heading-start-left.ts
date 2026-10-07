@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD023 - Headings must start at the beginning of the line
@@ -10,17 +11,12 @@ export const headingStartLeftRule: RuleModule = {
   check: (text, ctx) => {
     const issues: LintIssue[] = []
     const lines = text.split(/\r?\n/)
-    let inFence = false
+    // A `#` line inside a code block is code - a shell or YAML comment
+    const codeLines = getCodeBlockLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-
-      // Track fenced code blocks
-      if (/^(?:`{3,}|~{3,})/.test(line.trim())) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence)
+      if (codeLines.has(i))
         continue
 
       // Check for ATX heading with leading whitespace
@@ -42,9 +38,10 @@ export const headingStartLeftRule: RuleModule = {
   },
   fix: (text) => {
     const lines = text.split(/\r?\n/)
-    const fixedLines = lines.map((line) => {
-      // Remove leading whitespace from headings
-      return line.replace(/^(\s+)(#{1,6}\s)/, '$2')
+    const codeLines = getCodeBlockLines(lines)
+    const fixedLines = lines.map((line, i) => {
+      // Remove leading whitespace from headings, never from code
+      return codeLines.has(i) ? line : line.replace(/^(\s+)(#{1,6}\s)/, '$2')
     })
     return fixedLines.join('\n')
   },

@@ -1,5 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { getCodeBlockLines } from './_fence-tracking'
+import { getCodeBlockLines, replaceOutsideInlineCode } from './_fence-tracking'
 
 /**
  * MD034 - Bare URL used
@@ -77,7 +77,9 @@ export const noBareUrlsRule: RuleModule = {
       if (/^\[(?:[^\]]+)\]:\s*\S+/.test(line))
         return line
 
-      return line.replace(/(?<![<(="'])https?:\/\/[^\s<>`)\]"']+(?![>\])"'])/g, '<$&>')
+      // A URL in a code span is literal text, as the check treats it
+      return replaceOutsideInlineCode(line, segment =>
+        segment.replace(/(?<![<(="'])https?:\/\/[^\s<>`)\]"']+(?![>\])"'])/g, '<$&>'))
     })
     return fixedLines.join('\n')
   },

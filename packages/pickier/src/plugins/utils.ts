@@ -20,6 +20,31 @@ export function codeOnly(rule: RuleModule): RuleModule {
   }
 }
 
+const MARKDOWN_EXTS = /\.(?:md|mdx|markdown)$/i
+
+/**
+ * A rule for any text file except Markdown, where spacing is syntax: two
+ * trailing spaces are a hard line break, and runs of spaces align code
+ * blocks and tables. The markdown plugin has its own rules for these.
+ */
+export function notMarkdown(rule: RuleModule): RuleModule {
+  return {
+    meta: rule.meta,
+    check: (content: string, context: RuleContext): LintIssue[] => {
+      if (MARKDOWN_EXTS.test(context.filePath))
+        return []
+      return rule.check(content, context)
+    },
+    fix: rule.fix
+      ? (content: string, context: RuleContext): string => {
+          if (MARKDOWN_EXTS.test(context.filePath))
+            return content
+          return rule.fix!(content, context)
+        }
+      : undefined,
+  }
+}
+
 const SHELL_EXTS = /\.(?:sh|bash|zsh|ksh|dash)$/
 const SHELL_SHEBANG = /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/
 

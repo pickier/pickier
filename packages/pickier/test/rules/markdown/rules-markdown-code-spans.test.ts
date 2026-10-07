@@ -57,6 +57,19 @@ describe('MD038 - no-space-in-code', () => {
     expect(fixed).toBe('Use `code` here.')
   })
 
+  // A backtick at either end of the content needs one space of padding, which
+  // CommonMark strips; without it the backticks join the delimiters, and three
+  // in a row open a code fence.
+  it('keeps the padding a backtick inside the span needs', async () => {
+    const { noSpaceInCodeRule } = await import('../../../src/rules/markdown/no-space-in-code')
+    const ctx = { filePath: 'test.md', config: {} as any }
+    const text = 'For example, `` `${ name }` `` becomes `` `${name}` ``, and `` ` `` is a backtick.'
+    expect(noSpaceInCodeRule.check(text, ctx)).toEqual([])
+    expect(noSpaceInCodeRule.fix!(text, ctx)).toBe(text)
+    // Extra padding is still trimmed, down to the one space it needs
+    expect(noSpaceInCodeRule.fix!('``   `x`   ``', ctx)).toBe('`` `x` ``')
+  })
+
   it('fix: skips fenced code blocks', async () => {
     const { noSpaceInCodeRule } = await import('../../../src/rules/markdown/no-space-in-code')
     const input = '```\n` code `\n```\n'

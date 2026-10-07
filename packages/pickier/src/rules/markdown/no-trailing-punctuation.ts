@@ -1,6 +1,12 @@
 import type { LintIssue, RuleModule } from '../../types'
 
 /**
+ * markdownlint's default for MD026. A question mark is not on it: FAQ-style
+ * headings end in one, and taking it off changes what they say.
+ */
+const DEFAULT_PUNCTUATION = '.,;:!。，；：！'
+
+/**
  * MD026 - Trailing punctuation in heading
  */
 export const noTrailingPunctuationRule: RuleModule = {
@@ -13,7 +19,7 @@ export const noTrailingPunctuationRule: RuleModule = {
 
     // Default punctuation to check
     const options = (ctx.options as { punctuation?: string }) || {}
-    const punctuation = options.punctuation || '.,;:!?'
+    const punctuation = options.punctuation || DEFAULT_PUNCTUATION
 
     let inFence = false
     for (let i = 0; i < lines.length; i++) {
@@ -67,7 +73,7 @@ export const noTrailingPunctuationRule: RuleModule = {
   },
   fix: (text, ctx) => {
     const options = (ctx.options as { punctuation?: string }) || {}
-    const punctuation = options.punctuation || '.,;:!?'
+    const punctuation = options.punctuation || DEFAULT_PUNCTUATION
     const punctRegex = new RegExp(`[${punctuation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]+$`)
 
     const lines = text.split(/\r?\n/)

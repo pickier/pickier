@@ -1,4 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
+import { getCodeBlockLines } from './_fence-tracking'
 
 /**
  * MD012 - Multiple consecutive blank lines
@@ -14,12 +15,17 @@ export const noMultipleBlanksRule: RuleModule = {
     const options = (ctx.options as { maximum?: number }) || {}
     const maximum = options.maximum !== undefined ? options.maximum : 1
 
+    // Blank lines inside a code block are its content
+    const codeLines = getCodeBlockLines(lines)
     let consecutiveBlanks = 0
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (line.trim().length === 0) {
+      if (codeLines.has(i)) {
+        consecutiveBlanks = 0
+      }
+      else if (line.trim().length === 0) {
         consecutiveBlanks++
 
         if (consecutiveBlanks > maximum) {
@@ -46,10 +52,16 @@ export const noMultipleBlanksRule: RuleModule = {
 
     const lines = text.split(/\r?\n/)
     const result: string[] = []
+    const codeLines = getCodeBlockLines(lines)
     let consecutiveBlanks = 0
 
-    for (const line of lines) {
-      if (line.trim().length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (codeLines.has(i)) {
+        consecutiveBlanks = 0
+        result.push(line)
+      }
+      else if (line.trim().length === 0) {
         consecutiveBlanks++
         if (consecutiveBlanks <= maximum) {
           result.push(line)

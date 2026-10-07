@@ -94,14 +94,15 @@ describe('Edge Cases: no-trailing-punctuation fixer', () => {
 
     await runLint([tempPath], options)
     const fixed = readFileSync(tempPath, 'utf8')
+    // A question mark is not trailing punctuation (markdownlint's default)
     expect(fixed).toBe(`# Heading
 ## Another
-### What
+### What???
 `)
   })
 
   it('should handle mixed punctuation', async () => {
-    const content = `# Heading.,;:!?
+    const content = `# Heading.,;:!
 `
     const tempPath = createTempFile(content)
     const configPath = createConfigWithMarkdownRules({ 'markdown/no-trailing-punctuation': 'error' })
@@ -626,5 +627,32 @@ describe('Edge Cases: Empty and minimal files', () => {
     await runLint([tempPath], options)
     const fixed = readFileSync(tempPath, 'utf8')
     expect(fixed).toBe('# Heading')
+  })
+})
+
+// A `#` line or a run of blank lines inside a code block is code, not a
+// heading or spacing to tidy: fixers must leave code blocks as written.
+describe('Markdown fixers leave code blocks alone', () => {
+  it('heading-start-left and no-multiple-blanks', async () => {
+    const { headingStartLeftRule } = await import('../../../src/rules/markdown/heading-start-left')
+    const { noMultipleBlanksRule } = await import('../../../src/rules/markdown/no-multiple-blanks')
+    const ctx = { filePath: 'docs.md', config: {} as any }
+    const doc = '# Title\n\n```bash\nrun() {\n  # a comment\n  echo hi\n\n\n  done\n}\n```\n'
+    expect(headingStartLeftRule.check(doc, ctx)).toEqual([])
+    expect(headingStartLeftRule.fix!(doc, ctx)).toBe(doc)
+    expect(noMultipleBlanksRule.check(doc, ctx)).toEqual([])
+    expect(noMultipleBlanksRule.fix!(doc, ctx)).toBe(doc)
+    // Outside code they still apply
+    expect(headingStartLeftRule.fix!('  # Heading\n', ctx)).toBe('# Heading\n')
+    expect(noMultipleBlanksRule.fix!('a\n\n\n\nb\n', ctx)).toBe('a\n\nb\n')
+  })
+})
+
+describe('no-bare-urls fixer and code spans', () => {
+  it('wraps a bare URL in prose but not one in a code span', async () => {
+    const { noBareUrlsRule } = await import('../../../src/rules/markdown/no-bare-urls')
+    const ctx = { filePath: 'docs.md', config: {} as any }
+    expect(noBareUrlsRule.fix!('See https://example.com and `curl https://example.com`\n', ctx))
+      .toBe('See <https://example.com> and `curl https://example.com`\n')
   })
 })

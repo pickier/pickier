@@ -4,6 +4,18 @@ import { getCodeBlockLines } from './_fence-tracking'
 /**
  * MD038 - Spaces inside code span elements
  */
+
+/**
+ * Whether a code span's padding is there to hold a backtick: CommonMark strips
+ * one space from each end, so content that starts or ends with a backtick has
+ * to be written `` `like this` `` - without the spaces, the backticks merge
+ * with the delimiters (and three of them open a code fence).
+ */
+function padsBacktick(content: string): boolean {
+  const trimmed = content.trim()
+  return trimmed.startsWith('`') || trimmed.endsWith('`')
+}
+
 export const noSpaceInCodeRule: RuleModule = {
   meta: {
     docs: 'Code span elements should not have spaces inside the backticks',
@@ -25,7 +37,8 @@ export const noSpaceInCodeRule: RuleModule = {
       for (const match of line.matchAll(codeSpanPattern)) {
         const content = match[2]
         // Only flag if content has both leading and trailing spaces and non-empty trimmed content
-        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0) {
+        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0
+          && !(padsBacktick(content) && content === ` ${content.trim()} `)) {
           issues.push({
             filePath: ctx.filePath,
             line: i + 1,
@@ -54,8 +67,12 @@ export const noSpaceInCodeRule: RuleModule = {
 
       // Fix spaces inside code spans
       result.push(line.replace(/(`+)([\s\S]*?)\1/g, (match, backticks: string, content: string) => {
-        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0)
-          return `${backticks}${content.trim()}${backticks}`
+        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0) {
+          // Keep the one space each side that a backtick at either end needs
+          return padsBacktick(content)
+            ? `${backticks} ${content.trim()} ${backticks}`
+            : `${backticks}${content.trim()}${backticks}`
+        }
         return match
       }))
     }

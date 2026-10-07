@@ -308,9 +308,10 @@ describe('MD026 - no-trailing-punctuation', () => {
     expect(result.issues).toHaveLength(0)
   })
 
-  it('flags question marks in headings (default punctuation includes ?)', async () => {
+  // markdownlint's default leaves out `?`: FAQ-style headings end in one
+  it('allows a question mark (not in the default punctuation)', async () => {
     const result = await lint('# What is this?\n')
-    expect(result.issues.length).toBeGreaterThan(0)
+    expect(result.issues).toHaveLength(0)
   })
 
   it('skips headings inside fenced code blocks', async () => {

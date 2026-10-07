@@ -20,7 +20,7 @@ import { sortNamedImportsRule } from '../rules/sort/named-imports'
 import { sortObjectsRule } from '../rules/sort/objects'
 import { topLevelFunctionRule } from '../rules/style/top-level-function'
 import { sortTailwindClassesRule } from '../rules/sort/tailwind-classes'
-import { codeOnly } from './utils'
+import { codeOnly, notMarkdown } from './utils'
 
 export const pickierPlugin: PickierPlugin = {
   name: 'pickier',
@@ -48,7 +48,8 @@ export const pickierPlugin: PickierPlugin = {
     'top-level-function': codeOnly(topLevelFunctionRule),
 
     // Tailwind
-    'sort-tailwind-classes': sortTailwindClassesRule,
+    // Class lists in Markdown are examples in the prose, often deliberately unsorted
+    'sort-tailwind-classes': notMarkdown(sortTailwindClassesRule),
 
     // General rules (also registered in general plugin for backward compat)
     'prefer-const': codeOnly(preferConstRule),
