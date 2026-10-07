@@ -20,19 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Use cached node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            node-modules-
-
-      - name: Install Dependencies
-        run: bun install
+      # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@v0.11.73
 
       - name: Lint
         run: bun run lint
@@ -43,19 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Use cached node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            node-modules-
-
-      - name: Install Dependencies
-        run: bun install
+      # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@v0.11.73
 
       - name: Typecheck
         run: bun --bun run typecheck
@@ -66,19 +46,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Use cached node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            node-modules-
-
-      - name: Install Dependencies
-        run: bun install
+      # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@v0.11.73
 
       - name: Unit Test
         run: bun run test
@@ -92,24 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.16.0
-
-      - name: Use cached node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            node-modules-
-
-      - name: Install Dependencies
-        run: bun install
+      # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@v0.11.73
 
       - name: Native unit tests
         working-directory: packages/zig

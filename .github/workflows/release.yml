@@ -19,20 +19,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
+      # Installs what deps.yaml lists - Bun, and the Zig that cross-compiles
+      # the native lint engine shipped in the package - and the package
+      # dependencies
       - name: Setup Pantry
-        uses: home-lang/pantry/packages/action@main
-
-      # Cross-compiles the native lint engine shipped in the package
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.16.0
-
-      - name: Install Dependencies
-        run: bun install
+        uses: pantry-pm/pantry/packages/action@v0.11.73
 
       - name: Publish
         working-directory: packages/pickier
