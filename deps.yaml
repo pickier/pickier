@@ -2,4 +2,4 @@ dependencies:
   bun.sh: ^1.4.2
   # Builds the native lint engine (packages/zig). A tagged release, not a dev
   # build: ziglang.org keeps tagged releases and prunes old dev builds.
-  ziglang.org: 0.16.0
+  ziglang.org: 0.17.0-dev.131+73c51c142
