@@ -1,4 +1,5 @@
 import type { RuleModule } from '../../types'
+import { ShellContinuation } from './_continuation'
 
 /**
  * Enforce consistent indentation in shell scripts.
@@ -48,6 +49,7 @@ export const indentRule: RuleModule = {
     const lines = content.split(/\r?\n/)
     const indentSize = ctx.config.format.indent || 2
     let expectedLevel = 0
+    const continuation = new ShellContinuation()
     let inHeredoc = false
     let heredocDelim = ''
     let inCase = false
@@ -72,6 +74,7 @@ export const indentRule: RuleModule = {
       }
 
       const trimmed = line.replace(/^\s+/, '')
+      const flow = continuation.read(trimmed)
 
       // Skip shebang
       if (i === 0 && trimmed.startsWith('#!')) continue
@@ -88,7 +91,7 @@ export const indentRule: RuleModule = {
       }
 
       // Decrease before current line if needed
-      if (shouldDecreaseBefore(trimmed))
+      if (!flow.continuation && shouldDecreaseBefore(trimmed))
         expectedLevel = Math.max(0, expectedLevel - 1)
 
       // Measure actual indentation
@@ -105,7 +108,7 @@ export const indentRule: RuleModule = {
         }
       }
 
-      const expectedSpaces = expectedLevel * indentSize
+      const expectedSpaces = (expectedLevel + Number(flow.continuation)) * indentSize
 
       // Report if indentation doesn't match (skip comments that may float)
       if (actualSpaces !== expectedSpaces && !trimmed.startsWith('#')) {
@@ -120,7 +123,7 @@ export const indentRule: RuleModule = {
       }
 
       // Increase after current line if needed
-      if (shouldIncreaseAfter(trimmed, inCase))
+      if (flow.closesHeader || (!flow.continuation && shouldIncreaseAfter(trimmed, inCase)))
         expectedLevel++
     }
     return issues
@@ -131,6 +134,7 @@ export const indentRule: RuleModule = {
     const useTab = ctx.config.format.indentStyle === 'tabs'
     const result: string[] = []
     let level = 0
+    const continuation = new ShellContinuation()
     let inHeredoc = false
     let heredocDelim = ''
     let inCase = false
@@ -157,6 +161,7 @@ export const indentRule: RuleModule = {
       }
 
       const trimmed = line.replace(/^\s+/, '').trimEnd()
+      const flow = continuation.read(trimmed)
 
       // Shebang
       if (i === 0 && trimmed.startsWith('#!')) {
@@ -175,13 +180,14 @@ export const indentRule: RuleModule = {
           inCase = false
       }
 
-      if (shouldDecreaseBefore(trimmed))
+      if (!flow.continuation && shouldDecreaseBefore(trimmed))
         level = Math.max(0, level - 1)
 
-      const indent = useTab ? '\t'.repeat(level) : ' '.repeat(level * indentSize)
+      const visualLevel = level + Number(flow.continuation)
+      const indent = useTab ? '\t'.repeat(visualLevel) : ' '.repeat(visualLevel * indentSize)
       result.push(indent + trimmed)
 
-      if (shouldIncreaseAfter(trimmed, inCase))
+      if (flow.closesHeader || (!flow.continuation && shouldIncreaseAfter(trimmed, inCase)))
         level++
     }
     return result.join('\n')

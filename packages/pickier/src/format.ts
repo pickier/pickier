@@ -1,5 +1,6 @@
 import type { PickierConfig } from './types'
 import { heredocDelimiter } from './rules/shell/_shared'
+import { ShellContinuation } from './rules/shell/_continuation'
 
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
@@ -138,6 +139,7 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
   const indentSize = cfg.format.indent
   const useTab = cfg.format.indentStyle === 'tabs'
   let indentLevel = 0
+  const continuation = new ShellContinuation()
   let inHeredoc = false
   let heredocDelim = ''
   let inCase = false
@@ -182,6 +184,8 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
       continue
     }
 
+    const flow = continuation.read(trimmed)
+
     // Detect case/esac blocks
     if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) {
       caseDepth++
@@ -206,13 +210,21 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
     // Check if line should decrease indent BEFORE applying
     const shouldDecrease = /^(?:fi|done|esac|elif|else)\b/.test(trimmed) || /^\}/.test(trimmed)
 
-    if (shouldDecrease)
+    if (!flow.continuation && shouldDecrease)
       indentLevel = Math.max(0, indentLevel - 1)
-    if (isCaseTerminator)
+    if (!flow.continuation && isCaseTerminator)
       indentLevel = Math.max(0, indentLevel - 1)
 
-    const indent = useTab ? '\t'.repeat(indentLevel) : ' '.repeat(indentLevel * indentSize)
+    const visualLevel = indentLevel + Number(flow.continuation)
+    const indent = useTab ? '\t'.repeat(visualLevel) : ' '.repeat(visualLevel * indentSize)
     result[idx] = indent + trimmed
+
+    // A header may finish on a continuation line.
+    if (flow.continuation) {
+      if (flow.closesHeader)
+        indentLevel++
+      continue
+    }
 
     // Check if line should increase indent AFTER applying
     if (/^then\b/.test(trimmed) || /^do\b/.test(trimmed) || /^else\b/.test(trimmed))

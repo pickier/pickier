@@ -65,7 +65,9 @@ export const noVariableInSingleQuotesRule: RuleModule = {
             const sqContent = line.slice(sqStart + 1, j)
             // Look for variable-like patterns: $var, ${var}, $(cmd)
             const varMatch = sqContent.match(/\$(?:[A-Za-z_]\w*|\{[^}]+\}|\([^)]*\))/)
-            if (varMatch) {
+            // trap stores shell code and expands it when the signal fires.
+            const deferredTrap = /(?:^|[;&|])\s*(?:(?:then|do)\s+)?(?:(?:builtin|command)\s+)?trap\s+(?:--\s+)?$/.test(line.slice(0, sqStart))
+            if (varMatch && !deferredTrap) {
               issues.push({
                 filePath: ctx.filePath,
                 line: i + 1,
