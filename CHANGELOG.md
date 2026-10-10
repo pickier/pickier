@@ -1,3 +1,86 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.68...v0.1.69)
+
+## 🚀 Features
+
+- **native**: run the ported rules natively alongside TypeScript for the rest ([8663423](https://github.com/pickier/pickier/commit/8663423)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: port pickier/sort-exports to the native engine ([9a2a5cb](https://github.com/pickier/pickier/commit/9a2a5cb)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: port no-new, no-regex-spaces and prefer-global/{buffer,process} to the native engine ([00fd1ad](https://github.com/pickier/pickier/commit/00fd1ad)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: port no-multi-spaces, no-multiple-empty-lines and no-trailing-spaces to the native engine ([eab2193](https://github.com/pickier/pickier/commit/eab2193)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: port the lexer, no-unused-vars, no-unused-imports and no-top-level-await to the native engine ([107b914](https://github.com/pickier/pickier/commit/107b914)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **native**: mark prefer-const and prefer-template verified ([ad297e2](https://github.com/pickier/pickier/commit/ad297e2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: native general/prefer-const and general/prefer-template ([58828aa](https://github.com/pickier/pickier/commit/58828aa)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **native**: mark the three regexp rules verified ([3e41af6](https://github.com/pickier/pickier/commit/3e41af6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: native ports of the three regexp rules ([78cdda9](https://github.com/pickier/pickier/commit/78cdda9)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **native**: mark the built-in checks and six plugin rules verified ([8b6069b](https://github.com/pickier/pickier/commit/8b6069b)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: port the built-in checks and disable directives to the native engine ([2f3ba18](https://github.com/pickier/pickier/commit/2f3ba18)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: native brace-style, max-statements-per-line, import and tailwind rules ([d7d843c](https://github.com/pickier/pickier/commit/d7d843c)) _(by Chris <chrisbreuer93@gmail.com>)_
+- ship the native lint engine and hand it TS/JS files when it can ([0a80bfd](https://github.com/pickier/pickier/commit/0a80bfd)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: JavaScript string helpers for the native ports; decline shell scripts ([4d8ae00](https://github.com/pickier/pickier/commit/4d8ae00)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: native lint engine scaffold with a TypeScript parity harness ([345abb5](https://github.com/pickier/pickier/commit/345abb5)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: --cache keeps results for files that have not changed ([4c2f9e9](https://github.com/pickier/pickier/commit/4c2f9e9)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🐛 Bug Fixes
+
+- respect lexical boundaries in statement and regex rules ([0821be5](https://github.com/pickier/pickier/commit/0821be5)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: stop --fix and format from rewriting docs ([adb4748](https://github.com/pickier/pickier/commit/adb4748)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **build**: clear the previous build's output before building ([b381642](https://github.com/pickier/pickier/commit/b381642)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **native**: fall back to TypeScript when the engine cannot start ([8476144](https://github.com/pickier/pickier/commit/8476144)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **consistent-list-newline**: flag inconsistent lists, not every multi-line one ([059324d](https://github.com/pickier/pickier/commit/059324d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **directives**: a plugin-prefixed name suppresses a rule that reports a bare id ([ae8b332](https://github.com/pickier/pickier/commit/ae8b332)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **markdown**: changelog versions are their own sections at every heading level ([06c3582](https://github.com/pickier/pickier/commit/06c3582)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **glob**: lint every file named outright, not just the first ([34e4118](https://github.com/pickier/pickier/commit/34e4118)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **import-named**: resolve directory imports to their index file ([1ca4801](https://github.com/pickier/pickier/commit/1ca4801)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: count invalid UTF-8 as Bun decodes it, and run every port's unit tests ([d6cba12](https://github.com/pickier/pickier/commit/d6cba12)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **config**: only skip bunfig when no name it loads is present ([be96ea4](https://github.com/pickier/pickier/commit/be96ea4)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: detect Debug builds without Zig 0.17's deprecated alias ([17eae9c](https://github.com/pickier/pickier/commit/17eae9c)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: a second format pass never changes the final newlines ([1983f31](https://github.com/pickier/pickier/commit/1983f31)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: match the TS formatter on markdown and non-code files ([6dfe4d8](https://github.com/pickier/pickier/commit/6dfe4d8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: build with Zig 0.16 and 0.17-dev ([4990860](https://github.com/pickier/pickier/commit/4990860)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **cli**: honor --ext on the fast path ([e6265be](https://github.com/pickier/pickier/commit/e6265be)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: leave markdown code blocks and hard line breaks alone ([80d0598](https://github.com/pickier/pickier/commit/80d0598)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## ⚡ Performance Improvements
+
+- **consistent-list-newline**: stay linear on large files ([5c451e0](https://github.com/pickier/pickier/commit/5c451e0)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **build**: load bunfig's crypto, zlib and stream imports on first use ([f7283eb](https://github.com/pickier/pickier/commit/f7283eb)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **native**: compact wire format and the full verified rule set ([ee4f6ff](https://github.com/pickier/pickier/commit/ee4f6ff)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: faster cold starts, no quadratic rules, and worker threads ([6e7a483](https://github.com/pickier/pickier/commit/6e7a483)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: run the TypeScript pass on one array, without indentation ([9492e17](https://github.com/pickier/pickier/commit/9492e17)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: split markdown lines without copying CRLF documents ([1b08f75](https://github.com/pickier/pickier/commit/1b08f75)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **format**: cut per-line work in the code formatter ([3f6fc33](https://github.com/pickier/pickier/commit/3f6fc33)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **config**: skip bunfig when there is no config to find ([386d1bc](https://github.com/pickier/pickier/commit/386d1bc)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 📚 Documentation
+
+- undo the formatter damage, and set CI up with pantry ([1b336cb](https://github.com/pickier/pickier/commit/1b336cb)) _(by Chris <chrisbreuer93@gmail.com>)_
+- the native lint engine and its environment variables ([182b93f](https://github.com/pickier/pickier/commit/182b93f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **bench**: numbers from the native lint engine, Bun 1.4.2 and Node 26 ([5be9c3d](https://github.com/pickier/pickier/commit/5be9c3d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🤖 Continuous Integration
+
+- pantry action v0.11.74 ([8fb52ad](https://github.com/pickier/pickier/commit/8fb52ad)) _(by Chris <chrisbreuer93@gmail.com>)_
+- pantry action that only runs the JS install on a cache hit ([03bdae8](https://github.com/pickier/pickier/commit/03bdae8)) _(by Chris <chrisbreuer93@gmail.com>)_
+- pantry action that installs each toolchain once ([9ab2722](https://github.com/pickier/pickier/commit/9ab2722)) _(by Chris <chrisbreuer93@gmail.com>)_
+- Bun ^1.4.2, and the pantry action with its cache-hit fix ([30d9878](https://github.com/pickier/pickier/commit/30d9878)) _(by Chris <chrisbreuer93@gmail.com>)_
+- set up every job with pantry ([7136f7d](https://github.com/pickier/pickier/commit/7136f7d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- build and check the native engine on every push ([8e3c0f7](https://github.com/pickier/pickier/commit/8e3c0f7)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.69 ([fe43e29](https://github.com/pickier/pickier/commit/fe43e29)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **lint**: explain why the reference-link regex cannot backtrack ([d1f44f2](https://github.com/pickier/pickier/commit/d1f44f2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **bench**: time Pickier on one thread against oxfmt --threads=1 on mdn/content ([a2393da](https://github.com/pickier/pickier/commit/a2393da)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **zig**: parity --rule switches on a rule that is off by default ([5efc32d](https://github.com/pickier/pickier/commit/5efc32d)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **bench**: pinned competitor versions, verified CLIs and a whole-project lint group ([61bb5cc](https://github.com/pickier/pickier/commit/61bb5cc)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## bench
+
+- markdown vs oxfmt and Prettier, and fair formatter comparisons ([302e022](https://github.com/pickier/pickier/commit/302e022)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.67...v0.1.68)
 
 ## 🐛 Bug Fixes
