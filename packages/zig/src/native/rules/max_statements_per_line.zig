@@ -8,6 +8,7 @@
 const std = @import("std");
 const types = @import("../types.zig");
 const text = @import("../text.zig");
+const lexer = @import("../lexer.zig");
 
 /// `lastSignificant` when it holds a non-ASCII UTF-16 unit; null is `''`.
 const other: u8 = 0x80;
@@ -15,7 +16,8 @@ const other: u8 = 0x80;
 pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) anyerror!void {
     const a = ctx.allocator;
     const max = maxOption(ctx.options);
-    const lines = try text.splitLines(a, ctx.content);
+    const masked = try lexer.maskNonCode(a, ctx.content);
+    const lines = try text.splitLines(a, masked);
 
     for (lines, 0..) |line, i| {
         // `/^\s*$/`
@@ -101,11 +103,14 @@ fn skipFlags(s: []const u8, i: usize) usize {
 }
 
 fn countStatementsOnLine(line: []const u8) usize {
-    const effective = if (findLineCommentStart(line)) |c| line[0..c] else line;
+    const uncommented = if (findLineCommentStart(line)) |c| line[0..c] else line;
+    const leading = text.trimStart(uncommented);
+    var start: usize = 0;
+    while (start < leading.len and leading[start] == ';') start += 1;
+    const effective = leading[start..];
     var count_semis: usize = 0;
     var in_single = false;
     var in_double = false;
-    var in_backtick = false;
     var in_regex = false;
     var in_regex_class = false;
     var escape = false;
@@ -138,22 +143,17 @@ fn countStatementsOnLine(line: []const u8) usize {
             }
             continue;
         }
-        if (!in_double and !in_backtick and ch == '\'') {
+        if (!in_double and ch == '\'') {
             in_single = !in_single;
             last = if (in_single) '\'' else 'x';
             continue;
         }
-        if (!in_single and !in_backtick and ch == '"') {
+        if (!in_single and ch == '"') {
             in_double = !in_double;
             last = if (in_double) '"' else 'x';
             continue;
         }
-        if (!in_single and !in_double and ch == '`') {
-            in_backtick = !in_backtick;
-            last = if (in_backtick) '`' else 'x';
-            continue;
-        }
-        if (in_single or in_double or in_backtick) continue;
+        if (in_single or in_double) continue;
         if (ch == '/' and isRegexContext(last, effective, i - 1)) {
             in_regex = true;
             continue;

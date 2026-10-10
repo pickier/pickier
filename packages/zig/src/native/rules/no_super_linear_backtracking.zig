@@ -9,6 +9,7 @@ const std = @import("std");
 const types = @import("../types.zig");
 const text = @import("../text.zig");
 const re = @import("re_text.zig");
+const lexer = @import("../lexer.zig");
 
 const rule_id = "no-super-linear-backtracking";
 const msg_exchangeable = "The combination of ' .*' or ' .+?' with '\\s*' can cause super-linear backtracking due to exchangeable characters";
@@ -53,50 +54,16 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
     const s = ctx.content;
     const a = ctx.allocator;
 
-    // `/\/\*[\s\S]*?\*\//g` and `/\/\/[^\n]*/g`, each over the whole text
-    var blocks: std.ArrayList(Range) = .empty;
-    var from: usize = 0;
-    while (std.mem.indexOfPos(u8, s, from, "/*")) |open| {
-        const close = std.mem.indexOfPos(u8, s, open + 2, "*/") orelse break;
-        try blocks.append(a, .{ .start = open, .end = close + 2 });
-        from = close + 2;
-    }
-    var line_comments: std.ArrayList(Range) = .empty;
-    from = 0;
-    while (std.mem.indexOfPos(u8, s, from, "//")) |open| {
-        const end = std.mem.indexOfScalarPos(u8, s, open, '\n') orelse s.len;
-        try line_comments.append(a, .{ .start = open, .end = end });
-        from = end;
-    }
-    var in_block: Cursor = .{ .ranges = blocks.items };
-    var in_line: Cursor = .{ .ranges = line_comments.items };
-
+    const lexed = try lexer.lexSource(a, s);
     var lines: re.Lines = .{ .content = s };
     var flat: std.ArrayList(u8) = .empty;
     var collapsed: std.ArrayList(u8) = .empty;
     var atoms: std.ArrayList(u8) = .empty;
 
-    var pos: usize = 0;
-    while (std.mem.indexOfScalarPos(u8, s, pos, '/')) |idx| {
-        const end = switch (matchLiteral(s, idx)) {
-            .end => |e| e,
-            // Every `/` before the failure point is the second half of an
-            // escape on the same path, so it fails there too
-            .fail => |f| {
-                pos = f + 1;
-                continue;
-            },
-        };
-        pos = end;
-
-        if (in_block.contains(idx) or in_line.contains(idx)) continue;
-
-        const patt = s[idx + 1 .. end - 1];
-        if (idx > 0) {
-            const prev = s[idx - 1];
-            if (prev == ')' or prev == ']' or prev == '.' or text.isIdentByte(prev)) continue;
-            if (startsWithSpacesThenWord(patt) and hasWordBeforeParen(patt)) continue;
-        }
+    for (lexed.regions) |region| {
+        if (region.kind != .regex) continue;
+        const idx = region.start - 1;
+        const patt = s[region.start..region.end];
 
         // flat = patt.replace(/\[.*?\]/g, '')
         flat.clearRetainingCapacity();

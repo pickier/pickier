@@ -1,19 +1,19 @@
 import type { RuleModule } from '../../types'
+import { maskNonCode } from '../../lexer'
 
 export const maxStatementsPerLineRule: RuleModule = {
   meta: { docs: 'Limit the number of statements allowed on a single line' },
   check: (text, ctx) => {
     const max: number = (ctx.options && typeof (ctx.options as any).max === 'number') ? (ctx.options as any).max : 1
     const issues: ReturnType<RuleModule['check']> = []
-    const lines = text.split(/\r?\n/)
+    const lines = maskNonCode(text).split(/\r?\n/)
 
     const countStatementsOnLine = (line: string): number => {
       const commentIdx = findLineCommentStart(line)
-      const effective = commentIdx >= 0 ? line.slice(0, commentIdx) : line
+      const effective = (commentIdx >= 0 ? line.slice(0, commentIdx) : line).replace(/^\s*;+/, '')
       let countSemis = 0
       let inSingle = false
       let inDouble = false
-      let inBacktick = false
       let inRegex = false
       let inRegexClass = false
       let escape = false
@@ -60,22 +60,17 @@ export const maxStatementsPerLineRule: RuleModule = {
           }
           continue
         }
-        if (!inDouble && !inBacktick && ch === '\'') {
+        if (!inDouble && ch === '\'') {
           inSingle = !inSingle
           updateSignificant(inSingle ? '\'' : 'x')
           continue
         }
-        if (!inSingle && !inBacktick && ch === '"') {
+        if (!inSingle && ch === '"') {
           inDouble = !inDouble
           updateSignificant(inDouble ? '"' : 'x')
           continue
         }
-        if (!inSingle && !inDouble && ch === '`') {
-          inBacktick = !inBacktick
-          updateSignificant(inBacktick ? '`' : 'x')
-          continue
-        }
-        if (inSingle || inDouble || inBacktick)
+        if (inSingle || inDouble)
           continue
         if (ch === '/' && isRegexContext(lastSignificant, effective, i)) {
           inRegex = true

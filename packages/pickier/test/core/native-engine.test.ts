@@ -51,6 +51,14 @@ const sources = [
     ``,
   ],
 ]
+sources[0]!.push(
+  'const css = `\n.ink { stroke: black; fill: none; }\n`',
+  ';(rows[day] ||= []).push(row)',
+  'const report = { rate: Math.round(count / (active + count) * 1000) / 10 }',
+  'const literal = "/(.+)+/"',
+  'const nested = `${/(.+)+/.test(input)}`',
+)
+
 for (let i = 0; i < 12; i++)
   writeFileSync(join(project, 'src', `file-${i}.ts`), sources[i % sources.length]!.join('\n'))
 writeFileSync(join(project, 'README.md'), '# Title\n\nSome  text \n')
