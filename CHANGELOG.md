@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.70...v0.1.71)
+
+## 🐛 Bug Fixes
+
+- retain function body positions when checking unused parameters ([5764e68](https://github.com/pickier/pickier/commit/5764e68)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.71 ([2886117](https://github.com/pickier/pickier/commit/2886117)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.69...v0.1.70)
 
 ## 🐛 Bug Fixes
