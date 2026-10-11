@@ -90,7 +90,7 @@ fn stripFieldDefault(s: Str) Str {
     return s;
 }
 
-const Range = struct { from: usize, to: usize };
+const Range = struct { from: usize, to: usize, open_col: usize };
 
 /// Lines on which a `\w` run occurs: the first, and whether there is another.
 const WordLines = struct { first: usize, other: bool };
@@ -611,7 +611,9 @@ const Checker = struct {
                 if (ch == '\'' or ch == '"' or ch == '`') {
                     in_string = quoteOf(ch);
                 } else if (ch == '/' and scannerStartsRegex(str, i)) {
-                    i = skipRegex(str, i + 1);
+                    const start = i;
+                    i = @min(skipRegex(str, i + 1), str.len);
+                    try buf.appendNTimes(self.a, ' ', i - start);
                     continue;
                 }
             } else if (closes(in_string, ch)) in_string = .none;
@@ -624,12 +626,14 @@ const Checker = struct {
     /// Past a regex body starting at `i` and its flags.
     fn skipRegex(str: Str, start: usize) usize {
         var i = start;
+        var in_class = false;
         while (i < str.len) {
             if (str[i] == '\\') {
                 i += 2;
                 continue;
             }
-            if (str[i] == '/') {
+            if (str[i] == '[') in_class = true else if (str[i] == ']') in_class = false;
+            if (str[i] == '/' and !in_class) {
                 i += 1;
                 while (i < str.len and isRegexFlag(str[i])) i += 1;
                 break;
@@ -643,6 +647,7 @@ const Checker = struct {
     fn findBodyRange(self: *Checker, start_line_in: usize, start_col_from: usize) !?Range {
         var start_line = start_line_in;
         var open_found = false;
+        var open_col: usize = 0;
         var depth: i64 = 0;
         // Return type annotation tracking, across lines
         var body_brace_depth: i64 = 0;
@@ -749,6 +754,7 @@ const Checker = struct {
                 open_found = true;
                 depth = 1;
                 start_idx = f + 1;
+                open_col = f;
                 start_line = ln;
             }
 
@@ -826,7 +832,7 @@ const Checker = struct {
                     '{' => depth += 1,
                     '}' => {
                         depth -= 1;
-                        if (depth == 0) return .{ .from = start_line, .to = ln };
+                        if (depth == 0) return .{ .from = start_line, .to = ln, .open_col = open_col };
                     },
                     else => {},
                 }
@@ -1435,8 +1441,8 @@ const Checker = struct {
 
         const params = try self.paramNames(buf.items);
         const range = try self.findBodyRange(close_line, close);
-        // The body starts after the LAST `{` on the closing line
-        const brace = if (range) |r| (if (r.from == close_line) js.lastIndexOfScalar(self.lines[r.from], '{') else null) else null;
+        // Retain the opening brace found by the scanner, including nested literals.
+        const brace = if (range) |r| (if (r.from == close_line) r.open_col else null) else null;
         try self.checkParams(i, params, self.bodyText(range, close_line, brace));
     }
 

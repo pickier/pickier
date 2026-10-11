@@ -343,7 +343,7 @@ export const noUnusedVarsRule: RuleModule = {
                 const nameMatch = value.match(/^([$A-Z_][\w$]*)/i)
                 if (nameMatch) names.push(nameMatch[1])
               }
-else {
+              else {
                 // Simple field: name or name = default
                 let fieldName = field
                 // Strip default value
@@ -567,7 +567,8 @@ else {
       return true
     }
 
-    const findBodyRange = (startLine: number, startColFrom?: number): { from: number, to: number } | null => {
+    const findBodyRange = (startLine: number, startColFrom?: number): { from: number, to: number, openCol: number } | null => {
+      let openCol = 0
       let openFound = false
       let depth = 0
       // Persistent state for multi-line return type annotation detection
@@ -595,7 +596,7 @@ else {
         let inStr: 'single' | 'double' | 'template' | null = null
         let esc = false
         if (!inMultiLineTmplBody)
-        for (let i = 0; i < s.length - 1; i++) {
+          for (let i = 0; i < s.length - 1; i++) {
           const c = s[i]
           const next = s[i + 1]
 
@@ -666,14 +667,18 @@ else {
               }
               else if (ch === '/') {
                 if (scannerStartsRegex(str, i)) {
-                  // This is a regex - skip it
+                  // Preserve offsets while skipping the complete pattern.
+                  const regexStart = i
+                  let inClass = false
                   i++ // skip opening /
                   while (i < str.length) {
                     if (str[i] === '\\') {
                       i += 2
                       continue
                     }
-                    if (str[i] === '/') {
+                    if (str[i] === '[') inClass = true
+                    else if (str[i] === ']') inClass = false
+                    if (str[i] === '/' && !inClass) {
                       i++ // skip closing /
                       while (i < str.length && /[gimsuvy]/.test(str[i])) {
                         i++
@@ -682,6 +687,7 @@ else {
                     }
                     i++
                   }
+                  result += ' '.repeat(Math.min(i, str.length) - regexStart)
                   continue
                 }
               }
@@ -758,47 +764,47 @@ else {
                   // the annotation, anything else starts the body.
                   //
                   //   ): { ok: true, value: T } | { ok: false, error: string } {
-                  //                              ^ union, not the body        ^ body
-                  //
-                  // Taking the union's second object as the body made the whole
-                  // function read as empty, so every parameter looked unused -
-                  // and the autofix then renamed them to `_name` while leaving
-                  // the body referring to `name`, which does not compile.
-                  if (bodySawBracePair && bodyAngleDepth === 0 && !TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
-                    foundIdx = i
-                    break
+                    //                              ^ union, not the body        ^ body
+                    //
+                    // Taking the union's second object as the body made the whole
+                    // function read as empty, so every parameter looked unused -
+                    // and the autofix then renamed them to `_name` while leaving
+                    // the body referring to `name`, which does not compile.
+                    if (bodySawBracePair && bodyAngleDepth === 0 && !TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
+                      foundIdx = i
+                      break
+                    }
+                    // This is the first '{' - could be inside return type or function body
                   }
-                  // This is the first '{' - could be inside return type or function body
+                  bodyBraceDepth++
                 }
-                bodyBraceDepth++
-              }
-              else if (c === '}') {
-                if (bodyBraceDepth > 0) {
-                  bodyBraceDepth--
-                  if (bodyBraceDepth === 0) {
-                    // We've closed a brace pair (likely in return type annotation)
-                    bodySawBracePair = true
-                    // Recorded because the tracker above skips braces, and
-                    // without this the character in front of the next candidate
-                    // is whatever preceded the pair - the union's `|`, forever.
-                    lastNonWhitespaceBeforeBrace = '}'
+                else if (c === '}') {
+                  if (bodyBraceDepth > 0) {
+                    bodyBraceDepth--
+                    if (bodyBraceDepth === 0) {
+                      // We've closed a brace pair (likely in return type annotation)
+                      bodySawBracePair = true
+                      // Recorded because the tracker above skips braces, and
+                      // without this the character in front of the next candidate
+                      // is whatever preceded the pair - the union's `|`, forever.
+                      lastNonWhitespaceBeforeBrace = '}'
+                    }
                   }
+                }
+              }
+              else {
+                if ((bodyInStr === 'single' && c === '\'')
+                  || (bodyInStr === 'double' && c === '"')
+                  || (bodyInStr === 'template' && c === '`')) {
+                  bodyInStr = null
                 }
               }
             }
-            else {
-              if ((bodyInStr === 'single' && c === '\'')
-                || (bodyInStr === 'double' && c === '"')
-                || (bodyInStr === 'template' && c === '`')) {
-                bodyInStr = null
-              }
-            }
-          }
-          // If we didn't find it with the brace pair logic:
-          // - If inside a brace pair AND the '{' directly followed ':' (object return type), continue to next line
-          // - Otherwise, use the first '{' on this line (common case: no return type)
-          if (foundIdx === -1) {
-            /*
+            // If we didn't find it with the brace pair logic:
+            // - If inside a brace pair AND the '{' directly followed ':' (object return type), continue to next line
+            // - Otherwise, use the first '{' on this line (common case: no return type)
+            if (foundIdx === -1) {
+              /*
              * An unclosed `<` means the return type is still open, whatever
              * else this line contained.
              *
@@ -816,592 +822,593 @@ else {
              * unused, and `--fix` renamed them while the real body still used
              * them.
              */
-            if (bodyAngleDepth > 0)
-              continue
+              if (bodyAngleDepth > 0)
+                continue
 
-            if (bodyBraceDepth > 0 && TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
-              // An open brace that began the return type, still unclosed when
-              // the line ended: a multi-line object type. Keep reading.
-              //
-              // The test used to be `=== ':'` alone, which covered `): {` and
-              // missed `): Promise<{`. Falling through on that one took the
-              // generic's own brace for the body, so the body read as the
-              // annotation, every parameter looked unused, and `--fix` renamed
-              // them out from under the code that used them.
+              if (bodyBraceDepth > 0 && TYPE_CONTINUATION.has(lastNonWhitespaceBeforeBrace)) {
+                // An open brace that began the return type, still unclosed when
+                // the line ended: a multi-line object type. Keep reading.
+                //
+                // The test used to be `=== ':'` alone, which covered `): {` and
+                // missed `): Promise<{`. Falling through on that one took the
+                // generic's own brace for the body, so the body read as the
+                // annotation, every parameter looked unused, and `--fix` renamed
+                // them out from under the code that used them.
+                continue
+              }
+              // No brace pair in progress, find the first '{' (common case: no return type annotation)
+              for (let i = searchStart; i < lineToProcess.length; i++) {
+                const c = lineToProcess[i]
+                if (c === '{' && !bodyInStr) {
+                  foundIdx = i
+                  break
+                }
+              }
+            }
+            if (foundIdx === -1)
+              continue
+            openFound = true
+            depth = 1
+            startIdx = foundIdx + 1
+            openCol = foundIdx
+            startLine = ln // Update startLine to where body '{' was actually found
+          }
+          // Track string state to skip braces inside strings and template literals.
+          // Template literals with ${} expressions need stack-based tracking because
+          // nested templates (e.g., `${cond ? `inner` : ''}`) require knowing the
+          // brace depth at each nesting level.
+          // NOTE: State persists across lines via depthInSingle/depthInDouble/depthTmplStack/depthEscaped
+          // which are declared before the outer loop.
+          for (let k = startIdx; k < lineToProcess.length; k++) {
+            const ch = lineToProcess[k]
+
+            if (depthEscaped) {
+              depthEscaped = false
               continue
             }
-            // No brace pair in progress, find the first '{' (common case: no return type annotation)
-            for (let i = searchStart; i < lineToProcess.length; i++) {
-              const c = lineToProcess[i]
-              if (c === '{' && !bodyInStr) {
-                foundIdx = i
-                break
+
+            const inTmplBody = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] === -1
+            const inTmplExpr = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] >= 0
+
+            if (ch === '\\' && (depthInSingle || depthInDouble || inTmplBody)) {
+              depthEscaped = true
+              continue
+            }
+
+            if (depthInSingle) {
+              // eslint-disable-next-line style/max-statements-per-line
+              if (ch === '\'') depthInSingle = false
+              continue
+            }
+            if (depthInDouble) {
+              // eslint-disable-next-line style/max-statements-per-line
+              if (ch === '"') depthInDouble = false
+              continue
+            }
+
+            if (inTmplBody) {
+              // eslint-disable-next-line style/max-statements-per-line
+              if (ch === '`') { depthTmplStack.pop() }
+              else if (ch === '$' && k + 1 < lineToProcess.length && lineToProcess[k + 1] === '{') {
+                // eslint-disable-next-line style/max-statements-per-line
+                depthTmplStack[depthTmplStack.length - 1] = 0
+                // eslint-disable-next-line style/max-statements-per-line
+                k++ // skip the {
+                }
+                continue
+              }
+
+              if (inTmplExpr) {
+                if (ch === '/') {
+                  if (scannerStartsRegex(lineToProcess, k)) {
+                    k++
+                    while (k < lineToProcess.length) {
+                      if (lineToProcess[k] === '\\') {
+                        k += 2
+                        continue
+                      }
+                      if (lineToProcess[k] === '/') {
+                        while (k + 1 < lineToProcess.length && /[gimsuvy]/.test(lineToProcess[k + 1])) {
+                          k++
+                        }
+                        break
+                      }
+                      k++
+                    }
+                    continue
+                  }
+                }
+                if (ch === '`') {
+                  depthTmplStack.push(-1)
+                  continue
+                }
+                if (ch === '\'') {
+                  depthInSingle = true
+                  continue
+                }
+                if (ch === '"') {
+                  depthInDouble = true
+                  continue
+                }
+                if (ch === '{') {
+                  depthTmplStack[depthTmplStack.length - 1]++
+                  continue
+                }
+                if (ch === '}') {
+                  if (depthTmplStack[depthTmplStack.length - 1] > 0) {
+                    depthTmplStack[depthTmplStack.length - 1]--
+                  }
+                  else {
+                    depthTmplStack[depthTmplStack.length - 1] = -1 // back to template body
+                  }
+                }
+                continue
+              }
+
+              // Outside any string/template
+              if (ch === '\'') { depthInSingle = true }
+              else if (ch === '"') { depthInDouble = true }
+              else if (ch === '`') { depthTmplStack.push(-1) }
+              else if (ch === '{') { depth++ }
+              else if (ch === '}') {
+                depth--
+                if (depth === 0)
+                  return { from: startLine, to: ln, openCol }
               }
             }
           }
-          if (foundIdx === -1)
-            continue
-          openFound = true
-          depth = 1
-          startIdx = foundIdx + 1
-          startLine = ln // Update startLine to where body '{' was actually found
+          return null
         }
-        // Track string state to skip braces inside strings and template literals.
-        // Template literals with ${} expressions need stack-based tracking because
-        // nested templates (e.g., `${cond ? `inner` : ''}`) require knowing the
-        // brace depth at each nesting level.
-        // NOTE: State persists across lines via depthInSingle/depthInDouble/depthTmplStack/depthEscaped
-        // which are declared before the outer loop.
-        for (let k = startIdx; k < lineToProcess.length; k++) {
-          const ch = lineToProcess[k]
-
-          if (depthEscaped) {
-            depthEscaped = false
-            continue
+        const collectArrowExpressionBody = (startLine: number, arrowCol: number): string => {
+          const state = {
+            parenDepth: 0,
+            braceDepth: 0,
+            bracketDepth: 0,
+            inTemplate: false,
           }
-
-          const inTmplBody = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] === -1
-          const inTmplExpr = depthTmplStack.length > 0 && depthTmplStack[depthTmplStack.length - 1] >= 0
-
-          if (ch === '\\' && (depthInSingle || depthInDouble || inTmplBody)) {
-            depthEscaped = true
-            continue
-          }
-
-          if (depthInSingle) {
-            // eslint-disable-next-line style/max-statements-per-line
-            if (ch === '\'') depthInSingle = false
-            continue
-          }
-          if (depthInDouble) {
-            // eslint-disable-next-line style/max-statements-per-line
-            if (ch === '"') depthInDouble = false
-            continue
-          }
-
-          if (inTmplBody) {
-            // eslint-disable-next-line style/max-statements-per-line
-            if (ch === '`') { depthTmplStack.pop() }
-            else if (ch === '$' && k + 1 < lineToProcess.length && lineToProcess[k + 1] === '{') {
-              // eslint-disable-next-line style/max-statements-per-line
-              depthTmplStack[depthTmplStack.length - 1] = 0
-              // eslint-disable-next-line style/max-statements-per-line
-              k++ // skip the {
+          const updateState = (text: string): void => {
+            for (let k = 0; k < text.length; k++) {
+              const ch = text[k]
+              if (ch === '`')
+                state.inTemplate = !state.inTemplate
+              else if (ch === '(')
+                state.parenDepth++
+              else if (ch === ')')
+                state.parenDepth--
+              else if (ch === '{')
+                state.braceDepth++
+              else if (ch === '}')
+                state.braceDepth--
+              else if (ch === '[')
+                state.bracketDepth++
+              else if (ch === ']')
+                state.bracketDepth--
             }
-            continue
+          }
+          const isOpen = (): boolean =>
+          state.parenDepth > 0 || state.braceDepth > 0 || state.bracketDepth > 0 || state.inTemplate
+          const endsWithContinuation = (text: string): boolean =>
+          /(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)$/.test(text.trimEnd())
+          const startsWithContinuation = (text: string): boolean =>
+          /^(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)/.test(text.trimStart())
+
+          let bodyText = lines[startLine].slice(arrowCol + 2)
+          updateState(bodyText)
+          // Whether bodyText.trim() is non-empty, kept up to date as lines are
+          // appended instead of trimming the whole growing body every time.
+          let bodyHasContent = bodyText.trim() !== ''
+
+          let nextLine = startLine + 1
+          while (nextLine < lines.length) {
+            const previousLine = nextLine === startLine + 1 ? bodyText : lines[nextLine - 1]
+            const shouldContinue = !bodyHasContent
+              || isOpen()
+              || endsWithContinuation(previousLine)
+              || startsWithContinuation(lines[nextLine])
+
+            if (!shouldContinue)
+              break
+
+            bodyText += `\n${lines[nextLine]}`
+            bodyHasContent ||= lines[nextLine].trim() !== ''
+            updateState(lines[nextLine])
+            nextLine++
           }
 
-          if (inTmplExpr) {
-            if (ch === '/') {
-              if (scannerStartsRegex(lineToProcess, k)) {
-                k++
-                while (k < lineToProcess.length) {
-                  if (lineToProcess[k] === '\\') {
-                    k += 2
-                    continue
+          return bodyText
+        }
+
+        // Multi-line template literal state tracking for main processing loop.
+        // Persists across lines to correctly mask generated code inside template body content.
+        const mainTmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr with that brace depth
+        let mainInSingle = false
+        let mainInDouble = false
+        let mainEscaped = false
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
+
+          // Skip comment-only lines
+          if (/^\s*\/\//.test(line))
+          continue
+
+          // Skip lines that start inside a template literal body — that's
+          // generated code (e.g. injected <script> blobs), not real TS, and
+          // a `function(a)` pattern there is not a real declaration whose
+          // parameter we can analyze for usage.
+          if (lineStartsInTemplate[i])
+            continue
+
+          // Strip inline comments for processing (but keep original line for column reporting)
+          // Need to be careful not to strip // inside strings or regex literals
+          let codeOnly = line
+          // Find // that's outside of strings and regex
+          let inStr: 'single' | 'double' | 'template' | null = null
+          let inRegex = false
+          let escaped = false
+          for (let idx = 0; idx < line.length - 1; idx++) {
+            const ch = line[idx]
+            const next = line[idx + 1]
+
+            if (escaped) {
+              escaped = false
+              continue
+            }
+
+            if (ch === '\\' && (inStr || inRegex)) {
+              escaped = true
+              continue
+            }
+
+            if (!inStr && !inRegex) {
+              if (ch === '\'') {
+                inStr = 'single'
+              }
+              else if (ch === '"') {
+                inStr = 'double'
+              }
+              else if (ch === '`') {
+                inStr = 'template'
+              }
+              else if (ch === '/') {
+                // Check if this is a regex or a comment
+                // Regex can appear after: = ( [ { , : ; ! & | ? or at start of line
+                if (scannerStartsRegex(line, idx)) {
+                  inRegex = true
+                }
+                else if (next === '/') {
+                  codeOnly = line.slice(0, idx)
+                  break
+                }
+              }
+            }
+            else if (inStr) {
+              if ((inStr === 'single' && ch === '\'')
+                || (inStr === 'double' && ch === '"')
+                || (inStr === 'template' && ch === '`')) {
+                inStr = null
+              }
+            }
+            else if (inRegex && ch === '/') {
+              inRegex = false
+            }
+          }
+
+          // Also strip regex literals to avoid matching => inside regex patterns
+          // Use the same helper function from linter.ts
+          const stripRegex = (str: string): string => {
+            let result = ''
+            let i = 0
+            while (i < str.length) {
+              if (str[i] === '/') {
+                if (scannerStartsRegex(str, i)) {
+                  i++ // skip opening /
+                  while (i < str.length) {
+                    if (str[i] === '\\') {
+                      i += 2
+                      continue
+                    }
+                    if (str[i] === '/') {
+                      i++ // skip closing /
+                      while (i < str.length && /[gimsuvy]/.test(str[i])) {
+                        i++
+                      }
+                      break
+                    }
+                    i++
                   }
-                  if (lineToProcess[k] === '/') {
-                    while (k + 1 < lineToProcess.length && /[gimsuvy]/.test(lineToProcess[k + 1])) {
-                      k++
+                  continue
+                }
+              }
+              result += str[i]
+              i++
+            }
+            return result
+          }
+          const codeNoRegex = stripRegex(codeOnly)
+          // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
+          let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
+          // Mask template literal body content using stack-based tracking that persists across lines.
+          // Content inside ${} expressions is preserved (it's real code), body content is masked.
+          // This handles both single-line and multi-line templates correctly, including nested templates.
+          // Outside every string and template, a line without a quote or a
+          // backtick passes through the loop below unchanged; skip it.
+          const plainLine = !mainEscaped && !mainInSingle && !mainInDouble && mainTmplStack.length === 0
+            && !codeClean.includes('`') && !codeClean.includes('\'') && !codeClean.includes('"')
+          if (!plainLine) {
+            let masked = ''
+            for (let ci = 0; ci < codeClean.length; ci++) {
+              const ch = codeClean[ci]
+
+              if (mainEscaped) {
+                mainEscaped = false
+                const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
+                masked += inBody ? ' ' : ch
+                continue
+              }
+
+              const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
+              const inExpr = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] >= 0
+
+              if (ch === '\\' && (mainInSingle || mainInDouble || inBody)) {
+                mainEscaped = true
+                masked += inBody ? ' ' : ch
+                continue
+              }
+
+              if (mainInSingle) {
+                if (ch === '\'') mainInSingle = false
+                masked += ch
+                continue
+              }
+
+              if (mainInDouble) {
+                if (ch === '"') mainInDouble = false
+                masked += ch
+                continue
+              }
+
+              // Inside template body (literal content — not real code)
+              if (inBody) {
+                if (ch === '`') {
+                  mainTmplStack.pop()
+                }
+                else if (ch === '$' && ci + 1 < codeClean.length && codeClean[ci + 1] === '{') {
+                  mainTmplStack[mainTmplStack.length - 1] = 0
+                  masked += '  '
+                  ci++
+                }
+                else {
+                  masked += ' '
+                }
+                continue
+              }
+
+              // Inside ${} expression (real code inside template)
+              if (inExpr) {
+                if (ch === '`') {
+                  mainTmplStack.push(-1)
+                  masked += ' '
+                }
+                else if (ch === '\'') {
+                  mainInSingle = true
+                  masked += ch
+                }
+                else if (ch === '"') {
+                  mainInDouble = true
+                  masked += ch
+                }
+                else if (ch === '{') {
+                  mainTmplStack[mainTmplStack.length - 1]++
+                  masked += ch
+                }
+                else if (ch === '}') {
+                  if (mainTmplStack[mainTmplStack.length - 1] > 0) {
+                    mainTmplStack[mainTmplStack.length - 1]--
+                    masked += ch
+                  }
+                  else {
+                    mainTmplStack[mainTmplStack.length - 1] = -1
+                    masked += ' '
+                  }
+                }
+                else {
+                  masked += ch
+                }
+                continue
+              }
+
+              // Outside any template/string
+              if (ch === '`') {
+                mainTmplStack.push(-1)
+                masked += ' '
+              }
+              else if (ch === '\'') {
+                mainInSingle = true
+                masked += ch
+              }
+              else if (ch === '"') {
+                mainInDouble = true
+                masked += ch
+              }
+              else {
+                masked += ch
+              }
+            }
+            codeClean = masked
+          }
+
+          // function declarations or expressions
+          const m = codeClean.match(/\bfunction\b/)
+          if (m) {
+            // Skip known complex functions with deep nesting that cause false positives
+            if (line.includes('function scanContent') || line.includes('function findMatching')) {
+              continue
+            }
+            // Skip 'function' used as a property name in destructuring: { function: value }
+            const afterFunc = codeClean.slice(m.index! + 8).trimStart()
+            if (afterFunc.startsWith(':')) {
+              continue
+            }
+            // Skip property access — `obj.function` / `obj?.function` is not a declaration.
+            const beforeFunc = codeClean.slice(0, m.index!).trimEnd()
+            if (beforeFunc.endsWith('.') || beforeFunc.endsWith('?.')) {
+              continue
+            }
+            // Find the opening ( for parameters
+            const funcIdx = m.index!
+            const openParenIdx = line.indexOf('(', funcIdx)
+            if (openParenIdx === -1)
+              continue
+
+            // Find matching closing ) by counting parentheses - may span multiple lines
+            let depth = 0
+            let closeParenIdx = -1
+            let closeParenLine = i
+            let paramStr = ''
+
+            // Start from the opening parenthesis
+            for (let ln = i; ln < lines.length; ln++) {
+              const searchLine = ln === i ? lines[ln] : lines[ln]
+              const startIdx = ln === i ? openParenIdx : 0
+
+              for (let k = startIdx; k < searchLine.length; k++) {
+                if (searchLine[k] === '(') {
+                  depth++
+                }
+                else if (searchLine[k] === ')') {
+                  depth--
+                  if (depth === 0) {
+                    closeParenIdx = k
+                    closeParenLine = ln
+                    // Collect parameter text across all lines
+                    if (i === ln) {
+                      // Single line function
+                      paramStr = line.slice(openParenIdx + 1, closeParenIdx)
+                    }
+                    else {
+                      // Multi-line function - collect all parameter text
+                      paramStr = line.slice(openParenIdx + 1) // rest of first line
+                      for (let j = i + 1; j < ln; j++) {
+                        paramStr += ` ${lines[j]}` // middle lines
+                      }
+                      paramStr += ` ${searchLine.slice(0, closeParenIdx)}` // last line up to )
                     }
                     break
                   }
-                  k++
                 }
-                continue
               }
+              if (closeParenIdx !== -1)
+                break
             }
-            if (ch === '`') {
-              depthTmplStack.push(-1)
+
+            if (closeParenIdx === -1)
               continue
-            }
-            if (ch === '\'') {
-              depthInSingle = true
+
+            // An overload declaration has no body of its own, so there is nothing
+            // its parameters could be used in. See `signatureHasNoBody`.
+            if (signatureHasNoBody(closeParenLine, closeParenIdx))
               continue
-            }
-            if (ch === '"') {
-              depthInDouble = true
-              continue
-            }
-            if (ch === '{') {
-              depthTmplStack[depthTmplStack.length - 1]++
-              continue
-            }
-            if (ch === '}') {
-              if (depthTmplStack[depthTmplStack.length - 1] > 0) {
-                depthTmplStack[depthTmplStack.length - 1]--
-              }
-              else {
-                depthTmplStack[depthTmplStack.length - 1] = -1 // back to template body
-              }
-            }
-            continue
-          }
 
-          // Outside any string/template
-          if (ch === '\'') { depthInSingle = true }
-          else if (ch === '"') { depthInDouble = true }
-          else if (ch === '`') { depthTmplStack.push(-1) }
-          else if (ch === '{') { depth++ }
-          else if (ch === '}') {
-            depth--
-            if (depth === 0)
-              return { from: startLine, to: ln }
-          }
-        }
-      }
-      return null
-    }
-    const collectArrowExpressionBody = (startLine: number, arrowCol: number): string => {
-      const state = {
-        parenDepth: 0,
-        braceDepth: 0,
-        bracketDepth: 0,
-        inTemplate: false,
-      }
-      const updateState = (text: string): void => {
-        for (let k = 0; k < text.length; k++) {
-          const ch = text[k]
-          if (ch === '`')
-            state.inTemplate = !state.inTemplate
-          else if (ch === '(')
-            state.parenDepth++
-          else if (ch === ')')
-            state.parenDepth--
-          else if (ch === '{')
-            state.braceDepth++
-          else if (ch === '}')
-            state.braceDepth--
-          else if (ch === '[')
-            state.bracketDepth++
-          else if (ch === ']')
-            state.bracketDepth--
-        }
-      }
-      const isOpen = (): boolean =>
-        state.parenDepth > 0 || state.braceDepth > 0 || state.bracketDepth > 0 || state.inTemplate
-      const endsWithContinuation = (text: string): boolean =>
-        /(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)$/.test(text.trimEnd())
-      const startsWithContinuation = (text: string): boolean =>
-        /^(?:\?|:|\.|,|&&|\|\||\?\?|\+|-|\*|\/|%|\*\*)/.test(text.trimStart())
-
-      let bodyText = lines[startLine].slice(arrowCol + 2)
-      updateState(bodyText)
-      // Whether bodyText.trim() is non-empty, kept up to date as lines are
-      // appended instead of trimming the whole growing body every time.
-      let bodyHasContent = bodyText.trim() !== ''
-
-      let nextLine = startLine + 1
-      while (nextLine < lines.length) {
-        const previousLine = nextLine === startLine + 1 ? bodyText : lines[nextLine - 1]
-        const shouldContinue = !bodyHasContent
-          || isOpen()
-          || endsWithContinuation(previousLine)
-          || startsWithContinuation(lines[nextLine])
-
-        if (!shouldContinue)
-          break
-
-        bodyText += `\n${lines[nextLine]}`
-        bodyHasContent ||= lines[nextLine].trim() !== ''
-        updateState(lines[nextLine])
-        nextLine++
-      }
-
-      return bodyText
-    }
-
-    // Multi-line template literal state tracking for main processing loop.
-    // Persists across lines to correctly mask generated code inside template body content.
-    const mainTmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr with that brace depth
-    let mainInSingle = false
-    let mainInDouble = false
-    let mainEscaped = false
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-
-      // Skip comment-only lines
-      if (/^\s*\/\//.test(line))
-        continue
-
-      // Skip lines that start inside a template literal body — that's
-      // generated code (e.g. injected <script> blobs), not real TS, and
-      // a `function(a)` pattern there is not a real declaration whose
-      // parameter we can analyze for usage.
-      if (lineStartsInTemplate[i])
-        continue
-
-      // Strip inline comments for processing (but keep original line for column reporting)
-      // Need to be careful not to strip // inside strings or regex literals
-      let codeOnly = line
-      // Find // that's outside of strings and regex
-      let inStr: 'single' | 'double' | 'template' | null = null
-      let inRegex = false
-      let escaped = false
-      for (let idx = 0; idx < line.length - 1; idx++) {
-        const ch = line[idx]
-        const next = line[idx + 1]
-
-        if (escaped) {
-          escaped = false
-          continue
-        }
-
-        if (ch === '\\' && (inStr || inRegex)) {
-          escaped = true
-          continue
-        }
-
-        if (!inStr && !inRegex) {
-          if (ch === '\'') {
-            inStr = 'single'
-          }
-          else if (ch === '"') {
-            inStr = 'double'
-          }
-          else if (ch === '`') {
-            inStr = 'template'
-          }
-          else if (ch === '/') {
-            // Check if this is a regex or a comment
-            // Regex can appear after: = ( [ { , : ; ! & | ? or at start of line
-            if (scannerStartsRegex(line, idx)) {
-              inRegex = true
-            }
-            else if (next === '/') {
-              codeOnly = line.slice(0, idx)
-              break
-            }
-          }
-        }
-        else if (inStr) {
-          if ((inStr === 'single' && ch === '\'')
-            || (inStr === 'double' && ch === '"')
-            || (inStr === 'template' && ch === '`')) {
-            inStr = null
-          }
-        }
-        else if (inRegex && ch === '/') {
-          inRegex = false
-        }
-      }
-
-      // Also strip regex literals to avoid matching => inside regex patterns
-      // Use the same helper function from linter.ts
-      const stripRegex = (str: string): string => {
-        let result = ''
-        let i = 0
-        while (i < str.length) {
-          if (str[i] === '/') {
-            if (scannerStartsRegex(str, i)) {
-              i++ // skip opening /
-              while (i < str.length) {
-                if (str[i] === '\\') {
-                  i += 2
-                  continue
-                }
-                if (str[i] === '/') {
-                  i++ // skip closing /
-                  while (i < str.length && /[gimsuvy]/.test(str[i])) {
-                    i++
-                  }
-                  break
-                }
-                i++
-              }
-              continue
-            }
-          }
-          result += str[i]
-          i++
-        }
-        return result
-      }
-      const codeNoRegex = stripRegex(codeOnly)
-      // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
-      let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
-      // Mask template literal body content using stack-based tracking that persists across lines.
-      // Content inside ${} expressions is preserved (it's real code), body content is masked.
-      // This handles both single-line and multi-line templates correctly, including nested templates.
-      // Outside every string and template, a line without a quote or a
-      // backtick passes through the loop below unchanged; skip it.
-      const plainLine = !mainEscaped && !mainInSingle && !mainInDouble && mainTmplStack.length === 0
-        && !codeClean.includes('`') && !codeClean.includes('\'') && !codeClean.includes('"')
-      if (!plainLine) {
-        let masked = ''
-        for (let ci = 0; ci < codeClean.length; ci++) {
-          const ch = codeClean[ci]
-
-          if (mainEscaped) {
-            mainEscaped = false
-            const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
-            masked += inBody ? ' ' : ch
-            continue
-          }
-
-          const inBody = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] === -1
-          const inExpr = mainTmplStack.length > 0 && mainTmplStack[mainTmplStack.length - 1] >= 0
-
-          if (ch === '\\' && (mainInSingle || mainInDouble || inBody)) {
-            mainEscaped = true
-            masked += inBody ? ' ' : ch
-            continue
-          }
-
-          if (mainInSingle) {
-            if (ch === '\'') mainInSingle = false
-            masked += ch
-            continue
-          }
-
-          if (mainInDouble) {
-            if (ch === '"') mainInDouble = false
-            masked += ch
-            continue
-          }
-
-          // Inside template body (literal content — not real code)
-          if (inBody) {
-            if (ch === '`') {
-              mainTmplStack.pop()
-            }
-else if (ch === '$' && ci + 1 < codeClean.length && codeClean[ci + 1] === '{') {
-              mainTmplStack[mainTmplStack.length - 1] = 0
-              masked += '  '
-              ci++
-            }
-else {
-              masked += ' '
-            }
-            continue
-          }
-
-          // Inside ${} expression (real code inside template)
-          if (inExpr) {
-            if (ch === '`') {
-              mainTmplStack.push(-1)
-              masked += ' '
-            }
-else if (ch === '\'') {
-              mainInSingle = true
-              masked += ch
-            }
-else if (ch === '"') {
-              mainInDouble = true
-              masked += ch
-            }
-else if (ch === '{') {
-              mainTmplStack[mainTmplStack.length - 1]++
-              masked += ch
-            }
-else if (ch === '}') {
-              if (mainTmplStack[mainTmplStack.length - 1] > 0) {
-                mainTmplStack[mainTmplStack.length - 1]--
-                masked += ch
-              }
-else {
-                mainTmplStack[mainTmplStack.length - 1] = -1
-                masked += ' '
-              }
-            }
-else {
-              masked += ch
-            }
-            continue
-          }
-
-          // Outside any template/string
-          if (ch === '`') {
-            mainTmplStack.push(-1)
-            masked += ' '
-          }
-else if (ch === '\'') {
-            mainInSingle = true
-            masked += ch
-          }
-else if (ch === '"') {
-            mainInDouble = true
-            masked += ch
-          }
-else {
-            masked += ch
-          }
-        }
-        codeClean = masked
-      }
-
-      // function declarations or expressions
-      const m = codeClean.match(/\bfunction\b/)
-      if (m) {
-        // Skip known complex functions with deep nesting that cause false positives
-        if (line.includes('function scanContent') || line.includes('function findMatching')) {
-          continue
-        }
-        // Skip 'function' used as a property name in destructuring: { function: value }
-        const afterFunc = codeClean.slice(m.index! + 8).trimStart()
-        if (afterFunc.startsWith(':')) {
-          continue
-        }
-        // Skip property access — `obj.function` / `obj?.function` is not a declaration.
-        const beforeFunc = codeClean.slice(0, m.index!).trimEnd()
-        if (beforeFunc.endsWith('.') || beforeFunc.endsWith('?.')) {
-          continue
-        }
-        // Find the opening ( for parameters
-        const funcIdx = m.index!
-        const openParenIdx = line.indexOf('(', funcIdx)
-        if (openParenIdx === -1)
-          continue
-
-        // Find matching closing ) by counting parentheses - may span multiple lines
-        let depth = 0
-        let closeParenIdx = -1
-        let closeParenLine = i
-        let paramStr = ''
-
-        // Start from the opening parenthesis
-        for (let ln = i; ln < lines.length; ln++) {
-          const searchLine = ln === i ? lines[ln] : lines[ln]
-          const startIdx = ln === i ? openParenIdx : 0
-
-          for (let k = startIdx; k < searchLine.length; k++) {
-            if (searchLine[k] === '(') {
-              depth++
-            }
-            else if (searchLine[k] === ')') {
-              depth--
-              if (depth === 0) {
-                closeParenIdx = k
-                closeParenLine = ln
-                // Collect parameter text across all lines
-                if (i === ln) {
-                  // Single line function
-                  paramStr = line.slice(openParenIdx + 1, closeParenIdx)
+            // Extract parameters from the collected parameter string
+            const params = getParamNames(paramStr)
+            // Start searching for function body after the closing parenthesis to avoid matching braces in type annotations
+            // Use closeParenLine since the closing ) might be on a different line
+            const bodyRange = findBodyRange(closeParenLine, closeParenIdx)
+            // Get body text starting from the line after opening '{' to avoid matching parameter declarations
+            let bodyText = ''
+            if (bodyRange) {
+              // If body is on the same line as the closing paren, get content after '{'
+              if (bodyRange.from === closeParenLine) {
+                const bodyStartLine = lines[bodyRange.from]
+                const braceIdx = bodyRange.openCol
+                const restOfFirstLine = braceIdx >= 0 ? bodyStartLine.slice(braceIdx + 1) : ''
+                if (bodyRange.to > bodyRange.from) {
+                  bodyText = `${restOfFirstLine}\n${lines.slice(bodyRange.from + 1, bodyRange.to + 1).join('\n')}`
                 }
                 else {
-                  // Multi-line function - collect all parameter text
-                  paramStr = line.slice(openParenIdx + 1) // rest of first line
-                  for (let j = i + 1; j < ln; j++) {
-                    paramStr += ` ${lines[j]}` // middle lines
-                  }
-                  paramStr += ` ${searchLine.slice(0, closeParenIdx)}` // last line up to )
+                  bodyText = restOfFirstLine
                 }
-                break
+              }
+              else {
+                bodyText = lines.slice(bodyRange.from, bodyRange.to + 1).join('\n')
               }
             }
-          }
-          if (closeParenIdx !== -1)
-            break
-        }
-
-        if (closeParenIdx === -1)
-          continue
-
-        // An overload declaration has no body of its own, so there is nothing
-        // its parameters could be used in. See `signatureHasNoBody`.
-        if (signatureHasNoBody(closeParenLine, closeParenIdx))
-          continue
-
-        // Extract parameters from the collected parameter string
-        const params = getParamNames(paramStr)
-        // Start searching for function body after the closing parenthesis to avoid matching braces in type annotations
-        // Use closeParenLine since the closing ) might be on a different line
-        const bodyRange = findBodyRange(closeParenLine, closeParenIdx)
-        // Get body text starting from the line after opening '{' to avoid matching parameter declarations
-        let bodyText = ''
-        if (bodyRange) {
-          // If body is on the same line as the closing paren, get content after '{'
-          if (bodyRange.from === closeParenLine) {
-            const bodyStartLine = lines[bodyRange.from]
-            const braceIdx = bodyStartLine.lastIndexOf('{')
-            const restOfFirstLine = braceIdx >= 0 ? bodyStartLine.slice(braceIdx + 1) : ''
-            if (bodyRange.to > bodyRange.from) {
-              bodyText = `${restOfFirstLine}\n${lines.slice(bodyRange.from + 1, bodyRange.to + 1).join('\n')}`
+            for (const name of params) {
+              if (!name || argIgnoreRe.test(name) || name === 'undefined')
+                continue
+              const re = new RegExp(`\\b${name}\\b`, 'g')
+              if (!re.test(bodyText)) {
+                issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
+              }
             }
-            else {
-              bodyText = restOfFirstLine
-            }
-          }
-          else {
-            bodyText = lines.slice(bodyRange.from, bodyRange.to + 1).join('\n')
-          }
-        }
-        for (const name of params) {
-          if (!name || argIgnoreRe.test(name) || name === 'undefined')
             continue
-          const re = new RegExp(`\\b${name}\\b`, 'g')
-          if (!re.test(bodyText)) {
-            issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
           }
-        }
-        continue
-      }
 
-      // arrow functions (parenthesized params) - match patterns like: const f = (a,b) => ..., or standalone (a,b) => ...
-      // Find arrow first, then work backwards to find the parameters
-      const arrowIdx = line.indexOf('=>')
-      if (arrowIdx !== -1 && codeClean.includes('=>')) {
-        // Work backwards from => to find the closing ) of parameters
-        let closeParenIdx = -1
-        for (let k = arrowIdx - 1; k >= 0; k--) {
-          const ch = line[k]
-          if (ch === ')') {
-            closeParenIdx = k
-            break
-          }
-          // Skip whitespace and type annotations (colon followed by type)
-          if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== ':' && ch !== '>' && !/\w/.test(ch)) {
-            break
-          }
-        }
-
-        // Only process if we found a closing paren (otherwise let single-param handler deal with it)
-        if (closeParenIdx !== -1) {
-          // Now find the matching opening (
-          let openParenIdx = -1
-          let depth = 1
-          for (let k = closeParenIdx - 1; k >= 0; k--) {
-            const ch = line[k]
-            if (ch === ')') {
-              depth++
-            }
-            else if (ch === '(') {
-              depth--
-              if (depth === 0) {
-                openParenIdx = k
+          // arrow functions (parenthesized params) - match patterns like: const f = (a,b) => ..., or standalone (a,b) => ...
+          // Find arrow first, then work backwards to find the parameters
+          const arrowIdx = line.indexOf('=>')
+          if (arrowIdx !== -1 && codeClean.includes('=>')) {
+            // Work backwards from => to find the closing ) of parameters
+            let closeParenIdx = -1
+            for (let k = arrowIdx - 1; k >= 0; k--) {
+              const ch = line[k]
+              if (ch === ')') {
+                closeParenIdx = k
+                break
+              }
+              // Skip whitespace and type annotations (colon followed by type)
+              if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== ':' && ch !== '>' && !/\w/.test(ch)) {
                 break
               }
             }
-          }
 
-          if (openParenIdx !== -1) {
-            // Check if there's a colon or angle bracket before the opening paren (type signature vs function)
-            // Look backwards from opening paren to find if this is a type annotation
-            // Continue past commas to find `<` for generics like Map<string, (...args) => any>
-            // Continue past balanced nested parens (for `: boolean | ((args) => T)`)
-            // and past type-union/intersection markers `|` `&`.
-            let isTypeSignature = false
-            let angleDepthBack = 0
-            let parenDepthBack = 0
-            for (let k = openParenIdx - 1; k >= 0; k--) {
-              const ch = line[k]
-              if (ch === '>') {
-                angleDepthBack++
-                continue
-              }
-              if (ch === '<') {
-                if (angleDepthBack > 0) {
-                  angleDepthBack--
-                  continue
+            // Only process if we found a closing paren (otherwise let single-param handler deal with it)
+            if (closeParenIdx !== -1) {
+              // Now find the matching opening (
+                let openParenIdx = -1
+                let depth = 1
+                for (let k = closeParenIdx - 1; k >= 0; k--) {
+                  const ch = line[k]
+                  if (ch === ')') {
+                    depth++
+                  }
+                  else if (ch === '(') {
+                    depth--
+                    if (depth === 0) {
+                      openParenIdx = k
+                      break
+                    }
+                  }
                 }
-                if (parenDepthBack <= 0) {
-                  isTypeSignature = true
-                  break
-                }
-                continue
-              }
-              /*
+
+                if (openParenIdx !== -1) {
+                  // Check if there's a colon or angle bracket before the opening paren (type signature vs function)
+                  // Look backwards from opening paren to find if this is a type annotation
+                  // Continue past commas to find `<` for generics like Map<string, (...args) => any>
+                  // Continue past balanced nested parens (for `: boolean | ((args) => T)`)
+                  // and past type-union/intersection markers `|` `&`.
+                  let isTypeSignature = false
+                  let angleDepthBack = 0
+                  let parenDepthBack = 0
+                  for (let k = openParenIdx - 1; k >= 0; k--) {
+                    const ch = line[k]
+                    if (ch === '>') {
+                      angleDepthBack++
+                      continue
+                    }
+                    if (ch === '<') {
+                      if (angleDepthBack > 0) {
+                        angleDepthBack--
+                        continue
+                      }
+                      if (parenDepthBack <= 0) {
+                        isTypeSignature = true
+                        break
+                      }
+                      continue
+                    }
+                    /*
                * `<= 0` rather than `=== 0`, and the difference is a whole shape
                * of TypeScript: `header?: ((name: string) => string) | undefined`.
                * Walking back from that inner `(` crosses the wrapping `(` first,
@@ -1415,85 +1422,158 @@ else {
                * depth means we are inside a balanced inner group, where a colon
                * could belong to a ternary instead.
                */
-              if (ch === ':' && angleDepthBack === 0 && parenDepthBack <= 0) {
-                isTypeSignature = true
-                break
-              }
-              if (angleDepthBack > 0)
-                continue
-              // Continue past commas to check if we're inside a generic type parameter
-              if (ch === ',')
-                continue
-              // Walk through nested parens. When we descend BELOW the
-              // starting depth (parenDepthBack goes negative), we're
-              // looking at characters BEFORE an enclosing `(`. We keep
-              // walking — the type-context check just needs to find a
-              // marker like `:`, `|`, `&`, `<` somewhere.
-              if (ch === ')') {
-                parenDepthBack++
-                continue
-              }
-              if (ch === '(') {
-                parenDepthBack--
-                continue
-              }
-              // Type-union / intersection markers — strong signal we're in
-              // a type context like `string | (...) => T`.
-              if (ch === '|' || ch === '&') {
-                isTypeSignature = true
-                break
-              }
-              // Stop at these characters that indicate we've gone too far
-              // into a value context (only at our starting depth, not inside
-              // a balanced inner paren).
-              if (ch === '=' || ch === '{' || ch === '[') {
-                if (parenDepthBack >= 0)
-                  break
-                continue
-              }
-              // Skip whitespace, identifiers, and dots (for dotted type names)
-              if (ch !== ' ' && ch !== '\t' && !/[\w.]/.test(ch)) {
-                if (parenDepthBack >= 0)
-                  break
+                    if (ch === ':' && angleDepthBack === 0 && parenDepthBack <= 0) {
+                      isTypeSignature = true
+                      break
+                    }
+                    if (angleDepthBack > 0)
+                      continue
+                    // Continue past commas to check if we're inside a generic type parameter
+                    if (ch === ',')
+                      continue
+                    // Walk through nested parens. When we descend BELOW the
+                    // starting depth (parenDepthBack goes negative), we're
+                    // looking at characters BEFORE an enclosing `(`. We keep
+                    // walking — the type-context check just needs to find a
+                    // marker like `:`, `|`, `&`, `<` somewhere.
+                    if (ch === ')') {
+                      parenDepthBack++
+                      continue
+                    }
+                    if (ch === '(') {
+                      parenDepthBack--
+                      continue
+                    }
+                    // Type-union / intersection markers — strong signal we're in
+                    // a type context like `string | (...) => T`.
+                    if (ch === '|' || ch === '&') {
+                      isTypeSignature = true
+                      break
+                    }
+                    // Stop at these characters that indicate we've gone too far
+                    // into a value context (only at our starting depth, not inside
+                    // a balanced inner paren).
+                    if (ch === '=' || ch === '{' || ch === '[') {
+                      if (parenDepthBack >= 0)
+                        break
+                      continue
+                    }
+                    // Skip whitespace, identifiers, and dots (for dotted type names)
+                    if (ch !== ' ' && ch !== '\t' && !/[\w.]/.test(ch)) {
+                      if (parenDepthBack >= 0)
+                        break
+                    }
+                  }
+
+                  // Two more type-signature contexts the backward scan above
+                  // doesn't catch on its own:
+                  //
+                  // 1. `type Foo = (x: T) => U` / `export type Foo = ...`
+                  //    The walk back stops at `=` before reaching `type`. Detect
+                  //    the type-alias prefix on the line directly.
+                  //
+                  // 2. `(x as (...a: T) => U)(...)` — type assertion wrapping a
+                  //    callable. The walk back stops at the outer `(`. Look for
+                  //    a `\bas\b` keyword in the slice between the outer `(`
+                  //    and the inner one we're inspecting.
+                  if (!isTypeSignature) {
+                    const beforeParen = line.slice(0, openParenIdx)
+                    if (/^\s*(?:export\s+)?(?:declare\s+)?type\s+\w[\w$]*\s*(?:<[^>]*>)?\s*=\s*$/.test(beforeParen)) {
+                      isTypeSignature = true
+                    }
+                    else if (/\bas\s+$/.test(beforeParen)) {
+                      isTypeSignature = true
+                    }
+                  }
+
+                  // Skip type signatures
+                  if (isTypeSignature) {
+                    continue
+                  }
+
+                  // Extract parameter text
+                  const paramText = line.slice(openParenIdx + 1, closeParenIdx)
+
+                  // Skip if this is an async arrow function with no parameters
+                  if (!(paramText.trim() === '' && line.slice(Math.max(0, openParenIdx - 10), openParenIdx).includes('async'))) {
+                    const params = getParamNames(paramText)
+                    if (params.length > 0) {
+                      let bodyText = ''
+                      // Check if there's a function body with braces (not just object literals in the expression)
+                      // Function body braces appear immediately after => with only whitespace in between
+                      const afterArrow = line.slice(arrowIdx + 2).trimStart()
+                      if (afterArrow.startsWith('{')) {
+                        const bodyRange = findBodyRange(i, arrowIdx)
+                        // Get body text, avoiding parameter declarations
+                        if (bodyRange) {
+                          if (bodyRange.from === i) {
+                            const bodyStartLine = lines[bodyRange.from]
+                            const braceIdx = bodyStartLine.indexOf('{', arrowIdx)
+                            const restOfFirstLine = braceIdx >= 0 ? bodyStartLine.slice(braceIdx + 1) : ''
+                            if (bodyRange.to > bodyRange.from) {
+                              bodyText = `${restOfFirstLine}\n${lines.slice(bodyRange.from + 1, bodyRange.to + 1).join('\n')}`
+                            }
+                            else {
+                              bodyText = restOfFirstLine
+                            }
+                          }
+                          else {
+                            bodyText = lines.slice(bodyRange.from, bodyRange.to + 1).join('\n')
+                          }
+                        }
+                      }
+                      else {
+                        bodyText = collectArrowExpressionBody(i, arrowIdx)
+                      }
+                      for (const name of params) {
+                        if (!name || argIgnoreRe.test(name) || name === 'undefined')
+                          continue
+                        const re = new RegExp(`\\b${name}\\b`, 'g')
+                        if (!re.test(bodyText)) {
+                          issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
+                        }
+                      }
+                      continue
+                    }
+                  }
+                }
               }
             }
 
-            // Two more type-signature contexts the backward scan above
-            // doesn't catch on its own:
-            //
-            // 1. `type Foo = (x: T) => U` / `export type Foo = ...`
-            //    The walk back stops at `=` before reaching `type`. Detect
-            //    the type-alias prefix on the line directly.
-            //
-            // 2. `(x as (...a: T) => U)(...)` — type assertion wrapping a
-            //    callable. The walk back stops at the outer `(`. Look for
-            //    a `\bas\b` keyword in the slice between the outer `(`
-            //    and the inner one we're inspecting.
-            if (!isTypeSignature) {
-              const beforeParen = line.slice(0, openParenIdx)
-              if (/^\s*(?:export\s+)?(?:declare\s+)?type\s+\w[\w$]*\s*(?:<[^>]*>)?\s*=\s*$/.test(beforeParen)) {
-                isTypeSignature = true
-              }
-              else if (/\bas\s+$/.test(beforeParen)) {
-                isTypeSignature = true
-              }
-            }
-
-            // Skip type signatures
-            if (isTypeSignature) {
-              continue
-            }
-
-            // Extract parameter text
-            const paramText = line.slice(openParenIdx + 1, closeParenIdx)
-
-            // Skip if this is an async arrow function with no parameters
-            if (!(paramText.trim() === '' && line.slice(Math.max(0, openParenIdx - 10), openParenIdx).includes('async'))) {
-              const params = getParamNames(paramText)
-              if (params.length > 0) {
+            // arrow functions (single identifier param without parentheses): x => ... possibly embedded, e.g., arr.map(x=>x)
+            {
+              const reSingleArrow = /(?:^|[=,:({\s])\s*([$A-Z_][\w$]*)\s*=>/gi
+              let match: RegExpExecArray | null
+              // eslint-disable-next-line no-cond-assign
+              while ((match = reSingleArrow.exec(codeClean)) !== null) {
+                const name = match[1]
+                if (!name || argIgnoreRe.test(name) || name === 'undefined')
+                  continue
+                // Skip return type annotations like ): ReturnType => or ): string =>
+                // When : precedes the identifier and ) precedes the :, it's a return type
+                const beforeMatch = codeClean.slice(0, match.index + match[0].indexOf(name)).trimEnd()
+                if (/\)\s*:$/.test(beforeMatch) || /\)\s*:\s*$/.test(beforeMatch)) {
+                  continue
+                }
+                // A type predicate is a return type too: `(entry): entry is Thing =>`
+                // put `Thing` immediately before the arrow, and it was read as a
+                // bare-identifier parameter and reported unused. The check above only
+                // knew the `): Type =>` form.
+                if (/\)\s*:\s*[$A-Z_][\w$]*\s+is$/i.test(beforeMatch)) {
+                  continue
+                }
+                // Also skip if the matched name is a TypeScript keyword used as type
+                if (/^(?:string|number|boolean|void|never|any|unknown|object|bigint|symbol|undefined|null)$/.test(name)) {
+                  continue
+                }
+                // Find the arrow position in the ORIGINAL line
+                const arrowPattern = new RegExp(`\\b${name}\\s*=>`)
+                const arrowMatch = line.match(arrowPattern)
+                if (!arrowMatch)
+                  continue
+                const arrowIdx = line.indexOf(arrowMatch[0]) + arrowMatch[0].lastIndexOf('=>')
                 let bodyText = ''
                 // Check if there's a function body with braces (not just object literals in the expression)
-                // Function body braces appear immediately after => with only whitespace in between
                 const afterArrow = line.slice(arrowIdx + 2).trimStart()
                 if (afterArrow.startsWith('{')) {
                   const bodyRange = findBodyRange(i, arrowIdx)
@@ -1518,91 +1598,18 @@ else {
                 else {
                   bodyText = collectArrowExpressionBody(i, arrowIdx)
                 }
-                for (const name of params) {
-                  if (!name || argIgnoreRe.test(name) || name === 'undefined')
-                    continue
-                  const re = new RegExp(`\\b${name}\\b`, 'g')
-                  if (!re.test(bodyText)) {
-                    issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
-                  }
+                const useRe = new RegExp(`\\b${name}\\b`, 'g')
+                if (!useRe.test(bodyText)) {
+                  issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
                 }
-                continue
               }
             }
           }
-        }
-      }
 
-      // arrow functions (single identifier param without parentheses): x => ... possibly embedded, e.g., arr.map(x=>x)
-      {
-        const reSingleArrow = /(?:^|[=,:({\s])\s*([$A-Z_][\w$]*)\s*=>/gi
-        let match: RegExpExecArray | null
-        // eslint-disable-next-line no-cond-assign
-        while ((match = reSingleArrow.exec(codeClean)) !== null) {
-          const name = match[1]
-          if (!name || argIgnoreRe.test(name) || name === 'undefined')
-            continue
-          // Skip return type annotations like ): ReturnType => or ): string =>
-          // When : precedes the identifier and ) precedes the :, it's a return type
-          const beforeMatch = codeClean.slice(0, match.index + match[0].indexOf(name)).trimEnd()
-          if (/\)\s*:$/.test(beforeMatch) || /\)\s*:\s*$/.test(beforeMatch)) {
-            continue
-          }
-          // A type predicate is a return type too: `(entry): entry is Thing =>`
-          // put `Thing` immediately before the arrow, and it was read as a
-          // bare-identifier parameter and reported unused. The check above only
-          // knew the `): Type =>` form.
-          if (/\)\s*:\s*[$A-Z_][\w$]*\s+is$/i.test(beforeMatch)) {
-            continue
-          }
-          // Also skip if the matched name is a TypeScript keyword used as type
-          if (/^(?:string|number|boolean|void|never|any|unknown|object|bigint|symbol|undefined|null)$/.test(name)) {
-            continue
-          }
-          // Find the arrow position in the ORIGINAL line
-          const arrowPattern = new RegExp(`\\b${name}\\s*=>`)
-          const arrowMatch = line.match(arrowPattern)
-          if (!arrowMatch)
-            continue
-          const arrowIdx = line.indexOf(arrowMatch[0]) + arrowMatch[0].lastIndexOf('=>')
-          let bodyText = ''
-          // Check if there's a function body with braces (not just object literals in the expression)
-          const afterArrow = line.slice(arrowIdx + 2).trimStart()
-          if (afterArrow.startsWith('{')) {
-            const bodyRange = findBodyRange(i, arrowIdx)
-            // Get body text, avoiding parameter declarations
-            if (bodyRange) {
-              if (bodyRange.from === i) {
-                const bodyStartLine = lines[bodyRange.from]
-                const braceIdx = bodyStartLine.indexOf('{', arrowIdx)
-                const restOfFirstLine = braceIdx >= 0 ? bodyStartLine.slice(braceIdx + 1) : ''
-                if (bodyRange.to > bodyRange.from) {
-                  bodyText = `${restOfFirstLine}\n${lines.slice(bodyRange.from + 1, bodyRange.to + 1).join('\n')}`
-                }
-                else {
-                  bodyText = restOfFirstLine
-                }
-              }
-              else {
-                bodyText = lines.slice(bodyRange.from, bodyRange.to + 1).join('\n')
-              }
-            }
-          }
-          else {
-            bodyText = collectArrowExpressionBody(i, arrowIdx)
-          }
-          const useRe = new RegExp(`\\b${name}\\b`, 'g')
-          if (!useRe.test(bodyText)) {
-            issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is defined but never used (function parameter). Allowed unused args must match pattern: ${argsIgnorePattern}`, severity: 'error' })
-          }
-        }
-      }
-    }
+          return issues
+        },
 
-    return issues
-  },
-
-  /**
+        /**
    * Auto-fix function-parameter issues by prefixing the parameter name
    * with `_` so it matches the configured `argsIgnorePattern` (default
    * `^_`). We deliberately don't auto-fix variable issues — those
@@ -1619,102 +1626,102 @@ else {
    * bodies, so by the time we look at issues here we've already filtered
    * out generated-code false positives.
    */
-  fix: (text, ctx) => {
-    const issues = noUnusedVarsRule.check(text, ctx)
-    if (issues.length === 0)
-      return text
+        fix: (text, ctx) => {
+          const issues = noUnusedVarsRule.check(text, ctx)
+          if (issues.length === 0)
+            return text
 
-    const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
-    if (paramIssues.length === 0)
-      return text
+          const paramIssues = issues.filter(i => i.message.includes('(function parameter)'))
+          if (paramIssues.length === 0)
+            return text
 
-    // Pre-compute which lines are suppressed by `// eslint-disable-next-line`
-    // / `// pickier-disable-next-line` directives on the line above. The
-    // linter normally applies this filter at the issue-collection layer, but
-    // when we re-run `check` here we bypass it — so we must do the same
-    // filtering ourselves before rewriting code.
-    const allSrcLines = text.split(/\r?\n/)
-    const disabledLines = new Set<number>()
-    const disableNextRe = /(?:eslint|pickier)-disable-next-line\b([^*\n]*)/
-    for (let i = 0; i < allSrcLines.length; i++) {
-      const m = allSrcLines[i].match(disableNextRe)
-      if (!m)
-        continue
-      const ruleList = m[1].trim()
-      // Empty list means "disable all rules" for the next line.
-      if (ruleList === ''
-        || /\bno-unused-vars\b/.test(ruleList)
-        || /\bpickier\/no-unused-vars\b/.test(ruleList)) {
-        disabledLines.add(i + 2) // 1-indexed line directly below
-      }
-    }
+          // Pre-compute which lines are suppressed by `// eslint-disable-next-line`
+          // / `// pickier-disable-next-line` directives on the line above. The
+          // linter normally applies this filter at the issue-collection layer, but
+          // when we re-run `check` here we bypass it — so we must do the same
+          // filtering ourselves before rewriting code.
+          const allSrcLines = text.split(/\r?\n/)
+          const disabledLines = new Set<number>()
+          const disableNextRe = /(?:eslint|pickier)-disable-next-line\b([^*\n]*)/
+          for (let i = 0; i < allSrcLines.length; i++) {
+            const m = allSrcLines[i].match(disableNextRe)
+            if (!m)
+              continue
+            const ruleList = m[1].trim()
+            // Empty list means "disable all rules" for the next line.
+            if (ruleList === ''
+              || /\bno-unused-vars\b/.test(ruleList)
+              || /\bpickier\/no-unused-vars\b/.test(ruleList)) {
+              disabledLines.add(i + 2) // 1-indexed line directly below
+            }
+          }
 
-    const byLine = new Map<number, Set<string>>()
-    for (const issue of paramIssues) {
-      if (disabledLines.has(issue.line))
-        continue
-      const nameMatch = issue.message.match(/^'([^']+)'/)
-      if (!nameMatch)
-        continue
-      const name = nameMatch[1]
-      if (name.startsWith('_'))
-        continue
-      let names = byLine.get(issue.line)
-      if (!names) {
-        names = new Set()
-        byLine.set(issue.line, names)
-      }
-      names.add(name)
-    }
-    if (byLine.size === 0)
-      return text
+          const byLine = new Map<number, Set<string>>()
+          for (const issue of paramIssues) {
+            if (disabledLines.has(issue.line))
+              continue
+            const nameMatch = issue.message.match(/^'([^']+)'/)
+            if (!nameMatch)
+              continue
+            const name = nameMatch[1]
+            if (name.startsWith('_'))
+              continue
+            let names = byLine.get(issue.line)
+            if (!names) {
+              names = new Set()
+              byLine.set(issue.line, names)
+            }
+            names.add(name)
+          }
+          if (byLine.size === 0)
+            return text
 
-    // Never rename inside a template literal - a template that opens and
-    // closes on one line has `lineStartsInTemplate` = false, but its contents
-    // are still embedded code we shouldn't rewrite - nor inside a string or a
-    // comment. Both come from the shared lexer over the whole file, so a
-    // backtick or a quote in a comment on some other line cannot shift them.
-    const lines = text.split(/\r?\n/)
-    const lexed = lexSource(text)
-    const lineOffsets: number[] = [0]
-    for (let at = 0; at < text.length; at++) {
-      if (text[at] === '\n')
-        lineOffsets.push(at + 1)
-    }
-    const protectedAt = (offset: number): boolean =>
-      lexed.templates.some(([open, close]) => offset > open && offset < close)
-      || lexed.regions.some(region => region.kind !== 'template' && offset >= region.start && offset < region.end)
-    let changed = false
-    for (const [lineNum, names] of byLine) {
-      const lineIdx = lineNum - 1
-      const line = lines[lineIdx]
-      if (line === undefined)
-        continue
-      const lineOffset = lineOffsets[lineIdx] ?? 0
-      const edits: Array<{ start: number, end: number, name: string }> = []
-      for (const name of names) {
-        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const re = new RegExp(`(?<=[(,]\\s*)\\b${escaped}\\b(?=\\s*[,):=])`, 'g')
-        let m: RegExpExecArray | null
-        // eslint-disable-next-line no-cond-assign
-        while ((m = re.exec(line)) !== null) {
-          if (protectedAt(lineOffset + m.index))
-            continue
-          edits.push({ start: m.index, end: m.index + name.length, name })
-        }
+          // Never rename inside a template literal - a template that opens and
+          // closes on one line has `lineStartsInTemplate` = false, but its contents
+          // are still embedded code we shouldn't rewrite - nor inside a string or a
+          // comment. Both come from the shared lexer over the whole file, so a
+          // backtick or a quote in a comment on some other line cannot shift them.
+          const lines = text.split(/\r?\n/)
+          const lexed = lexSource(text)
+          const lineOffsets: number[] = [0]
+          for (let at = 0; at < text.length; at++) {
+            if (text[at] === '\n')
+              lineOffsets.push(at + 1)
+          }
+          const protectedAt = (offset: number): boolean =>
+          lexed.templates.some(([open, close]) => offset > open && offset < close)
+            || lexed.regions.some(region => region.kind !== 'template' && offset >= region.start && offset < region.end)
+          let changed = false
+          for (const [lineNum, names] of byLine) {
+            const lineIdx = lineNum - 1
+            const line = lines[lineIdx]
+            if (line === undefined)
+              continue
+            const lineOffset = lineOffsets[lineIdx] ?? 0
+            const edits: Array<{ start: number, end: number, name: string }> = []
+            for (const name of names) {
+              const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const re = new RegExp(`(?<=[(,]\\s*)\\b${escaped}\\b(?=\\s*[,):=])`, 'g')
+              let m: RegExpExecArray | null
+              // eslint-disable-next-line no-cond-assign
+              while ((m = re.exec(line)) !== null) {
+                if (protectedAt(lineOffset + m.index))
+                  continue
+                edits.push({ start: m.index, end: m.index + name.length, name })
+              }
+            }
+            if (edits.length === 0)
+              continue
+            edits.sort((a, b) => b.start - a.start)
+            let next = line
+            for (const e of edits) {
+              next = `${next.slice(0, e.start)}_${e.name}${next.slice(e.end)}`
+            }
+            if (next !== line) {
+              lines[lineIdx] = next
+              changed = true
+            }
+          }
+          return changed ? lines.join('\n') : text
+        },
       }
-      if (edits.length === 0)
-        continue
-      edits.sort((a, b) => b.start - a.start)
-      let next = line
-      for (const e of edits) {
-        next = `${next.slice(0, e.start)}_${e.name}${next.slice(e.end)}`
-      }
-      if (next !== line) {
-        lines[lineIdx] = next
-        changed = true
-      }
-    }
-    return changed ? lines.join('\n') : text
-  },
-}
