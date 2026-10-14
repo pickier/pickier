@@ -133,6 +133,72 @@ describe('continuation line indentation (#1369)', () => {
   })
 })
 
+describe('a block a chained call opens', () => {
+  // The body of a callback in a method chain belongs to the `.method(` line
+  // that opened it, which is itself a level deeper than the statement.
+  // Counted from the statement alone, the whole body and its closing `})`
+  // came back a level short.
+  it('indents the callback body from the chain line', () => {
+    const src = [
+      'cli',
+      '  .command(\'x\')',
+      '  .action(() => {',
+      '    const x = 1',
+      '    if (x) {',
+      '      log(x)',
+      '    }',
+      '  })',
+      '',
+    ].join('\n')
+    expect(fmt(src)).toBe(src)
+  })
+
+  it('indents a chain nested in a chain', () => {
+    const src = [
+      'cli',
+      '  .action(() => {',
+      '    inner',
+      '      .then(() => {',
+      '        done()',
+      '      })',
+      '  })',
+      '',
+    ].join('\n')
+    expect(fmt(src)).toBe(src)
+  })
+
+  it('leaves a callback that is not in a chain where it was', () => {
+    const src = [
+      'promise.then(() => {',
+      '  const y = 2',
+      '})',
+      '',
+      'describe(\'suite\', () => {',
+      '  it(\'case\', () => {',
+      '    const z = 3',
+      '  })',
+      '})',
+      '',
+    ].join('\n')
+    expect(fmt(src)).toBe(src)
+  })
+
+  it('does not push the body of a wrapped condition deeper', () => {
+    // `&& …) {` continues a statement header; the block it opens is the
+    // statement's, so its body sits one level in from the statement
+    const src = [
+      'function f(a: boolean, b: boolean): void {',
+      '  if (a',
+      '    && b) {',
+      '    run()',
+      '  }',
+      '}',
+      '',
+    ].join('\n')
+    expect(fmt(src)).toBe(src)
+  })
+})
+
 describe('generic type argument preservation (#1369)', () => {
   it('preserves Record / Map / Promise type arguments', () => {
     expect(fmt('const params: Record<string, string> = {}\n')).toBe('const params: Record<string, string> = {}\n')
