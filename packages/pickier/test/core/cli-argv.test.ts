@@ -93,7 +93,7 @@ describe('CLI argv fast-path parsing', () => {
     // Bare `pickier .` must NOT silently rewrite files. The fast path
     // defaults to 'lint' (matching the full CLI's default command) and
     // only flips to 'auto' when the explicit `pickier run .` form is used.
-    expect(cliSrc).toContain("let mode = isRunSubcommand ? 'auto' : 'lint'")
+    expect(cliSrc).toContain("let mode = isRunSubcommand ? 'auto' : sub === 'format' ? 'format' : 'lint'")
   })
 
   it('defaults check and write to false', () => {

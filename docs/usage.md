@@ -47,12 +47,13 @@ pickier format . --check
 pickier format src --write
 
 # limit to specific extensions
-pickier format . --ext .ts,.js
+pickier format . --ext .ts,.js --write
 ```
 
 Supported flags:
 
-- `--write`: write changes to files
+- `--write`: write changes to files. Without it, formatting reports what it
+  would change and exits non-zero, writing nothing
 - `--check`: check without writing (non-zero exit if changes would be made)
 - `--config <path>`: path to `pickier` config file
 - `--ignore-path <file>`: ignore file (gitignore-style)
@@ -67,7 +68,7 @@ Examples:
 
 ```bash
 pickier lint .
-pickier format "src/**/*.{ts,tsx,js}"
+pickier format "src/**/*.{ts,tsx,js}" --write
 ```
 
 Ignored paths come from your config `ignores`. When `--ext` is omitted, Pickier uses your config's `extensions` list (built-in defaults: `.ts,.js,.html,.css,.json,.jsonc,.md,.yaml,.yml,.stx`).

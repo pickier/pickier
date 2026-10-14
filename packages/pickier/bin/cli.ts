@@ -14,17 +14,23 @@
 async function main() {
   const argv = process.argv.slice(2)
 
-  // Normalise: strip leading 'run' sub-command so both
+  // Normalise: strip a leading sub-command so both
   //   `pickier run . --mode format` and `pickier . --mode format` work.
-  const isRunSubcommand = argv[0] === 'run'
-  const startIdx = isRunSubcommand ? 1 : 0
+  // `lint` and `format` are the documented shorthands for the two modes and
+  // are stripped the same way. Only `run` was, so `pickier format src
+  // --write` collected `format` as a path and left the mode at lint: it
+  // linted the files instead of formatting them and wrote nothing. `lint`
+  // was harmless only because the mode was already lint.
+  const sub = argv[0] ?? ''
+  const isRunSubcommand = sub === 'run'
+  const startIdx = isRunSubcommand || sub === 'lint' || sub === 'format' ? 1 : 0
 
   // Fast-path mode default:
   //   - bare `pickier .` should lint (no auto-fix), matching the default
   //     command's behaviour in the full CLI below
   //   - `pickier run .` historically defaulted to 'auto' (which writes
   //     files when nothing else is specified), so preserve that
-  let mode = isRunSubcommand ? 'auto' : 'lint'
+  let mode = isRunSubcommand ? 'auto' : sub === 'format' ? 'format' : 'lint'
   let check = false
   let write = false
   let format = false
@@ -34,7 +40,9 @@ async function main() {
   let cache = false
   let reporter: 'stylish' | 'json' | 'compact' | undefined
   const globs: string[] = []
-  let useFastPath = true
+  // Anything the framework below answers itself - the version, the help - is
+  // not a run, and must not be taken for a path to lint
+  let useFastPath = !argv.some(a => a === 'version' || a === 'help' || a === '--version' || a === '-v' || a === '--help' || a === '-h')
 
   for (let i = startIdx; i < argv.length; i++) {
     const a = argv[i]
@@ -84,6 +92,13 @@ async function main() {
     }
   }
 
+  // `--format` is the imperative shorthand - "format these files" - so it
+  // writes, as the default command in the full CLI does with it; `--check`
+  // asks for a report instead. `pickier format .` is the sub-command, and
+  // writes only with --write.
+  if (format && !check)
+    write = true
+
   // The fast path only handles modes that DON'T write files unless asked
   // (lint reports issues; format/auto write only when --write or `bun
   // pickier .` is used in their respective semantics). Lint mode flows
@@ -94,9 +109,6 @@ async function main() {
     const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext, ...(cache && { cache }), ...(reporter && { reporter }) })
     process.exit(code)
   }
-  // Suppress unused-variable warning — `format` is captured but only
-  // affects which branch was taken above, not the fast-path call shape.
-  void format
 
   // ---------------------------------------------------------------------------
   // Full CLI framework — handles lint mode, deprecated sub-commands, help, etc.

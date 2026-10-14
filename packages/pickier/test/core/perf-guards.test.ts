@@ -36,7 +36,7 @@ describe('import topology', () => {
     // Must parse process.argv directly for common format commands
     // to bypass the CLI framework entirely on the hot path
     expect(src).toContain('process.argv')
-    expect(src).toContain("argv[0] === 'run'")
+    expect(src).toContain("sub === 'run'")
     expect(src).toContain("mode === 'format'")
   })
 

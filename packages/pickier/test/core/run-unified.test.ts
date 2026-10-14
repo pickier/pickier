@@ -31,7 +31,10 @@ describe('runUnified mode routing', () => {
       expect(result).toContain("'hello'")
     })
 
-    it('does not modify file without --write', async () => {
+    // Formatting writes only when asked to. Without --write every path -
+    // a file, a directory, a glob - reports what is not formatted and exits
+    // non-zero, rather than rewriting whatever the globs matched.
+    it('reports a file it would format without --write, and leaves it alone', async () => {
       const file = join(dir, 'test.ts')
       const original = 'const x = "hello"\n'
       writeFileSync(file, original, 'utf8')
@@ -39,9 +42,57 @@ describe('runUnified mode routing', () => {
       const { runUnified } = await import('../../src/run')
       const code = await runUnified([file], { mode: 'format' })
 
-      expect(code).toBe(0)
+      expect(code).toBe(1)
       const result = readFileSync(file, 'utf8')
       expect(result).toBe(original)
+    })
+
+    it('reports a directory it would format without --write, and writes nothing', async () => {
+      const src = join(dir, 'src')
+      mkdirSync(src, { recursive: true })
+      const files = ['a.ts', 'b.ts'].map(name => join(src, name))
+      const original = 'const x = "hello"  \n\n\n'
+      for (const file of files)
+        writeFileSync(file, original, 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      const code = await runUnified([src], { mode: 'format' })
+
+      expect(code).toBe(1)
+      for (const file of files)
+        expect(readFileSync(file, 'utf8')).toBe(original)
+    })
+
+    it('reports glob matches it would format without --write, and writes nothing', async () => {
+      const file = join(dir, 'a.ts')
+      const original = 'const x = "hello"  \n\n\n'
+      writeFileSync(file, original, 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      const code = await runUnified([`${dir}/**/*.ts`], { mode: 'format' })
+
+      expect(code).toBe(1)
+      expect(readFileSync(file, 'utf8')).toBe(original)
+    })
+
+    it('returns 0 without --write when every file is already formatted', async () => {
+      const file = join(dir, 'clean.ts')
+      writeFileSync(file, "const x = 'hello'\n", 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      expect(await runUnified([file], { mode: 'format' })).toBe(0)
+      expect(await runUnified([dir], { mode: 'format' })).toBe(0)
+    })
+
+    it('writes with --fix, as --write does', async () => {
+      const file = join(dir, 'fix.ts')
+      writeFileSync(file, 'const x = "hello"\n', 'utf8')
+
+      const { runUnified } = await import('../../src/run')
+      const code = await runUnified([file], { mode: 'format', fix: true })
+
+      expect(code).toBe(0)
+      expect(readFileSync(file, 'utf8')).toContain("'hello'")
     })
 
     it('returns 0 in check mode for already-formatted file', async () => {
