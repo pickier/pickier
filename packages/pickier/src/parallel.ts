@@ -24,6 +24,51 @@ export function workerThreadsFor(fileCount: number): number {
 }
 
 /**
+ * Workers a run has finished with, by entry, ready for the next run to pick
+ * up. A worker is never terminated: `Worker.terminate()`, and a worker that
+ * exits itself, both segfault Bun while sibling workers are running (#1379),
+ * so a worker that is out of files is parked here instead, unref'd so that
+ * it cannot hold the process open. The pool bounds what a long-lived process
+ * (the VS Code extension lints a whole workspace this way) keeps alive, and
+ * saves the next run its start-up.
+ */
+const parked = new Map<string, Worker[]>()
+
+/** Never park more than this many workers; the rest are left to the process. */
+const MAX_PARKED = Math.max(1, availableParallelism() - 1)
+
+/** A worker for `entry`: one a previous run parked, or a new one. */
+function takeWorker(entry: string): Worker {
+  const pool = parked.get(entry)
+  const worker = pool?.pop()
+  if (worker) {
+    // Parked workers are unref'd; this run waits on its messages
+    worker.ref()
+    return worker
+  }
+  const fresh = new Worker(entry)
+  // Gone for good: a run must not pick it up out of the pool and then wait
+  // for a message it will never send
+  fresh.addEventListener('close', () => {
+    const idle = parked.get(entry)
+    const at = idle?.indexOf(fresh) ?? -1
+    if (at >= 0)
+      idle!.splice(at, 1)
+  })
+  return fresh
+}
+
+/** Park an idle worker for the next run, or leave it to the process. */
+function parkWorker(entry: string, worker: Worker): void {
+  worker.unref()
+  const pool = parked.get(entry)
+  if (!pool)
+    parked.set(entry, [worker])
+  else if (pool.length < MAX_PARKED)
+    pool.push(worker)
+}
+
+/**
  * The worker script: next to this file when running from source, and at
  * `src/lint-worker.js` beside the bundled chunk in a build. Null when neither
  * exists - a standalone compiled binary - and the run stays on one thread.
@@ -52,6 +97,10 @@ function workerEntry(): string | null {
  * could not finish (it failed to start, or crashed) is linted on this thread
  * with `lintHere`, as is everything when no worker can be started. An error
  * thrown while linting a file is rethrown here, as it would be on one thread.
+ *
+ * A worker that is out of files is parked for the next run rather than
+ * terminated, and one that reported an error is left to come to rest first:
+ * tearing a worker down while its siblings are running segfaults Bun (#1379).
  */
 export async function lintInWorkers(
   files: string[],
@@ -77,11 +126,19 @@ export async function lintInWorkers(
     try {
       await new Promise<void>((resolve, reject) => {
         let live = 0
+        // The first error a worker reported, raised once every worker is idle
+        let failure: Error | null = null
+        const settle = (): void => {
+          if (failure)
+            reject(failure)
+          else
+            resolve()
+        }
 
         const start = (): void => {
           let worker: Worker
           try {
-            worker = new Worker(entry)
+            worker = takeWorker(entry)
           }
           catch {
             return
@@ -91,20 +148,24 @@ export async function lintInWorkers(
           let inFlight: Array<[number, string]> = []
           // A worker ends once: out of files, failed, or gone without a word
           let ended = false
-          const finished = (): void => {
+          const finished = (reusable: boolean): void => {
             if (ended)
               return
             ended = true
-            worker.terminate()
+            worker.onmessage = null
+            worker.onerror = null
+            worker.removeEventListener('close', lost)
+            if (reusable)
+              parkWorker(entry, worker)
             live--
             if (live === 0)
-              resolve()
+              settle()
           }
 
           const send = (): void => {
             inFlight = takeBatch()
             if (inFlight.length === 0)
-              finished()
+              finished(true)
             else
               worker.postMessage({ type: 'lint', batch: inFlight })
           }
@@ -117,14 +178,19 @@ export async function lintInWorkers(
               send()
             }
             else if (message.type === 'error') {
-              reject(new Error(message.message))
+              // Hand out no more files and let the other workers come to
+              // rest; the error is raised once they have.
+              failure ??= new Error(message.message)
+              next = files.length
+              inFlight = []
+              finished(false)
             }
           }
           // Failed to load, threw, or exited: its unfinished files fall to
           // this thread. An exit raises no error event, only `close`.
           const lost = (): void => {
             inFlight = []
-            finished()
+            finished(false)
           }
           worker.onerror = lost
           worker.addEventListener('close', lost)
@@ -134,7 +200,7 @@ export async function lintInWorkers(
           }
           catch {
             // Options that cannot be cloned: lint everything here instead
-            finished()
+            finished(false)
             return
           }
           send()
@@ -143,12 +209,14 @@ export async function lintInWorkers(
         for (let k = 0; k < count; k++)
           start()
         if (live === 0)
-          resolve()
+          settle()
       })
     }
     finally {
+      // A worker still going - the run failed before it was done - is left
+      // alive, and only kept from holding the process open
       for (const worker of workers)
-        worker.terminate()
+        worker.unref()
     }
   }
 
