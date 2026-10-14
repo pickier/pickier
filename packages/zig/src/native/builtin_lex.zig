@@ -197,6 +197,19 @@ const State = enum { code, single, double, line_comment, block_comment, regex, r
 const F_TEMPLATE: u8 = 1;
 const F_INTERPOLATION: u8 = 2;
 
+/// Step over the character an escape applies to. A line break is one of them
+/// - a shell script in a template literal ends its continued lines with a
+/// backslash - and stepping over it without counting the line shifts every
+/// line after it (#1380).
+fn skipEscaped(content: []const u8, i: *usize, line: *u32, line_start: *usize, last_significant: *?usize) void {
+    i.* += 1;
+    if (i.* < content.len and content[i.*] == '\n') {
+        line.* += 1;
+        line_start.* = i.* + 1;
+        last_significant.* = null;
+    }
+}
+
 /// `scanTemplateLiteralLines`: the 1-based lines that fall inside a template
 /// literal, ascending.
 pub fn templateLiteralLines(allocator: Allocator, content: []const u8) ![]const u32 {
@@ -234,7 +247,7 @@ pub fn templateLiteralLines(allocator: Allocator, content: []const u8) ![]const 
             switch (state) {
                 .single, .double => {
                     if (c == '\\') {
-                        i += 1;
+                        skipEscaped(content, &i, &line, &line_start, &last_significant);
                     } else if ((state == .single and c == '\'') or (state == .double and c == '"')) {
                         state = .code;
                     }
@@ -247,7 +260,7 @@ pub fn templateLiteralLines(allocator: Allocator, content: []const u8) ![]const 
                 },
                 .regex => {
                     if (c == '\\') {
-                        i += 1;
+                        skipEscaped(content, &i, &line, &line_start, &last_significant);
                     } else if (c == '[') {
                         state = .regex_class;
                     } else if (c == '/') {
@@ -256,7 +269,7 @@ pub fn templateLiteralLines(allocator: Allocator, content: []const u8) ![]const 
                 },
                 .regex_class => {
                     if (c == '\\') {
-                        i += 1;
+                        skipEscaped(content, &i, &line, &line_start, &last_significant);
                     } else if (c == ']') {
                         state = .regex;
                     }
@@ -269,7 +282,7 @@ pub fn templateLiteralLines(allocator: Allocator, content: []const u8) ![]const 
         // Code, which is also the inside of a template literal body
         if (in_template) {
             if (c == '\\') {
-                i += 1;
+                skipEscaped(content, &i, &line, &line_start, &last_significant);
                 continue;
             }
             if (c == '`') {
@@ -347,6 +360,9 @@ test "template lines" {
     try std.testing.expectEqualSlices(u32, &.{ 1, 2, 3, 4 }, got);
     const none = try templateLiteralLines(a, "const re = /`/\nconst b = 1\n");
     try std.testing.expectEqual(@as(usize, 0), none.len);
+    // A continued line: the escape steps over the break, the line still counts
+    const continued = try templateLiteralLines(a, "const s = `run \\\n  --one 'a' \\\n  --two \"b\"\n`\nconst b = 1\n");
+    try std.testing.expectEqualSlices(u32, &.{ 1, 2, 3, 4 }, continued);
 }
 
 test "strip regex literals and comments" {
