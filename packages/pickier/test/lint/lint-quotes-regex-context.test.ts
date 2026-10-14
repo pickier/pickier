@@ -106,6 +106,31 @@ export { html }
     expect(await lint(source)).toBe(0)
   })
 
+  it('counts the lines a backslash continues inside a template', async () => {
+    // A shell script in a template literal ends its continued lines with a
+    // backslash. Stepping over the line break along with the escape shifted
+    // every line after it, so lines of the script were checked as code - the
+    // double-quoted shell argument below was reported as a quote style.
+    const source = `const script = \`run \\
+  --one 'auto' \\
+  --two "quoted" \\
+  --three x
+\`
+export { script }
+`
+    expect(await lint(source)).toBe(0)
+  })
+
+  it('still flags a double-quoted string after a continued line', async () => {
+    const source = `const script = \`run \\
+  --one 'auto'
+\`
+const bad = "double quoted"
+export { script, bad }
+`
+    expect(await lint(source)).toBe(1)
+  })
+
   it('still flags a genuine double-quoted string after a template literal', async () => {
     const source = `const html = \`<div class="a">
 </div>\`

@@ -1,12 +1,14 @@
 //! `general/prefer-template` - port of packages/pickier/src/rules/general/prefer-template.ts
 //!
-//! Per line (`/\r?\n/`), on the trimmed text, the first match of
+//! Per line (`/\r?\n/`) of the masked source, on the trimmed text, the first
+//! match of
 //!
 //!   stringPlusIdentifier  /(['"`][^'"`]*['"`])\s*\+\s*([a-z_$][\w$]*)/i
 //!   identifierPlusString  /([a-z_$][\w$]*)\s*\+\s*(['"`][^'"`]*['"`])/i
 //!
-//! is reported unless it is past a `//`, starts inside a string by the rule's
-//! quote toggling, or (identifier + string only) the string is followed by `.`.
+//! is reported unless the line opens a comment or an import, or (identifier +
+//! string only) the string is followed by `.`. Masking is what keeps a `+`
+//! that is string, template or comment content out of it (#1380).
 //!
 //! Neither regex can backtrack into a different match: `[^'"`]*` stops at the
 //! next quote whatever it is, and `[a-z_$][\w$]*` runs to the end of its word,
@@ -16,34 +18,29 @@
 const std = @import("std");
 const types = @import("../types.zig");
 const text = @import("../text.zig");
+const lexer = @import("../lexer.zig");
 
 const message = "Unexpected string concatenation. Use template literals instead";
 const help = "Use template literals (backticks) instead of string concatenation. Example: `hello ${name}!` instead of 'hello ' + name + '!'";
 
 pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) anyerror!void {
-    const content = ctx.content;
-    var line_no: u32 = 0;
-    var start: usize = 0;
-    while (true) {
-        line_no += 1;
-        const nl = std.mem.indexOfScalarPos(u8, content, start, '\n');
-        var end = nl orelse content.len;
-        if (nl != null and end > start and content[end - 1] == '\r') end -= 1;
-        const line = content[start..end];
+    const a = ctx.allocator;
+    const masked = try lexer.maskNonCode(a, ctx.content);
+    const lines = try text.splitLines(a, masked);
+
+    for (lines, 0..) |line, i| {
         // Both patterns need a `+`
-        if (std.mem.indexOfScalar(u8, line, '+') != null) {
-            if (checkLine(line)) |byte_col| {
-                try out.append(ctx.allocator, .{
-                    .line = line_no,
-                    .column = @intCast(text.utf16Index(line, byte_col) + 1),
-                    .rule_id = "general/prefer-template",
-                    .message = message,
-                    .severity = .warning,
-                    .help = help,
-                });
-            }
+        if (std.mem.indexOfScalar(u8, line, '+') == null) continue;
+        if (checkLine(line)) |byte_col| {
+            try out.append(a, .{
+                .line = @intCast(i + 1),
+                .column = @intCast(text.utf16Index(line, byte_col) + 1),
+                .rule_id = "general/prefer-template",
+                .message = message,
+                .severity = .warning,
+                .help = help,
+            });
         }
-        start = (nl orelse break) + 1;
     }
 }
 
@@ -62,10 +59,6 @@ fn checkLine(line: []const u8) ?usize {
     // `line.indexOf(match[0])`: trimmed starts `lead` bytes into the line
     const lead = @intFromPtr(trimmed.ptr) - @intFromPtr(line.ptr);
     const match_idx = lead + m.start;
-    if (std.mem.indexOf(u8, line, "//")) |comment_idx| {
-        if (match_idx > comment_idx) return null;
-    }
-    if (isInsideString(line, match_idx)) return null;
 
     // identifier + string only: `x + 'abc'.length` is not concatenation
     if (spi == null) {
@@ -142,29 +135,20 @@ fn identifierPlusString(s: []const u8) ?Match {
     return null;
 }
 
-/// The rule's `isInsideString`: quote toggling up to `pos`, where a backslash
-/// skips the next code unit. Skipping one byte of a multi-byte character is
-/// the same: its remaining bytes are never quotes.
-fn isInsideString(line: []const u8, pos: usize) bool {
-    var in_single = false;
-    var in_double = false;
-    var in_template = false;
-    var i: usize = 0;
-    while (i < pos) : (i += 1) {
-        const c = line[i];
-        if (c == '\\') {
-            i += 1;
-            continue;
-        }
-        if (c == '\'' and !in_double and !in_template) {
-            in_single = !in_single;
-        } else if (c == '"' and !in_single and !in_template) {
-            in_double = !in_double;
-        } else if (c == '`' and !in_single and !in_double) {
-            in_template = !in_template;
-        }
-    }
-    return in_single or in_double or in_template;
+test "a + in string, template or comment content is not concatenation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // A file that generates code: line 2 is one line of the program it emits
+    const src: []const u8 =
+        "const generated = [\n" ++
+        "  '  console.log(`+ connected: ${info.id}`)',\n" ++
+        "]\n" ++
+        "const greeting = 'Hello ' + name\n";
+    const masked = try lexer.maskNonCode(a, src);
+    const lines = try text.splitLines(a, masked);
+    try std.testing.expectEqual(@as(?usize, null), checkLine(lines[1]));
+    try std.testing.expectEqual(@as(?usize, 17), checkLine(lines[3]));
 }
 
 test "prefer-template matches" {

@@ -86,3 +86,53 @@ describe('workers that fail', () => {
     })
   }
 })
+
+describe('workers a run is done with', () => {
+  // Tearing a worker down mid-run - terminating it, or having it exit itself -
+  // segfaults Bun while its siblings are still going (#1379). A worker that is
+  // out of files is parked for the next run instead.
+  const files = Array.from({ length: 40 }, (_, i) => `file-${i}.ts`)
+  const lintHere = async (file: string) => [{ filePath: file, line: 1, column: 1, ruleId: 'here', message: '', severity: 'warning' as const }]
+
+  it('are never terminated, and are taken up by the next run', async () => {
+    // Every thread this entry starts leaves a line behind
+    const log = join(root, 'spawns.log')
+    const entry = join(root, 'parked-worker.ts')
+    writeFileSync(entry, [
+      'import { appendFileSync } from \'node:fs\'',
+      `appendFileSync(${JSON.stringify(log)}, 'spawn\\n')`,
+      'declare const self: Worker',
+      'self.onmessage = (event: MessageEvent) => {',
+      '  const message = event.data',
+      '  if (message.type === \'init\')',
+      '    return',
+      '  const results = (message.batch as Array<[number, string]>).map(([index, file]) => [index, [{ filePath: file, line: 1, column: 1, ruleId: \'worker\', message: \'\', severity: \'warning\' }]])',
+      '  postMessage({ type: \'done\', results })',
+      '}',
+      '',
+    ].join('\n'))
+    const href = pathToFileURL(entry).href
+    const spawns = (): number => readFileSync(log, 'utf8').trim().split('\n').length
+
+    const terminate = Worker.prototype.terminate
+    let terminated = 0
+    Worker.prototype.terminate = function (this: Worker) {
+      terminated++
+      return terminate.call(this)
+    }
+    try {
+      const first = await lintInWorkers(files, {} as any, 3, lintHere, href)
+      const spawned = spawns()
+      const second = await lintInWorkers(files, {} as any, 1, lintHere, href)
+      // Every file was linted on a worker, in both runs
+      expect(first.map(r => r[0]!.ruleId)).toEqual(files.map(() => 'worker'))
+      expect(second.map(r => r[0]!.ruleId)).toEqual(files.map(() => 'worker'))
+      expect(terminated).toBe(0)
+      // The second run picked a worker the first one parked
+      expect(spawns()).toBe(spawned)
+    }
+    finally {
+      Worker.prototype.terminate = terminate
+    }
+  })
+})

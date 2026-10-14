@@ -146,4 +146,56 @@ describe('pickier/prefer-template', () => {
     const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
     expect(code).toBe(0)
   })
+
+  // A `+` that is string, template or comment content is text, not an
+  // operator, and there is no concatenation there to replace (#1380)
+  it('ignores a + inside a string literal', async () => {
+    const dir = tmp()
+    const src = [
+      'export const generated: string[] = [',
+      '  \'server.on("connection", (info) => {\',',
+      '  \'  console.log(`+ Client connected: ${info.subdomain}`)\',',
+      '  \'})\',',
+      ']',
+      '',
+    ].join('\n')
+    writeFileSync(join(dir, 'g.ts'), src, 'utf8')
+
+    const cfgPath = join(dir, 'pickier.config.json')
+    writeFileSync(cfgPath, JSON.stringify({
+      verbose: false,
+      ignores: [],
+      lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+      format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+      rules: { noDebugger: 'off', noConsole: 'off' },
+      pluginRules: { 'general/prefer-template': 'error', 'pickier/no-unused-vars': 'off', 'style/max-statements-per-line': 'off' },
+    }, null, 2), 'utf8')
+
+    const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
+    expect(code).toBe(0)
+  })
+
+  it('ignores a + inside a template literal spanning lines', async () => {
+    const dir = tmp()
+    const src = [
+      'export const script = `',
+      '  echo "total: " + count',
+      '`',
+      '',
+    ].join('\n')
+    writeFileSync(join(dir, 'h.ts'), src, 'utf8')
+
+    const cfgPath = join(dir, 'pickier.config.json')
+    writeFileSync(cfgPath, JSON.stringify({
+      verbose: false,
+      ignores: [],
+      lint: { extensions: ['ts'], reporter: 'json', cache: false, maxWarnings: -1 },
+      format: { extensions: ['ts'], trimTrailingWhitespace: true, maxConsecutiveBlankLines: 1, finalNewline: 'one', indent: 2, quotes: 'single', semi: false },
+      rules: { noDebugger: 'off', noConsole: 'off' },
+      pluginRules: { 'general/prefer-template': 'error', 'pickier/no-unused-vars': 'off', 'style/max-statements-per-line': 'off' },
+    }, null, 2), 'utf8')
+
+    const code = await runLint([dir], { config: cfgPath, reporter: 'json' })
+    expect(code).toBe(0)
+  })
 })

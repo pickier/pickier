@@ -1159,8 +1159,25 @@ function scanTemplateLiteralLines(content: string): Set<number> {
   let lastSignificant = -1
   let lineStart = 0
   const length = content.length
+  let i = 0
 
-  for (let i = 0; i < length; i++) {
+  /**
+   * Step over the character an escape applies to. A line break is one of
+   * them - a shell script in a template literal ends its continued lines
+   * with a backslash - and stepping over it without counting the line
+   * shifts every line after it, so the lines a caller is told are template
+   * content are not the lines that are (#1380).
+   */
+  const skipEscaped = (): void => {
+    i++
+    if (content.charCodeAt(i) === 10) {
+      line++
+      lineStart = i + 1
+      lastSignificant = -1
+    }
+  }
+
+  for (; i < length; i++) {
     const c = content.charCodeAt(i)
 
     if (c === 10) {
@@ -1182,7 +1199,7 @@ function scanTemplateLiteralLines(content: string): Set<number> {
         case S_SINGLE:
         case S_DOUBLE:
           if (c === 92)
-            i++
+            skipEscaped()
           else if ((state === S_SINGLE && c === 39) || (state === S_DOUBLE && c === 34))
             state = S_CODE
           break
@@ -1194,7 +1211,7 @@ function scanTemplateLiteralLines(content: string): Set<number> {
           break
         case S_REGEX:
           if (c === 92)
-            i++
+            skipEscaped()
           else if (c === 91)
             state = S_REGEX_CLASS
           else if (c === 47)
@@ -1202,7 +1219,7 @@ function scanTemplateLiteralLines(content: string): Set<number> {
           break
         case S_REGEX_CLASS:
           if (c === 92)
-            i++
+            skipEscaped()
           else if (c === 93)
             state = S_REGEX
           break
@@ -1213,7 +1230,7 @@ function scanTemplateLiteralLines(content: string): Set<number> {
     // Code, which is also the inside of a template literal body.
     if (inTemplate) {
       if (c === 92) {
-        i++
+        skipEscaped()
         continue
       }
       if (c === 96) {
