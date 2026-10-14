@@ -1,28 +1,18 @@
 import type { LintIssue, RuleContext, RuleModule } from '../../types'
+import { maskNonCode } from '../../lexer'
 
 /**
  * Prefer template literals over string concatenation
  *
  * Flags cases like: 'hello ' + name + '!'
  * Suggests: `hello ${name}!`
+ *
+ * The patterns run over the masked source (lexer.ts), so only a `+` that is
+ * code is a candidate. A file that generates code holds lines of another
+ * program as strings, and a `+` in one of those - the first character of a
+ * message the generated program prints, say - is text with no concatenation
+ * to replace (#1380).
  */
-function isInsideString(line: string, pos: number): boolean {
-  let inSingle = false
-  let inDouble = false
-  let inTemplate = false
-  for (let i = 0; i < pos; i++) {
-    const c = line[i]
-    if (c === '\\') {
-      i++
-      continue
-    }
-    if (c === '\'' && !inDouble && !inTemplate) inSingle = !inSingle
-    else if (c === '"' && !inSingle && !inTemplate) inDouble = !inDouble
-    else if (c === '`' && !inSingle && !inDouble) inTemplate = !inTemplate
-  }
-  return inSingle || inDouble || inTemplate
-}
-
 export const preferTemplate: RuleModule = {
   meta: {
     docs: 'Prefer template literals over string concatenation',
@@ -30,7 +20,7 @@ export const preferTemplate: RuleModule = {
   },
   check(content: string, context: RuleContext): LintIssue[] {
     const issues: LintIssue[] = []
-    const lines = content.split(/\r?\n/)
+    const lines = maskNonCode(content).split(/\r?\n/)
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -53,15 +43,7 @@ export const preferTemplate: RuleModule = {
       const match = trimmed.match(stringPlusIdentifier) || trimmed.match(identifierPlusString)
 
       if (match) {
-        // Additional check: make sure we're not in a comment
-        const commentIdx = line.indexOf('//')
         const matchIdx = line.indexOf(match[0])
-        if (commentIdx >= 0 && matchIdx > commentIdx)
-          continue
-
-        // Skip if the match is inside a string literal (e.g., help text describing the pattern)
-        if (isInsideString(line, matchIdx))
-          continue
 
         // Skip patterns like: identifier + 'string'.length (property access on string, not concatenation)
         // Only applies when the STRING is at the END of the match and followed by '.'
