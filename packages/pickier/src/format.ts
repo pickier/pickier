@@ -246,7 +246,17 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
   return result.join('\n')
 }
 
+/** A `#` comment, at the start of a line or after whitespace. */
+const RE_YAML_COMMENT = /(?:^|\s)#/
+
 function formatYaml(src: string, cfg: PickierConfig): string {
+  // Formatting a document means round-tripping it through Bun.YAML's parsed
+  // value, and a comment is not in that value: formatting deps.yaml deleted
+  // the two lines saying why the Zig release is pinned, and would empty a
+  // workflow file of every comment in it. Nothing here can carry one
+  // through, so a document that has one is left as it is.
+  if (RE_YAML_COMMENT.test(src))
+    return src
   try {
     const parsed = Bun.YAML.parse(src)
     const indent = cfg.format.indentStyle === 'tabs' ? '\t' : cfg.format.indent
@@ -643,8 +653,32 @@ function advanceTemplateState(line: string, stack: TmplCtx[]): number {
         i = skipQuoted(line, i, ch)
         continue
       }
-      if (ch === '/' && line[i + 1] === '/')
-        break // line comment — nothing template-relevant after it
+      if (ch === '/') {
+        if (line[i + 1] === '/')
+          break // line comment — nothing template-relevant after it
+        // An inline block comment's text is prose, and a regex literal's
+        // pattern is not code: the backtick in `/[a-z]+`/g` opens no
+        // template. Read as one, the rest of the line was taken for template
+        // text and the code before it formatted without the regex masked -
+        // which spaced the pattern's own operators, `[a-z]` to `[a - z]`,
+        // and quietly changed what it matches.
+        if (line[i + 1] === '*') {
+          const end = line.indexOf('*/', i + 2)
+          if (end === -1)
+            break // runs past end of line; nothing template-relevant after it
+          i = end + 2
+          continue
+        }
+        if (isRegexStart(line, i)) {
+          const end = scanRegexEnd(line, i)
+          if (end !== -1) {
+            i = end
+            continue
+          }
+        }
+        i++
+        continue
+      }
       if (top !== undefined) {
         // Inside ${...}: balance braces so the matching } closes the interp.
         if (ch === '{') {

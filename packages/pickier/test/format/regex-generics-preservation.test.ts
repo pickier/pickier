@@ -342,3 +342,33 @@ describe('import organization preserves comments and multi-line imports (#1369)'
     expect(fmt(once)).toBe(once)
   })
 })
+
+/**
+ * A backtick inside a regex literal, or inside an inline block comment, opens
+ * no template literal. Read as one, the rest of the line was taken for
+ * template text and the code before it was formatted without the regex
+ * masked - which spaced the pattern's own operators and changed what it
+ * matches - and every line after it was emitted verbatim.
+ */
+describe('a backtick that opens no template', () => {
+  it('leaves a pattern that holds a backtick alone', () => {
+    expect(fmt('const re = /[a-z]+`/g\n')).toBe('const re = /[a-z]+`/g\n')
+    const tag = 'const TAG = /([a-zA-Z_$][a-zA-Z0-9_$]*)\\s+`/g\n'
+    expect(fmt(tag)).toBe(tag)
+    const quoted = 'const p = /new\\s+RegExp\\s*\\(\\s*[\'"`]([^\'"`]+)[\'"`]/g\n'
+    expect(fmt(quoted)).toBe(quoted)
+  })
+
+  it('still formats the code after one', () => {
+    expect(fmt('const re = /x`/g\nconst n = 1+1\n')).toBe('const re = /x`/g\nconst n = 1 + 1\n')
+  })
+
+  it('still formats the code after a backtick in a block comment', () => {
+    expect(fmt('const a = 1 /* `x` */\nconst n = 1+1\n')).toBe('const a = 1 /* `x` */\nconst n = 1 + 1\n')
+  })
+
+  it('a real template on the line is still protected', () => {
+    const tmpl = 'const re = /x`/g\nconst s = `  a+b  `\n'
+    expect(fmt(tmpl)).toBe(tmpl)
+  })
+})
