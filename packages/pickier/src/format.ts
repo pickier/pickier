@@ -791,6 +791,13 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
   let indentLevel = 0
   let hangDepth = 0
   let inBlockComment = false
+  // Levels a block inherits from the continuation line that opened it. A
+  // callback in a method chain opens its block on a `.method(` line, which
+  // is itself a level deeper than the statement, so its body belongs two
+  // levels in - counted from the statement alone, the whole body and the
+  // closing `})` came back a level short.
+  const blockBumps: number[] = []
+  let bumpDepth = 0
   const tmplStack: TmplCtx[] = []
 
   for (let idx = 0; idx < len; idx++) {
@@ -857,8 +864,14 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
       wsEnd++
     const trimmed = line.slice(wsEnd).trimEnd()
 
-    if (RE_CLOSING_BRACE.test(trimmed))
+    // A closing line sits where the line that opened its block sat, so it
+    // keeps that block's inherited levels for its own indent and gives them
+    // up afterwards
+    let closingBump = 0
+    if (RE_CLOSING_BRACE.test(trimmed)) {
       indentLevel = Math.max(0, indentLevel - 1)
+      closingBump = blockBumps.pop() ?? 0
+    }
 
     // Continuation lines (`.method()` chains, ternary `?` / `:` branches,
     // `&&` / `||` operands) conventionally sit one level deeper than the
@@ -867,12 +880,20 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
 
     const indent = cfg.format.preserveCodeIndentation
       ? line.slice(0, wsEnd)
-      : makeIndent(indentLevel + hangDepth + continuationBump, cfg)
+      : makeIndent(indentLevel + bumpDepth + hangDepth + continuationBump, cfg)
+    bumpDepth -= closingBump
 
     // Opens a block: ends in `{`, `[` or `(` (`trimmed` has no trailing whitespace)
     const lastCode = trimmed.charCodeAt(trimmed.length - 1)
     if (lastCode === 123 || lastCode === 91 || lastCode === 40) {
       indentLevel += 1
+      // Only a chained call carries its own level into the block it opens:
+      // the callback belongs to that `.method(` line. A wrapped condition
+      // (`&& …) {`) is part of a statement header, and the block it opens
+      // belongs to the statement, as does its body.
+      const inherited = continuationBump === 1 && trimmed.charCodeAt(0) === 46 ? 1 : 0
+      blockBumps.push(inherited)
+      bumpDepth += inherited
       hangDepth = 0
     }
     else if (!trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*')) {
@@ -1515,6 +1536,8 @@ interface ParsedImport {
   named: Array<{ name: string, alias?: string }>
   namedTypes: Array<{ name: string, alias?: string }>
   original: string
+  /** Comment lines written above this import, emitted above it again. */
+  comments?: string[]
 }
 
 function isIdentCharCode(c: number): boolean {
@@ -1578,9 +1601,14 @@ function formatImportLines(lines: string[]): string[] | null {
   const imports: ParsedImport[] = []
   // Comments must survive import organization (#1369 — they were silently
   // deleted before): lines before the first import stay above the block,
-  // comments between imports are re-emitted after it, and comments after the
-  // last import (e.g. a JSDoc for the following declaration) belong to `rest`.
+  // comments after the last import (e.g. a JSDoc for the following
+  // declaration) belong to `rest`, and a comment between imports belongs to
+  // the import under it and travels with it - emitted after the whole block,
+  // it no longer described anything, and left there it was then read as a
+  // trailing comment, which moved it again on the next run.
   const preamble: string[] = []
+  // Comments whose import did not survive the organization, emitted after the
+  // block so that nothing is lost
   const interleaved: string[] = []
   let idx = 0
   let lastEnd = 0 // just past the last consumed import statement
@@ -1630,12 +1658,15 @@ function formatImportLines(lines: string[]): string[] | null {
     const parsed = parseImportStatement(stmt)
     if (!parsed)
       return null
-    // comments buffered since the previous import are interleaved — keep them
+    // Comments buffered since the previous import belong to this one
     if (pendingStart >= 0) {
+      const own: string[] = []
       for (let k = pendingStart; k < idx; k++) {
         if (!RE_BLANK_LINE.test(lines[k]))
-          interleaved.push(lines[k])
+          own.push(lines[k])
       }
+      if (own.length > 0)
+        parsed.comments = own
       pendingStart = -1
     }
     imports.push(parsed)
@@ -1694,8 +1725,31 @@ function formatImportLines(lines: string[]): string[] | null {
     return Boolean(imp.defaultName || imp.namespaceName || imp.named.length > 0)
   })
 
+  // An import that did not survive hands its comments to the next one that
+  // did, which is what the comment described in the first place; anything
+  // left over at the end is emitted after the block.
+  const survives = new Set(nonEmpty)
+  let carried: string[] = []
+  for (const imp of imports) {
+    const own = carried.length > 0 ? [...carried, ...(imp.comments ?? [])] : imp.comments
+    if (!survives.has(imp)) {
+      carried = own ?? []
+      continue
+    }
+    if (own && own.length > 0)
+      imp.comments = own
+    carried = []
+  }
+  if (carried.length > 0)
+    interleaved.push(...carried)
+
   // merge by source into one value and one type per module
   const bySource: Map<string, { value?: ParsedImport, type?: ParsedImport, side?: ParsedImport[] }> = new Map()
+  const keepComments = (into: ParsedImport, from: ParsedImport): void => {
+    if (!from.comments)
+      return
+    into.comments = into.comments ? [...into.comments, ...from.comments] : [...from.comments]
+  }
   for (const imp of nonEmpty) {
     const bucket = bySource.get(imp.source) || {}
     if (imp.kind === 'side-effect') {
@@ -1705,11 +1759,13 @@ function formatImportLines(lines: string[]): string[] | null {
     else if (imp.kind === 'type') {
       if (!bucket.type)
         bucket.type = { kind: 'type', source: imp.source, named: [], namedTypes: [], original: '' }
+      keepComments(bucket.type, imp)
       bucket.type.namedTypes = (bucket.type.namedTypes || []).concat(imp.namedTypes)
     }
     else {
       if (!bucket.value)
         bucket.value = { kind: 'value', source: imp.source, named: [], namedTypes: [], original: '' }
+      keepComments(bucket.value, imp)
       if (imp.defaultName)
         bucket.value.defaultName = imp.defaultName
       if (imp.namespaceName)
@@ -1820,13 +1876,21 @@ function formatImportLines(lines: string[]): string[] | null {
 
   const out = [...preamble]
   for (const imp of entries) {
+    if (imp.comments)
+      out.push(...imp.comments)
     const rendered = renderImport(imp)
     if (rendered.includes('\n'))
       out.push(...rendered.split('\n'))
     else
       out.push(rendered)
   }
-  out.push(...interleaved)
+  // The blank line goes before the comments left over, not after them: on a
+  // second run they read as comments belonging to the code below, which is
+  // the same text only when the blank line is already above them.
+  if (interleaved.length > 0) {
+    out.push('')
+    out.push(...interleaved)
+  }
   // A blank line between the imports and the code, or the final newline
   out.push('')
   out.push(...restClean)
