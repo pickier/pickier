@@ -8,6 +8,11 @@ export type RunOptions = (Partial<LintOptions> & Partial<FormatOptions>) & {
   mode?: 'auto' | 'lint' | 'format'
 }
 
+/** Whether formatting may write: --write, or --fix as its alias. */
+function wantsWrite(options: RunOptions): boolean {
+  return options.write === true || options.fix === true
+}
+
 export async function runUnified(globs: string[], options: RunOptions): Promise<number> {
   const mode = options.mode || 'auto'
 
@@ -22,12 +27,14 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
         const cfg = await loadConfigFromPath(options.config)
         const src = readFileSync(filePath, 'utf8')
         const fmt = formatCode(src, cfg, filePath)
-        if (options.check && fmt !== src)
-          return 1
-        if (options.write && fmt !== src) {
+        if (fmt === src)
+          return 0
+        if (wantsWrite(options)) {
           writeFileSync(filePath, fmt, 'utf8')
+          return 0
         }
-        return 0
+        // Not formatted, and not asked to write: the full path below reports
+        // it, exactly as it does for a directory or a glob
       }
     }
     catch {
@@ -45,7 +52,11 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
     const lintOpts: LintOptions = {
       ...(options as any),
       fix: true,
-      dryRun: !!options.check,
+      // Formatting rewrites files only when asked to. Without --write it
+      // reports what is not formatted and exits non-zero, the same as
+      // --check and the same as the single-file path above - rather than
+      // rewriting every file the globs match.
+      dryRun: !wantsWrite(options),
       ext: options.ext,
       _formatOnly: true,
     }

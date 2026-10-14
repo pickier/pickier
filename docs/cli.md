@@ -18,7 +18,9 @@ Automatically detects or explicitly sets the operation mode.
   - `format`: Formatting mode
 - `--fix` - Auto-fix linting problems (lint mode)
 - `--dry-run` - Simulate fixes without writing files
-- `--write` - Write formatted changes to files (format mode)
+- `--write` - Write formatted changes to files (format mode). Without it,
+  format mode reports what is not formatted and exits non-zero, writing
+  nothing - the same as `--check`
 - `--check` - Check formatting without writing (format mode)
 - `--max-warnings <n>` - Fail if warnings exceed threshold (default: `-1` disables)
 - `--reporter <name>` - Output format: `stylish` | `json` | `compact` (default: `stylish`)
@@ -85,7 +87,8 @@ Format files according to style rules.
 
 **Options:**
 
-- `--write` - Write changes to files
+- `--write` - Write changes to files. Without it, formatting reports what it
+  would change and exits non-zero, writing nothing
 - `--check` - Check formatting without writing
 - `--config <path>` - Path to Pickier config
 - `--ignore-path <file>` - Ignore file (gitignore-style)
