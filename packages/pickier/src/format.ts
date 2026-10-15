@@ -1,6 +1,7 @@
 import type { PickierConfig } from './types'
 import { heredocDelimiter } from './rules/shell/_shared'
 import { ShellContinuation } from './rules/shell/_continuation'
+import { maskNonCode } from './lexer'
 
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
@@ -16,6 +17,8 @@ const _RE_LEADING_WS = /^[ \t]*/
 const RE_CLOSING_BRACE = /^[}\])]/
 const RE_TRAILING_LINE_COMMENT = /\s*\/\/.*$/
 const RE_CONTROL_OPEN = /^(?:if|else\s+if|for|while)\s*\(/
+/** Lines isHangingControlLine could say yes to; the rest skip the mask. */
+const RE_CONTROL_START = /^(?:if|else|for|while|do)\b/
 // `.method()` chain links, ternary branches, and logical-operator operands
 // that start a line continue the previous statement. `?.` is optional
 // chaining; a lone `:` could be a case label so require a space after it.
@@ -900,8 +903,25 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
       // Brace-less control flow (`if (x)` / `else` / `for (...)` without `{`)
       // hangs its single statement one level deeper; previously that
       // statement was snapped back to the enclosing level (#1369).
-      const code = trimmed.includes('//') ? trimmed.replace(RE_TRAILING_LINE_COMMENT, '') : trimmed
-      hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
+      //
+      // The decision is made on the masked line (lexer.ts), because both the
+      // condition and the comment have to be read as code: a `//` inside a
+      // string is not a comment, so stripping from it cut the condition in
+      // half, and a quote inside a regex is not a string, so the condition
+      // never closed. Either way the statement under it lost its level:
+      //
+      //     if (before.includes('//'))
+      //       return true            // snapped back to the `if`'s level
+      //
+      // Masking costs a lex, so only a line that could hang one is masked.
+      if (!RE_CONTROL_START.test(trimmed)) {
+        hangDepth = 0
+      }
+      else {
+        const masked = maskNonCode(trimmed)
+        const code = masked.includes('//') ? masked.replace(RE_TRAILING_LINE_COMMENT, '') : masked
+        hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
+      }
     }
 
     // Phase 3: Normalize spacing. The rules run on the code alone and the

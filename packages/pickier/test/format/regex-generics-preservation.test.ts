@@ -119,6 +119,48 @@ describe('continuation line indentation (#1369)', () => {
     expect(fmt(input)).toBe(input)
   })
 
+  // The condition has to be read as code: a `//` inside a string or a regex
+  // is not the start of a comment, and a quote inside a regex does not open
+  // a string. Read either as text, the condition never closed, and the
+  // statement under it was snapped back to the `if`'s own level.
+  it('hangs under a condition holding a // inside a string', () => {
+    const input = [
+      'function f(line: string, index: number): boolean {',
+      '  const before = line.slice(0, index)',
+      '  if (before.includes(\'//\'))',
+      '    return true',
+      '  return false',
+      '}',
+      '',
+    ].join('\n')
+    expect(fmt(input)).toBe(input)
+  })
+
+  it('hangs under a condition holding a regex', () => {
+    const input = [
+      'function g(clause: string): boolean {',
+      '  if (/^[\'"]/.test(clause))',
+      '    return true',
+      '  if (/^\\s*\\/\\//.test(clause))',
+      '    return true',
+      '  return false',
+      '}',
+      '',
+    ].join('\n')
+    expect(fmt(input)).toBe(input)
+  })
+
+  it('still hangs under a condition with a real trailing comment', () => {
+    const input = [
+      'function h(x: boolean): void {',
+      '  if (x) // why',
+      '    run()',
+      '}',
+      '',
+    ].join('\n')
+    expect(fmt(input)).toBe(input)
+  })
+
   it('single-line if with statement is not treated as hanging', () => {
     const input = [
       'function g(opts: { a?: boolean, b?: boolean }): string[] {',
