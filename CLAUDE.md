@@ -148,6 +148,7 @@ The CLI lints TS/JS files with a Zig engine (`packages/zig/src/native/`, run as 
 - A rule joins `NATIVE_RULES` only once `packages/zig/scripts/parity.ts` reports no differences for it (`bun scripts/parity.ts <dirs> --rule <id>`).
 - Changing a ported TypeScript rule means changing its Zig port too; CI's `native` job checks every ported rule.
 - Build the shipped engines with `bun run -C packages/pickier build:native`, or for this machine only with `bun scripts/build-native.ts --host`. Both need Zig 0.16+.
+- `packages/zig/src/format.zig` is a separate, incomplete formatter, reachable only through the in-repo `pickier-zig` dev CLI: it rewrites regex literals, template-literal contents and block-comment prose, and there is no parity harness for it. The shipped engine does not link it. See `packages/zig/README.md`.
 
 ### Key Design Patterns
 
