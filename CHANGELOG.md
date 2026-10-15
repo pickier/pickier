@@ -1,3 +1,28 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.71...v0.1.72)
+
+## 🐛 Bug Fixes
+
+- **format**: read a brace-less condition as code, not as text (#1387) ([a38ce82](https://github.com/pickier/pickier/commit/a38ce82)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1387](https://github.com/pickier/pickier/issues/1387), [#1387](https://github.com/pickier/pickier/issues/1387), [#1383](https://github.com/pickier/pickier/issues/1383))
+- **format**: keep the direction of an aliased import (#1385) ([47fba99](https://github.com/pickier/pickier/commit/47fba99)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1385](https://github.com/pickier/pickier/issues/1385), [#1385](https://github.com/pickier/pickier/issues/1385))
+- **format**: indent a chain's callback from its own line, and keep an import's comment with it (#1384) ([52c8ea3](https://github.com/pickier/pickier/commit/52c8ea3)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1384](https://github.com/pickier/pickier/issues/1384), [#1384](https://github.com/pickier/pickier/issues/1384))
+- **format**: a backtick in a regex opens no template, and yaml keeps its comments (#1383) ([de0ab73](https://github.com/pickier/pickier/commit/de0ab73)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1383](https://github.com/pickier/pickier/issues/1383), [#1383](https://github.com/pickier/pickier/issues/1383))
+- **cli**: format writes only when asked, and each sub-command reaches its mode (#1382) ([186861b](https://github.com/pickier/pickier/commit/186861b)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1382](https://github.com/pickier/pickier/issues/1382), [#1382](https://github.com/pickier/pickier/issues/1382))
+- a lint run that crashes, and two rules reading text as code (#1379, #1380) (#1381) ([bed9356](https://github.com/pickier/pickier/commit/bed9356)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1379](https://github.com/pickier/pickier/issues/1379), [#1380](https://github.com/pickier/pickier/issues/1380), [#1380](https://github.com/pickier/pickier/issues/1380), [#1379](https://github.com/pickier/pickier/issues/1379), [#1380](https://github.com/pickier/pickier/issues/1380), [#1381](https://github.com/pickier/pickier/issues/1381), [#1379](https://github.com/pickier/pickier/issues/1379), [#1380](https://github.com/pickier/pickier/issues/1380), [#1381](https://github.com/pickier/pickier/issues/1381), [#1379](https://github.com/pickier/pickier/issues/1379), [#1380](https://github.com/pickier/pickier/issues/1380), [#1380](https://github.com/pickier/pickier/issues/1380))
+
+## 📚 Documentation
+
+- **zig**: say what the Zig formatter does to real code (#1386) ([c565282](https://github.com/pickier/pickier/commit/c565282)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1386](https://github.com/pickier/pickier/issues/1386), [#1386](https://github.com/pickier/pickier/issues/1386))
+
+## 🧹 Chores
+
+- release v0.1.72 ([6ca9872](https://github.com/pickier/pickier/commit/6ca9872)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update dependency happy-dom to 21.0.1 (#1378) ([fc9d918](https://github.com/pickier/pickier/commit/fc9d918)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1378](https://github.com/pickier/pickier/issues/1378), [#1378](https://github.com/pickier/pickier/issues/1378))
+
+## Contributors
+
+- _Glenn Michael Torregosa <gtorregosa@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.70...v0.1.71)
 
 ## 🐛 Bug Fixes
