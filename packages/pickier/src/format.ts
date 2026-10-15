@@ -1787,14 +1787,6 @@ function formatImportLines(lines: string[]): string[] | null {
     if (bucket.side)
       entries.push(...bucket.side)
     if (bucket.value) {
-      // flip alias direction only for simple one-letter aliases in value named specifiers
-      const flipIfSimple = (s: { name: string, alias?: string }) => {
-        if (!s.alias)
-          return s
-        const simple = /^[A-Z]$/i.test(s.name) && /^[A-Z]$/i.test(s.alias)
-        return simple ? { name: s.alias, alias: s.name } : s
-      }
-      bucket.value.named = bucket.value.named.map(flipIfSimple)
       // sort by left-side identifier
       bucket.value.named.sort((a, b) => a.name.localeCompare(b.name))
       entries.push(bucket.value)
@@ -1802,13 +1794,7 @@ function formatImportLines(lines: string[]): string[] | null {
     if (bucket.type && bucket.type.namedTypes.length > 0) {
       // dedupe and sort
       const seen = new Set<string>()
-      const flipIfSimple = (s: { name: string, alias?: string }) => {
-        if (!s.alias)
-          return s
-        const simple = /^[A-Z]$/i.test(s.name) && /^[A-Z]$/i.test(s.alias)
-        return simple ? { name: s.alias, alias: s.name } : s
-      }
-      bucket.type.namedTypes = bucket.type.namedTypes.map(flipIfSimple)
+      bucket.type.namedTypes = bucket.type.namedTypes
         .filter((s) => {
           const k = `${s.name}|${s.alias || ''}`
           if (seen.has(k))
