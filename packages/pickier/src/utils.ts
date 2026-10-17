@@ -124,20 +124,21 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
     const BunGlob = (globalThis as any).Bun.Glob
     const results: string[] = []
     for (const pattern of patterns) {
-      // A path with no glob characters that names a file is that file. Bun.Glob
+      // An existing path names that literal file, even with glob characters
+      // (for example a dynamic route such as [slug].stx). Bun.Glob
       // matches from `cwd`, so an absolute path, or one outside it, would
       // otherwise find nothing - and the file would silently go unlinted.
-      if (!/[*?[{]/.test(pattern)) {
-        const full = isAbsolute(pattern) ? pattern : join(cwd, pattern)
-        if (statSync(full, { throwIfNoEntry: false })?.isFile()) {
-          if (!ignoreMatcher(full))
-            results.push(absolute ? full : (full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full))
-          continue
-        }
+      const literal = isAbsolute(pattern) ? pattern : join(cwd, pattern)
+      const target = statSync(literal, { throwIfNoEntry: false })
+      if (target?.isFile()) {
+        if (!ignoreMatcher(literal))
+          results.push(absolute ? literal : (literal.startsWith(`${cwd}/`) ? literal.slice(cwd.length + 1) : literal))
+        continue
       }
-      const g = new BunGlob(pattern)
-      for await (const file of g.scan({ cwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
-        const full = isAbsolute(file) ? file : join(cwd, file)
+      const scanCwd = target?.isDirectory() ? literal : cwd
+      const g = new BunGlob(target?.isDirectory() ? '**/*' : pattern)
+      for await (const file of g.scan({ cwd: scanCwd, dot, onlyFiles: opts.onlyFiles ?? true, followSymlinks: false })) {
+        const full = isAbsolute(file) ? file : join(scanCwd, file)
         const rel = full.startsWith(`${cwd}/`) ? full.slice(cwd.length + 1) : full
         if (ignoreMatcher(full)) continue
         results.push(absolute ? full : rel)
@@ -149,9 +150,10 @@ export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<
   // Fallback: Node fs recursive walk
   const results: string[] = []
   for (const pattern of patterns) {
-    // If pattern has no glob chars, treat as literal path
-    if (!/[*?[{]/.test(pattern)) {
-      const full = isAbsolute(pattern) ? pattern : join(cwd, pattern)
+    const full = isAbsolute(pattern) ? pattern : join(cwd, pattern)
+    const target = statSync(full, { throwIfNoEntry: false })
+    // Existing files and directories take precedence over glob syntax here too.
+    if (target || !/[*?[{]/.test(pattern)) {
       try {
         const st = statSync(full)
         if (!st.isDirectory()) {
