@@ -42,6 +42,39 @@ describe('lint cache', () => {
     expect(warm.report).not.toContain('f0.ts')
   })
 
+  it('is reused by the same project checked out somewhere else, from --cache-location', () => {
+    // Every CI job gets a fresh directory; the cache lives outside it.
+    const shared = join(dir, '..', `${dir.split('/').pop()}-shared.json`)
+    const other = mkdtempSync(join(tmpdir(), 'pickier-cache-other-'))
+    try {
+      mkdirSync(join(other, 'src'))
+      for (let i = 0; i < 6; i++)
+        writeFileSync(join(other, 'src', `f${i}.ts`), readFileSync(join(dir, 'src', `f${i}.ts`), 'utf8'))
+
+      rmSync(shared, { force: true })
+      lint('--cache', '--cache-location', shared)
+      const stored = JSON.parse(readFileSync(shared, 'utf8'))
+      expect(Object.keys(stored.files)).toContain(join('src', 'f1.ts'))
+
+      // A marker only the cache could supply proves the other checkout read it.
+      stored.files[join('src', 'f1.ts')].issues.push({ filePath: '', line: 1, column: 1, ruleId: 'cache/marker', message: 'from the cache', severity: 'warning' })
+      writeFileSync(shared, JSON.stringify(stored))
+
+      const out = join(other, 'report.json')
+      Bun.spawnSync(['sh', '-c', `bun ${CLI} run src --mode lint --reporter json --cache --cache-location ${shared} > ${out}`], { cwd: other })
+      const report = JSON.parse(readFileSync(out, 'utf8'))
+      const marker = report.issues.find((issue: { ruleId: string }) => issue.ruleId === 'cache/marker')
+      expect(marker).toBeDefined()
+      // Reported against this checkout's file, not the one that filled the cache.
+      expect(String(marker.filePath)).toContain(join('src', 'f1.ts'))
+      expect(String(marker.filePath)).not.toContain(dir)
+    }
+    finally {
+      rmSync(other, { recursive: true, force: true })
+      rmSync(shared, { force: true })
+    }
+  })
+
   it('starts over when the config changes', () => {
     lint('--cache')
     writeFileSync(join(dir, 'pickier.config.json'), JSON.stringify({ format: { quotes: 'double' } }))

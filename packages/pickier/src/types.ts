@@ -30,6 +30,8 @@ export interface PickierLintConfig {
   extensions: Extension[]
   reporter: 'stylish' | 'json' | 'compact'
   cache: boolean
+  /** Where the cache lives; `--cache-location` overrides it. */
+  cacheLocation?: string
   maxWarnings: number
 }
 
@@ -142,6 +144,8 @@ export interface LintOptions {
   ignorePath?: string
   ext?: string
   cache?: boolean
+  /** Where the cache lives (default `.pickiercache` in the working directory). */
+  cacheLocation?: string
   verbose?: boolean
   /** @internal Fast path: skip scanning/plugin checks, only apply fixers */
   _formatOnly?: boolean

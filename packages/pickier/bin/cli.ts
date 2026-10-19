@@ -38,6 +38,7 @@ async function main() {
   let config: string | undefined
   let ext: string | undefined
   let cache = false
+  let cacheLocation: string | undefined
   let reporter: 'stylish' | 'json' | 'compact' | undefined
   const globs: string[] = []
   // Anything the framework below answers itself - the version, the help - is
@@ -74,6 +75,9 @@ async function main() {
     else if (a === '--cache') {
       cache = true
     }
+    else if (a === '--cache-location') {
+      cacheLocation = argv[++i]
+    }
     else if (a === '--reporter') {
       const value = argv[++i]
       reporter = value === 'json' || value === 'compact' ? value : 'stylish'
@@ -106,7 +110,7 @@ async function main() {
   // round-trip through auto mode's "default to fix" branch in runUnified.
   if (useFastPath && (mode === 'format' || mode === 'auto' || mode === 'lint') && globs.length > 0) {
     const { runUnified } = await import('../src/run.ts')
-    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext, ...(cache && { cache }), ...(reporter && { reporter }) })
+    const code = await runUnified(globs, { mode: mode as 'format' | 'auto' | 'lint', check, write, verbose, config, ext, ...(cache && { cache }), ...(cacheLocation && { cacheLocation }), ...(reporter && { reporter }) })
     process.exit(code)
   }
 
@@ -139,6 +143,7 @@ async function main() {
     .option('--ignore-path <file>', 'Ignore file (like .gitignore)')
     .option('--ext <exts>', 'Comma-separated extensions')
     .option('--cache', 'Enable cache')
+    .option('--cache-location <path>', 'Where the cache lives (default .pickiercache)')
     .option('--verbose', 'Verbose output')
     .example('pickier .')
     .example('pickier . --fix')
@@ -176,6 +181,7 @@ async function main() {
     .option('--ignore-path <file>', 'Ignore file (like .gitignore)')
     .option('--ext <exts>', 'Comma-separated extensions')
     .option('--cache', 'Enable cache')
+    .option('--cache-location <path>', 'Where the cache lives (default .pickiercache)')
     .option('--verbose', 'Verbose output')
     .example('pickier lint .')
     .example('pickier lint src --fix')
@@ -219,6 +225,7 @@ async function main() {
     .option('--ignore-path <file>', 'Ignore file (like .gitignore)')
     .option('--ext <exts>', 'Comma-separated extensions')
     .option('--cache', 'Enable cache (lint mode)')
+    .option('--cache-location <path>', 'Where the cache lives (default .pickiercache)')
     .option('--verbose', 'Verbose output')
     .example('pickier run . --mode lint --fix')
     .example('pickier run . --mode format --write')

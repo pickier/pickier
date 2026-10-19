@@ -27,7 +27,8 @@ Automatically detects or explicitly sets the operation mode.
 - `--config <path>` - Path to Pickier configuration file
 - `--ignore-path <file>` - Ignore file path (gitignore-style patterns)
 - `--ext <exts>` - Comma-separated file extensions (defaults to config)
-- `--cache` - Enable caching (reserved for future use)
+- `--cache` - Keep each file's lint results and only lint files whose content changed
+- `--cache-location <path>` - Where the cache lives (default `.pickiercache`); outside the checkout, a fresh checkout of the same project reuses it
 - `--verbose` - Enable verbose output with detailed error context
 
 **Examples:**
@@ -67,7 +68,8 @@ Lint files and report issues.
 - `--config <path>` - Path to Pickier config
 - `--ignore-path <file>` - Ignore file (gitignore-style)
 - `--ext <exts>` - Comma-separated extensions
-- `--cache` - Enable cache (reserved)
+- `--cache` - Keep each file's lint results between runs
+- `--cache-location <path>` - Where the cache lives (default `.pickiercache`)
 - `--verbose` - Verbose output
 
 **Examples:**

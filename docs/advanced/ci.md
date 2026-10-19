@@ -52,6 +52,13 @@ On TS/JS files the CLI uses its native lint engine on every core, so a whole pro
 
 The cache is only reused by a run with the same Pickier version, config and options, so a stale entry is never reported.
 
+On a self-hosted runner that starts every job in a new directory, keep the cache outside the checkout instead. Entries are keyed by the path relative to the project, so the next job's checkout reuses them:
+
+```yaml
+      - name: Lint
+        run: bunx pickier lint . --cache --cache-location "$HOME/.cache/pickier/my-project.json" --max-warnings 0
+```
+
 ## Pre-commit hook
 
 ```bash

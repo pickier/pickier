@@ -1,6 +1,6 @@
 import type { LintIssue, LintOptions, PickierConfig } from './types'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
 import { version } from '../package.json'
 
 /**
@@ -12,8 +12,21 @@ import { version } from '../package.json'
  * config - rule functions included, so a changed plugin invalidates it - and
  * the same run options; anything else starts from empty. Runs that write
  * files (`--fix`, `--write`) neither read nor write it.
+ *
+ * Entries are keyed by the path relative to the working directory, and an
+ * issue's own path is stored as a reference to its file, so the same project
+ * checked out somewhere else - every CI job gets a fresh directory - reuses the
+ * cache when it is kept outside the checkout (`--cache-location`).
  */
 export const DEFAULT_CACHE_LOCATION = '.pickiercache'
+
+/** The file's path as the cache keys it: relative to the working directory. */
+function entryKey(file: string): string {
+  return relative(process.cwd(), resolve(process.cwd(), file))
+}
+
+/** Stands in for the linted file's own path inside a cached issue. */
+const SAME_FILE = ''
 
 interface CacheFile {
   key: string
@@ -46,7 +59,7 @@ export function cacheApplies(cfg: PickierConfig, options: LintOptions): boolean 
   return !!asked && !writes
 }
 
-export function openLintCache(cfg: PickierConfig, options: LintOptions, location: string = DEFAULT_CACHE_LOCATION): LintCache {
+export function openLintCache(cfg: PickierConfig, options: LintOptions, location: string = options.cacheLocation ?? cfg.lint?.cacheLocation ?? DEFAULT_CACHE_LOCATION): LintCache {
   const path = resolve(process.cwd(), location)
   const key = runKey(cfg, options)
   let previous: CacheFile['files'] = {}
@@ -62,15 +75,19 @@ export function openLintCache(cfg: PickierConfig, options: LintOptions, location
 
   return {
     get(file, content) {
-      const entry = previous[file]
+      const key = entryKey(file)
+      const entry = previous[key]
       if (entry && entry.hash === hashContent(content)) {
-        next[file] = entry
-        return entry.issues
+        next[key] = entry
+        return entry.issues.map(issue => issue.filePath === SAME_FILE ? { ...issue, filePath: file } : issue)
       }
       return undefined
     },
     set(file, content, issues) {
-      next[file] = { hash: hashContent(content), issues }
+      next[entryKey(file)] = {
+        hash: hashContent(content),
+        issues: issues.map(issue => issue.filePath === file ? { ...issue, filePath: SAME_FILE } : issue),
+      }
     },
     save() {
       try {
