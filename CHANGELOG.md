@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.73...v0.1.74)
+
+## 🚀 Features
+
+- **cache**: --cache-location, with entries a fresh checkout can reuse ([68dad37](https://github.com/pickier/pickier/commit/68dad37)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🧹 Chores
+
+- release v0.1.74 ([0d77770](https://github.com/pickier/pickier/commit/0d77770)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.71...v0.1.72)
 
 ## 🐛 Bug Fixes
