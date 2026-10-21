@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.74...v0.1.75)
+
+## 🐛 Bug Fixes
+
+- **lint**: recognize variable references on their declaration line ([4926815](https://github.com/pickier/pickier/commit/4926815)) _(by Chris <chris@stacksjs.com>)_
+
+## 🧹 Chores
+
+- release v0.1.75 ([a444007](https://github.com/pickier/pickier/commit/a444007)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.73...v0.1.74)
 
 ## 🚀 Features
