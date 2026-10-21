@@ -96,13 +96,14 @@ const Range = struct { from: usize, to: usize, open_col: usize };
 const WordLines = struct { first: usize, other: bool };
 
 /// A declared name and its 0-based line.
-const Decl = struct { line: usize, name: Str };
+const Decl = struct { line: usize, name: Str, column: usize };
 
 const Checker = struct {
     a: Allocator,
     /// The comment-masked text, and its lines (slices of it)
     code: Str,
     lines: []const Str,
+    executable_lines: []const Str,
     out: *std.ArrayList(types.Issue),
     var_ignore: Pattern,
     arg_ignore: Pattern,
@@ -201,6 +202,10 @@ const Checker = struct {
             try js.forEachWordRun(self.code, &sc, Scan.run);
         }
         for (decls, 0..) |d, n| {
+            if (self.referencedOnSameLine(d.name, d.line, d.column)) {
+                used[n] = true;
+                continue;
+            }
             if (js.contains(d.name, '$')) {
                 used[n] = try self.referencedOutsideLineDollar(d.name, d.line);
                 continue;
@@ -209,6 +214,21 @@ const Checker = struct {
             used[n] = (entry.first != std.math.maxInt(usize) and entry.first != d.line) or entry.other;
         }
         return used;
+    }
+
+    fn referencedOnSameLine(self: *Checker, name: Str, line: usize, binding_column: usize) bool {
+        const source = self.executable_lines[line];
+        var from: usize = 0;
+        while (js.indexOfFrom(source, from, name)) |at| {
+            from = at + name.len;
+            if (at > 0 and js.isIdent(source[at - 1])) continue;
+            if (from < source.len and js.isIdent(source[from])) continue;
+            const before = js.trimEnd(source[0..at]);
+            const after = js.trim(source[from..]);
+            if (at == binding_column or js.endsWith(before, ".") or js.startsWith(after, ":")) continue;
+            return true;
+        }
+        return false;
     }
 
     fn filterBit(word: Str) usize {
@@ -352,7 +372,8 @@ const Checker = struct {
                 }
                 for (self.names.items) |name| {
                     if (self.var_ignore.matches(name)) continue;
-                    try decls.append(self.a, .{ .line = i, .name = try self.a.dupe(u16, name) });
+                    const part_at = js.indexOf(line, part) orelse 0;
+                    try decls.append(self.a, .{ .line = i, .name = try self.a.dupe(u16, name), .column = part_at + (js.indexOf(part, name) orelse 0) });
                 }
             }
         }
@@ -1710,6 +1731,8 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
     const lexed = try lexer.lexSource(a, @as([]const u16, text));
     const code = try lexer.maskSource(a, @as([]const u16, text), .{ .comments = true }, lexed);
     const lines = try js.splitLines(a, code);
+    const executable = try lexer.maskSource(a, @as([]const u16, text), .{ .comments = true, .strings = true, .templates = true, .regex = true }, lexed);
+    const executable_lines = try js.splitLines(a, executable);
     // The lines start where the text's do: masking keeps every offset
     const line_starts = try a.alloc(usize, lines.len);
     for (lines, line_starts) |l, *s| s.* = (@intFromPtr(l.ptr) - @intFromPtr(code.ptr)) / 2;
@@ -1719,6 +1742,7 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
         .a = a,
         .code = code,
         .lines = lines,
+        .executable_lines = executable_lines,
         .out = out,
         .var_ignore = var_ignore,
         .arg_ignore = arg_ignore,

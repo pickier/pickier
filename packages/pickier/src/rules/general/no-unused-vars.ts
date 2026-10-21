@@ -102,6 +102,7 @@ export const noUnusedVarsRule: RuleModule = {
     const code = maskSource(text, { comments: true }, lexed)
     const lines = code.split(/\r?\n/)
     const full = code
+    const executableLines = maskSource(text, { comments: true, strings: true, templates: true, regex: true }, lexed).split(/\r?\n/)
 
     // Which lines start inside a multi-line template literal body, from the
     // same lexical pass. Used to skip analysis of generated code inside
@@ -372,7 +373,20 @@ export const noUnusedVarsRule: RuleModule = {
           // of a module and used by a function above it read as unused - which
           // is a perfectly ordinary way to write a file, and the autofix for it
           // renames the declaration and leaves the use pointing at nothing.
-          if (!referencedOutsideLine(name, i)) {
+          // A line may declare several values, or consume one after a semicolon.
+          // Ignore the binding itself, literal contents and unrelated member keys.
+          const executable = executableLines[i]
+          const identifier = new RegExp(`(?<![\\w$])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w$])`, 'g')
+          let sameLineUse = false
+          const bindingColumn = line.indexOf(name, line.indexOf(partRaw))
+          for (const match of executable.matchAll(identifier)) {
+            const before = executable.slice(0, match.index).trimEnd()
+            const after = executable.slice(match.index + name.length).trimStart()
+            if (match.index === bindingColumn || before.endsWith('.') || after.startsWith(':')) continue
+            sameLineUse = true
+            break
+          }
+          if (!sameLineUse && !referencedOutsideLine(name, i)) {
             issues.push({ filePath: ctx.filePath, line: i + 1, column: Math.max(1, line.indexOf(name) + 1), ruleId: 'pickier/no-unused-vars', message: `'${name}' is assigned a value but never used. Allowed unused vars must match pattern: ${varsIgnorePattern}`, severity: 'error', help: `Either use this variable in your code, remove it, or prefix it with an underscore (_${name}) to mark it as intentionally unused` })
           }
         }
