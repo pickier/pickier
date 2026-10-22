@@ -1110,12 +1110,18 @@ export const noUnusedVarsRule: RuleModule = {
 
           // Also strip regex literals to avoid matching => inside regex patterns
           // Use the same helper function from linter.ts
+          // Every mask below keeps the line's length: the parameter check
+          // finds `function` in the cleaned line and its `(` in the real one,
+          // so a shorter cleaned line pointed at an earlier `(` (a `.then(`),
+          // read the whole callback as its parameter list, and `--fix`
+          // renamed used names (craft's bridge lost `r`, `o` and `manifest`).
           const stripRegex = (str: string): string => {
             let result = ''
             let i = 0
             while (i < str.length) {
               if (str[i] === '/') {
                 if (scannerStartsRegex(str, i)) {
+                  const start = i
                   i++ // skip opening /
                   while (i < str.length) {
                     if (str[i] === '\\') {
@@ -1131,6 +1137,7 @@ export const noUnusedVarsRule: RuleModule = {
                     }
                     i++
                   }
+                  result += ' '.repeat(Math.min(i, str.length) - start)
                   continue
                 }
               }
@@ -1141,7 +1148,8 @@ export const noUnusedVarsRule: RuleModule = {
           }
           const codeNoRegex = stripRegex(codeOnly)
           // Also strip string contents to avoid matching keywords inside strings (e.g., 'no-empty-function')
-          let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, '\'\'').replace(/"(?:[^"\\]|\\.)*"/g, '""')
+          const blank = (literal: string): string => `${literal[0]}${' '.repeat(literal.length - 2)}${literal[literal.length - 1]}`
+          let codeClean = codeNoRegex.replace(/'(?:[^'\\]|\\.)*'/g, blank).replace(/"(?:[^"\\]|\\.)*"/g, blank)
           // Mask template literal body content using stack-based tracking that persists across lines.
           // Content inside ${} expressions is preserved (it's real code), body content is masked.
           // This handles both single-line and multi-line templates correctly, including nested templates.
