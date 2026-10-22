@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.75...v0.1.76)
+
+## 🐛 Bug Fixes
+
+- **no-unused-vars**: read a callback's own parameters after strings on its line ([a8ef645](https://github.com/pickier/pickier/commit/a8ef645)) _(by Chris <chris@stacksjs.com>)_
+
+## 🧹 Chores
+
+- release v0.1.76 ([7394136](https://github.com/pickier/pickier/commit/7394136)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.74...v0.1.75)
 
 ## 🐛 Bug Fixes
