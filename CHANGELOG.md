@@ -1,3 +1,20 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.76...v0.1.77)
+
+## 🐛 Bug Fixes
+
+- publish with the verified Pantry transport recovery ([fb72d17](https://github.com/pickier/pickier/commit/fb72d17)) _(by Chris <chris@stacksjs.com>)_
+- keep compiler-managed Zig packages outside source linting ([e1dbcf7](https://github.com/pickier/pickier/commit/e1dbcf7)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.77 ([a551ceb](https://github.com/pickier/pickier/commit/a551ceb)) _(by Chris <chris@stacksjs.com>)_
+- use the qualified release source guard ([196b404](https://github.com/pickier/pickier/commit/196b404)) _(by Chris <chris@stacksjs.com>)_
+- **deps**: update dependency jsdom to 30.1.3 (updated) (#1360) ([61a8eba](https://github.com/pickier/pickier/commit/61a8eba)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1360](https://github.com/pickier/pickier/issues/1360), [#1360](https://github.com/pickier/pickier/issues/1360))
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.75...v0.1.76)
 
 ## 🐛 Bug Fixes

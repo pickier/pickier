@@ -1,6 +1,6 @@
 .{
     .name = .pickier_zig,
-    .version = "0.1.0",
+    .version = "0.1.77",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .@"zig-config" = .{
