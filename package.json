@@ -47,7 +47,7 @@
     "typecheck": "bun --bun tsc --noEmit"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.2.4",
+    "@stacksjs/bumpx": "^0.2.26",
     "@stacksjs/bunpress": "^0.1.0",
     "@stacksjs/clarity": "^0.3.24",
     "@stacksjs/gitlint": "^0.1.6",
