@@ -71,6 +71,7 @@ jobs:
         run: |
           zig test src/native/test_root.zig
           zig test src/native/text.zig
+          zig test src/walker.zig
 
       - name: Build the native engine for every platform
         working-directory: packages/pickier

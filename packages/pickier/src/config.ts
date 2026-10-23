@@ -25,6 +25,7 @@ export const defaultConfig: PickierConfig = {
     '**/coverage/**',
     '**/vendor/**',
     '**/pantry/**',
+    '**/zig-pkg/**', // Zig's compiler-managed source dependency cache
     '**/tmp/**',
     '**/.git/**',
     '**/.idea/**',

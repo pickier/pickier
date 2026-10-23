@@ -285,7 +285,7 @@ export const ENV: EnvConfig = {
  * what a project's config says.
  *
  * A project that sets `ignores` REPLACES the defaults — which is what you want
- * for a list of the project's own directories, and a trap for the two entries
+ * for a list of the project's own directories, and a trap for the essential entries
  * nobody meant to opt out of. Every stacks app ships a `config/code-style.ts`
  * with an `ignores` array, so every stacks app was linting its dependencies:
  * `node_modules` was in the defaults, the project list did not repeat it, and
@@ -295,11 +295,12 @@ export const ENV: EnvConfig = {
  *
  * Deliberately just these. `dist`, `coverage`, `.github` and the rest stay
  * overridable, because linting your own build output or your workflows is a
- * reasonable thing to want. Nothing reasonable wants to lint `node_modules` or
- * the object database in `.git`.
+ * reasonable thing to want. Dependency package caches in `node_modules` and `zig-pkg`, and the
+ * object database in `.git`, are not project source.
  */
 export const ALWAYS_IGNORES: readonly string[] = [
   '**/node_modules/**',
+  '**/zig-pkg/**',
   '**/.git/**',
 ]
 
@@ -332,6 +333,7 @@ export const UNIVERSAL_IGNORES: readonly string[] = [
   '**/vendor/**',
   '**/pantry/**',
   '**/target/**', // Rust
+  '**/zig-pkg/**', // Zig compiler-managed source dependencies
   '**/zig-cache/**', // Zig
   '**/zig-out/**', // Zig
   '**/.zig-cache/**', // Zig
@@ -644,7 +646,7 @@ function compileIgnoreGlobs(ignoreGlobs: readonly string[]): CompiledIgnorePatte
 /**
  * A project's ignore list, with the never-lintable paths guaranteed to be in
  * it. See {@link ALWAYS_IGNORES}: a project that sets `ignores` replaces the
- * defaults, and the two entries nobody meant to opt out of went with them.
+ * defaults, and the dependency caches nobody meant to opt out of went with them.
  */
 export function withAlwaysIgnores(ignores: readonly string[]): string[] {
   return [...new Set([...ALWAYS_IGNORES, ...ignores])]

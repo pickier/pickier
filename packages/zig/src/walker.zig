@@ -17,14 +17,15 @@ pub fn isValidFile(path: []const u8, extensions: []const config.Extension, ignor
 /// Fast path: commonly ignored directory names
 pub fn isCommonIgnoredDir(name: []const u8) bool {
     const ignored = [_][]const u8{
-        "node_modules", ".git",      ".next",     ".nuxt",
-        ".output",      ".vercel",   ".netlify",  ".cache",
-        ".turbo",       ".vscode",   ".idea",     ".zed",
-        ".cursor",      ".claude",   ".github",   "dist",
-        "build",        "coverage",  ".nyc_output", "tmp",
-        "temp",         ".tmp",      ".temp",     "vendor",
-        "pantry",       "target",    "zig-cache", "zig-out",
-        ".pnpm",        ".yarn",     "out",       ".vite",
+        "node_modules", ".git",     ".next",       ".nuxt",
+        ".output",      ".vercel",  ".netlify",    ".cache",
+        ".turbo",       ".vscode",  ".idea",       ".zed",
+        ".cursor",      ".claude",  ".github",     "dist",
+        "build",        "coverage", ".nyc_output", "tmp",
+        "temp",         ".tmp",     ".temp",       "vendor",
+        "pantry",       "target",   "zig-cache",   "zig-out",
+        "zig-pkg",      ".pnpm",    ".yarn",       "out",
+        ".vite",
     };
     for (ignored) |ign| {
         if (std.mem.eql(u8, name, ign)) return true;
@@ -137,4 +138,15 @@ test "isValidFile" {
     try std.testing.expect(isValidFile("src/index.ts", exts, ignores));
     try std.testing.expect(!isValidFile("node_modules/foo/index.ts", exts, ignores));
     try std.testing.expect(!isValidFile("src/index.css", exts, ignores));
+}
+
+test "Zig package cache boundaries preserve owned source" {
+    const exts = &[_]config.Extension{ .ts, .js };
+    for ([_][]const u8{ "zig-pkg/dependency/index.ts", "packages/engine/zig-pkg/dependency/bench.js" }) |path| {
+        try std.testing.expect(!isValidFile(path, exts, &config.default_ignores));
+        try std.testing.expect(!isValidFile(path, exts, &config.universal_ignores));
+    }
+    try std.testing.expect(isCommonIgnoredDir("zig-pkg"));
+    try std.testing.expect(!isCommonIgnoredDir("zig-pkg-app"));
+    try std.testing.expect(isValidFile("src/zig-pkg-app/index.ts", exts, &config.default_ignores));
 }
