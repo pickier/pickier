@@ -1,0 +1,56 @@
+{
+  "tag": "v0.11.120",
+  "source": "3de609e1a7e305393b3d94e2848d859b39c5b5de",
+  "manifestSha256": "ef379338938f20a829f0562a346393a4432a0f3ec946c864dc7991ecd32dccdd",
+  "archives": [
+    {
+      "name": "pantry-linux-x64.zip",
+      "size": 3111892,
+      "sha256": "c891a947e045508a1a9b9bbb4a7350ced197a30e0d0098245de68dd9d797f02a",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-linux-arm64.zip",
+      "size": 2976357,
+      "sha256": "a1e81a87b1dd2759767b35c30b064a6bc645e6b138ef1e007be1cca93121953a",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-darwin-x64.zip",
+      "size": 3126387,
+      "sha256": "975ab35d45303950dcc8ebc04cd08aa0b901fbca77615cc4850247d00985665d",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-darwin-arm64.zip",
+      "size": 2843106,
+      "sha256": "de0a4f7cad13e0ec392d6a40adfb9936849869b4e3a4e8f077972bde8bc931f4",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-windows-x64.zip",
+      "size": 3200594,
+      "sha256": "813f3c137aace8c8961a4ee0eb246323528944d8a6dde9d2b94039e5b6d1373e",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-freebsd-x64.zip",
+      "size": 3135880,
+      "sha256": "3d63b6b9027798eb5f57dd3bf507db63df80363212b57047956af77bf6b66c37",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    },
+    {
+      "name": "pantry-freebsd-arm64.zip",
+      "size": 2910104,
+      "sha256": "d14b4fe765252727608e222280635a3c542204b6273c4de7829fee9a0c89dea6",
+      "matchedOriginalManifestAndGithubDigest": true,
+      "zipCrcEntryAndNativeArchitectureVerified": true
+    }
+  ]
+}

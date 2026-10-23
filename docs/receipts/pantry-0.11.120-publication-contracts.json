@@ -1,0 +1,75 @@
+{
+  "source": "3de609e1a7e305393b3d94e2848d859b39c5b5de",
+  "actualOriginalReleasedExecutable": "pantry 0.11.120 (3de609e1a)",
+  "normalInstallReceipt": "normal-cli-install-receipt.json",
+  "verifiedGroups": [
+    {
+      "log": "native-original-precheck-recovery.log",
+      "sha256": "23307d0c5fb86803b350ecb9dc253862a97e5c036b822601ca42f4afb713f2aa",
+      "cases": [
+        {
+          "mode": "precheck-recovers",
+          "code": 0,
+          "uploads": 1,
+          "metadataReads": 4,
+          "tarballReads": 1,
+          "foreignRequests": 0,
+          "foreignCredentialRequests": 0,
+          "hook": true,
+          "prematureHook": false
+        }
+      ]
+    },
+    {
+      "log": "native-original-upload-transport.log",
+      "sha256": "e5fea7fe9b80251f6511e854a2f163d0f93d798c2987d17896ca74ce8d33cba2",
+      "cases": [
+        {
+          "mode": "lost-response",
+          "code": 0,
+          "uploads": 1,
+          "metadataReads": 2,
+          "tarballReads": 1,
+          "foreignRequests": 0,
+          "foreignCredentialRequests": 0,
+          "hook": true,
+          "prematureHook": false
+        },
+        {
+          "mode": "server-error-after-commit",
+          "code": 0,
+          "uploads": 1,
+          "metadataReads": 2,
+          "tarballReads": 1,
+          "foreignRequests": 0,
+          "foreignCredentialRequests": 0,
+          "hook": true,
+          "prematureHook": false
+        },
+        {
+          "mode": "upload-redirect",
+          "code": 1,
+          "uploads": 1,
+          "metadataReads": 19,
+          "tarballReads": 0,
+          "foreignRequests": 0,
+          "foreignCredentialRequests": 0,
+          "hook": false,
+          "prematureHook": false
+        },
+        {
+          "mode": "stalled-upload-response",
+          "code": 0,
+          "uploads": 1,
+          "metadataReads": 2,
+          "tarballReads": 1,
+          "foreignRequests": 0,
+          "foreignCredentialRequests": 0,
+          "hook": true,
+          "prematureHook": false
+        }
+      ]
+    }
+  ],
+  "productionDeadlinesUnchanged": true
+}

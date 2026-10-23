@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-23T17:54:18.948Z",
+  "sources": [
+    {
+      "repository": "pantry-pm/pantry",
+      "commit": "3de609e1a7e305393b3d94e2848d859b39c5b5de",
+      "tag": "v0.11.120",
+      "gates": [
+        {
+          "runId": 39994392988,
+          "workflow": ".github/workflows/release.yml",
+          "requiredJobs": [
+            "pantry",
+            "npm",
+            "discord-notification"
+          ]
+        },
+        {
+          "runId": 39994392980,
+          "workflow": ".github/workflows/ci.yml",
+          "requiredJobs": [
+            "typecheck",
+            "lint",
+            "test",
+            "action-native-services (8.4.11)",
+            "action-native-services (26.7.0)",
+            "Explicit native toolchain pins (ubuntu-latest)",
+            "action-redis-service",
+            "windows-git",
+            "native-browser",
+            "action-native-tools",
+            "zig-tests",
+            "Explicit native toolchain pins (macos-latest)",
+            "windows-native-runtime",
+            "continuous-release"
+          ]
+        },
+        {
+          "runId": 39994392885,
+          "workflow": ".github/workflows/build-zig.yml",
+          "requiredJobs": [
+            "compile-all",
+            "Native Windows CLI and compiler links"
+          ]
+        }
+      ],
+      "packages": [
+        {
+          "name": "ts-pantry",
+          "version": "0.11.120",
+          "integrity": "sha512-09bKfpEhWUEdkeV3eUXIpn2UvZWokYXaM2ZPdhJQNtaEXVBz6Rw6LRkO1BNgUJ5xpMT8RwZ20e4tf8+PSddX0g==",
+          "tarball": "https://registry.npmjs.org/ts-pantry/-/ts-pantry-0.11.120.tgz",
+          "bytes": 1384377,
+          "filesSha256": "875aad6991ee1733e6e6bd7766a2fbc1fc65c0d79c3f9f9311788f4010dc0f95"
+        }
+      ],
+      "releaseCommand": "bun run release:patch",
+      "releaseScript": "bun x --bun @stacksjs/bumpx patch --recursive --execute 'bun .github/scripts/build-release-action.ts' --commit --tag --push --yes"
+    }
+  ],
+  "consumer": {
+    "lockfile": "bun.lock",
+    "sha256": "d3505826ee559a72b8437f821840021c2b28c1dba899101c7493cf5abe14e3ca",
+    "bunVersion": "1.4.3",
+    "checks": [
+      {
+        "script": "test:windows-git",
+        "exitCode": 0,
+        "outputSha256": "29c1f5a1be0ca4f9e8715e1bd8d6a9e7de03b359b2612c83657962a8d33ff393"
+      }
+    ]
+  }
+}
