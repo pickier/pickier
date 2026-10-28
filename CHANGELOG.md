@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.77...v0.1.78)
+
+## 🐛 Bug Fixes
+
+- **shell**: preserve multiline quoted content when linting and formatting ([5a427ff](https://github.com/pickier/pickier/commit/5a427ff)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.78 ([76d07e4](https://github.com/pickier/pickier/commit/76d07e4)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.76...v0.1.77)
 
 ## 🐛 Bug Fixes
