@@ -1,5 +1,5 @@
 import type { RuleModule } from '../../types'
-import { heredocDelimiter, maskShellStrings } from './_shared'
+import { shellSourceLines } from './_shared'
 
 /**
  * Enforce spaces inside test bracket expressions [ ] and [[ ]].
@@ -17,65 +17,15 @@ export const operatorSpacingRule: RuleModule = {
   },
   check(content, ctx) {
     const issues: ReturnType<RuleModule['check']> = []
-    const lines = content.split(/\r?\n/)
-    let inHeredoc = false
-    let heredocDelim = ''
-
+    const lines = shellSourceLines(content)
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-
-      if (inHeredoc) {
-        if (line.trim() === heredocDelim)
-          inHeredoc = false
-        continue
-      }
-      const delim = heredocDelimiter(line)
-      if (delim) {
-        inHeredoc = true
-        heredocDelim = delim
-      }
-
-      const trimmed = line.replace(/^\s+/, '')
-      if (trimmed.startsWith('#'))
-        continue
-
-      const masked = maskShellStrings(line)
-
-      for (const issue of findBracketIssues(masked, i + 1, ctx.filePath))
+      for (const issue of findBracketIssues(lines[i].masked, i + 1, ctx.filePath))
         issues.push(issue)
     }
     return issues
   },
   fix(content) {
-    const lines = content.split(/\r?\n/)
-    const result: string[] = []
-    let inHeredoc = false
-    let heredocDelim = ''
-
-    for (const line of lines) {
-      if (inHeredoc) {
-        if (line.trim() === heredocDelim)
-          inHeredoc = false
-        result.push(line)
-        continue
-      }
-      const delim = heredocDelimiter(line)
-      if (delim) {
-        inHeredoc = true
-        heredocDelim = delim
-        result.push(line)
-        continue
-      }
-
-      const trimmed = line.replace(/^\s+/, '')
-      if (trimmed.startsWith('#')) {
-        result.push(line)
-        continue
-      }
-
-      result.push(applyBracketFixes(line))
-    }
-    return result.join('\n')
+    return shellSourceLines(content).map(line => applyBracketFixes(line.text, line.masked)).join('\n')
   },
 }
 
@@ -166,8 +116,7 @@ function findBracketIssues(
   return issues
 }
 
-function applyBracketFixes(line: string): string {
-  const masked = maskShellStrings(line)
+function applyBracketFixes(line: string, masked: string): string {
   // Collect insertion points against the masked text; apply to original from
   // the right so earlier indices stay valid.
   const inserts: Array<{ pos: number, text: string }> = []

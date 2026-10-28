@@ -1,308 +1,122 @@
-/**
- * Replace the interiors of shell strings, parameter expansions, command
- * substitutions, and arithmetic expansions with spaces so regex-based rules
- * can operate on "bare shell code" without false positives from characters
- * that appear inside `$'...'`, `'...'`, `"..."`, `` `...` ``, `${...}`,
- * `$(...)`, `$((...))`, or trailing `# ...` comments.
- *
- * The returned string has the same length as the input so that indices
- * produced by matches on the masked line are valid indices in the original.
- *
- * Only *interior* characters are masked to spaces; structural delimiters
- * (`'`, `"`, `` ` ``, `$`, `(`, `)`, `{`, `}`) are preserved so that rules
- * can still reason about whether a token sits next to a string boundary —
- * e.g. `"$var"]` still reports the `"` as the character preceding `]`.
- */
-export function maskShellStrings(line: string): string {
-  const n = line.length
-  const out: string[] = Array.from({ length: n }, (_, i) => line[i])
+type ShellContext = { kind: 'single' | 'double' | 'ansi' | 'backtick' | 'command' | 'parameter', depth: number }
 
-  let i = 0
-  while (i < n) {
-    const ch = line[i]
-
-    // Trailing `#` comment — only when preceded by whitespace or at start
-    if (ch === '#' && (i === 0 || /\s/.test(line[i - 1]))) {
-      while (i < n) {
-        out[i] = ' '
-        i++
-      }
-      break
-    }
-
-    // ANSI-C quoted string $'...'
-    if (ch === '$' && line[i + 1] === '\'') {
-      i += 2
-      while (i < n) {
-        if (line[i] === '\\' && i + 1 < n) {
-          out[i] = ' '
-          out[i + 1] = ' '
-          i += 2
-          continue
-        }
-        if (line[i] === '\'') {
-          i++
-          break
-        }
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    // Localized $"..." — mask like a double-quoted string
-    if (ch === '$' && line[i + 1] === '"') {
-      i++
-      i = maskDoubleQuoted(line, i, out)
-      continue
-    }
-
-    // Parameter expansion ${...}
-    if (ch === '$' && line[i + 1] === '{') {
-      i += 2
-      let depth = 1
-      while (i < n && depth > 0) {
-        const c = line[i]
-        if (c === '\\' && i + 1 < n) {
-          out[i] = ' '
-          out[i + 1] = ' '
-          i += 2
-          continue
-        }
-        if (c === '\'') {
-          i++
-          while (i < n && line[i] !== '\'') {
-            out[i] = ' '
-            i++
-          }
-          if (i < n)
-            i++
-          continue
-        }
-        if (c === '"') {
-          i = maskDoubleQuoted(line, i, out)
-          continue
-        }
-        if (c === '{') {
-          depth++
-          i++
-          continue
-        }
-        if (c === '}') {
-          depth--
-          i++
-          continue
-        }
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    // Arithmetic $((...)) — check before $(...)
-    if (ch === '$' && line[i + 1] === '(' && line[i + 2] === '(') {
-      i += 3
-      let depth = 2
-      while (i < n && depth > 0) {
-        const c = line[i]
-        if (c === '(') {
-          depth++
-          i++
-          continue
-        }
-        if (c === ')') {
-          depth--
-          i++
-          continue
-        }
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    // Command substitution $(...)
-    if (ch === '$' && line[i + 1] === '(') {
-      i += 2
-      let depth = 1
-      while (i < n && depth > 0) {
-        const c = line[i]
-        if (c === '\\' && i + 1 < n) {
-          out[i] = ' '
-          out[i + 1] = ' '
-          i += 2
-          continue
-        }
-        if (c === '\'') {
-          i++
-          while (i < n && line[i] !== '\'') {
-            out[i] = ' '
-            i++
-          }
-          if (i < n)
-            i++
-          continue
-        }
-        if (c === '"') {
-          i = maskDoubleQuoted(line, i, out)
-          continue
-        }
-        if (c === '(') {
-          depth++
-          i++
-          continue
-        }
-        if (c === ')') {
-          depth--
-          i++
-          continue
-        }
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    // Single-quoted '...'
-    if (ch === '\'') {
-      i++
-      while (i < n && line[i] !== '\'') {
-        out[i] = ' '
-        i++
-      }
-      if (i < n)
-        i++
-      continue
-    }
-
-    // Double-quoted "..."
-    if (ch === '"') {
-      i = maskDoubleQuoted(line, i, out)
-      continue
-    }
-
-    // Backtick `...`
-    if (ch === '`') {
-      i++
-      while (i < n && line[i] !== '`') {
-        if (line[i] === '\\' && i + 1 < n) {
-          out[i] = ' '
-          out[i + 1] = ' '
-          i += 2
-          continue
-        }
-        out[i] = ' '
-        i++
-      }
-      if (i < n)
-        i++
-      continue
-    }
-
-    i++
-  }
-
-  return out.join('')
+export interface ShellSourceLine {
+  text: string
+  masked: string
+  /** Leading whitespace belongs to a quoted value or heredoc. */
+  protectedStart: boolean
+  /** Trailing whitespace belongs to a quoted value or heredoc. */
+  protectedEnd: boolean
+  heredoc: boolean
 }
 
-function maskDoubleQuoted(line: string, start: number, out: string[]): number {
-  const n = line.length
-  // `out[start]` is the opening `"` — keep it.
-  let i = start + 1
-  while (i < n) {
-    const c = line[i]
-    if (c === '\\' && i + 1 < n) {
-      out[i] = ' '
-      out[i + 1] = ' '
-      i += 2
-      continue
+/** Scan the whole source: shell quotes and substitutions can span lines. */
+export function shellSourceLines(content: string): ShellSourceLine[] {
+  const stack: ShellContext[] = []
+  const pending: Array<{ delimiter: string, stripTabs: boolean }> = []
+  let body: typeof pending[number] | undefined
+  const quoted = () => stack.some(context => ['single', 'double', 'ansi', 'backtick'].includes(context.kind))
+  return content.split(/\r?\n/).map((text): ShellSourceLine => {
+    if (body) {
+      const delimiter = body.stripTabs ? text.replace(/^\t+/, '') : text
+      if (delimiter === body.delimiter)
+        body = pending.shift()
+      return { text, masked: ' '.repeat(text.length), protectedStart: true, protectedEnd: true, heredoc: true }
     }
-    if (c === '"')
-      return i + 1
-    if (c === '$' && line[i + 1] === '(' && line[i + 2] === '(') {
-      i += 3
-      let depth = 2
-      while (i < n && depth > 0) {
-        const x = line[i]
-        if (x === '(') {
-          depth++
-          i++
-          continue
-        }
-        if (x === ')') {
-          depth--
-          i++
-          continue
-        }
+    const protectedStart = quoted()
+    const out = Array.from(text)
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]
+      const context = stack.at(-1)
+      if (context)
         out[i] = ' '
-        i++
+      if (context?.kind === 'single') {
+        if (ch === "'") {
+          out[i] = ch
+          stack.pop()
+        }
+        continue
       }
-      continue
-    }
-    if (c === '$' && line[i + 1] === '(') {
-      i += 2
-      let depth = 1
-      while (i < n && depth > 0) {
-        const x = line[i]
-        if (x === '\\' && i + 1 < n) {
+      if (ch === '\\') {
+        // An escaped delimiter cannot open/close a quote. Keep an unquoted
+        // terminal backslash visible to continuation indentation.
+        if (i + 1 < text.length) {
           out[i] = ' '
-          out[i + 1] = ' '
-          i += 2
-          continue
+          out[++i] = ' '
         }
-        if (x === '\'') {
-          i++
-          while (i < n && line[i] !== '\'') {
-            out[i] = ' '
-            i++
-          }
-          if (i < n)
-            i++
-          continue
+        else {
+          out[i] = ch
         }
-        if (x === '"') {
-          i = maskDoubleQuoted(line, i, out)
-          continue
-        }
-        if (x === '(') {
-          depth++
-          i++
-          continue
-        }
-        if (x === ')') {
-          depth--
-          i++
-          continue
-        }
-        out[i] = ' '
-        i++
+        continue
       }
-      continue
-    }
-    if (c === '$' && line[i + 1] === '{') {
-      i += 2
-      let depth = 1
-      while (i < n && depth > 0) {
-        const x = line[i]
-        if (x === '{') {
-          depth++
-          i++
-          continue
+      if (context?.kind === 'ansi' || context?.kind === 'backtick') {
+        if (ch === (context.kind === 'ansi' ? "'" : '`')) {
+          out[i] = ch
+          stack.pop()
         }
-        if (x === '}') {
-          depth--
-          i++
-          continue
-        }
-        out[i] = ' '
-        i++
+        continue
       }
-      continue
+      if (context?.kind === 'double' && ch === '"') {
+        out[i] = ch
+        stack.pop()
+        continue
+      }
+      if (ch === '$' && (text[i + 1] === '(' || text[i + 1] === '{')) {
+        out[i] = ch
+        out[++i] = text[i]
+        stack.push({ kind: text[i] === '(' ? 'command' : 'parameter', depth: 1 })
+        continue
+      }
+      if (context?.kind === 'double') {
+        if (ch === '`') {
+          out[i] = ch
+          stack.push({ kind: 'backtick', depth: 1 })
+        }
+        continue
+      }
+      if (ch === '#' && (i === 0 || /\s/.test(text[i - 1]))) {
+        out.fill(' ', i)
+        break
+      }
+      if (ch === '<' && text[i - 1] !== '<' && text[i + 1] === '<' && text[i + 2] !== '<') {
+        const match = text.slice(i).match(/^<<(-?)\s*(['"]?)(\w+)\2/)
+        if (match)
+          pending.push({ delimiter: match[3], stripTabs: match[1] === '-' })
+      }
+      if (ch === '$' && text[i + 1] === "'") {
+        out[i] = ch
+        out[++i] = text[i]
+        stack.push({ kind: 'ansi', depth: 1 })
+        continue
+      }
+      if (ch === "'" || ch === '"' || ch === '`') {
+        out[i] = ch
+        stack.push({ kind: ch === "'" ? 'single' : ch === '"' ? 'double' : 'backtick', depth: 1 })
+        continue
+      }
+      if (context?.kind === 'command' || context?.kind === 'parameter') {
+        const open = context.kind === 'command' ? '(' : '{'
+        const close = context.kind === 'command' ? ')' : '}'
+        if (ch === open) {
+          out[i] = ch
+          context.depth++
+        }
+        if (ch === close) {
+          out[i] = ch
+          if (--context.depth === 0)
+            stack.pop()
+        }
+      }
     }
-    out[i] = ' '
-    i++
-  }
-  return i
+    const protectedEnd = quoted()
+    body = pending.shift()
+    return { text, masked: out.join(''), protectedStart, protectedEnd, heredoc: false }
+  })
+}
+
+/** Preserve columns and delimiters while hiding strings, expansions and comments. */
+export function maskShellStrings(content: string): string {
+  return shellSourceLines(content).map(line => line.masked).join('\n')
 }
 
 /**

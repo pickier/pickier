@@ -1,5 +1,5 @@
 import type { PickierConfig } from './types'
-import { heredocDelimiter } from './rules/shell/_shared'
+import { shellSourceLines } from './rules/shell/_shared'
 import { ShellContinuation } from './rules/shell/_continuation'
 import { maskNonCode } from './lexer'
 
@@ -136,58 +136,48 @@ function isShellFile(filePath: string, content: string): boolean {
 }
 
 function processShellLinesFused(content: string, cfg: PickierConfig): string {
-  const lines = content.split('\n')
+  const lines = shellSourceLines(content)
   const len = lines.length
-  const result = new Array<string>(len)
+  const result: string[] = []
+  let blank = 0
   const indentSize = cfg.format.indent
   const useTab = cfg.format.indentStyle === 'tabs'
   let indentLevel = 0
   const continuation = new ShellContinuation()
-  let inHeredoc = false
-  let heredocDelim = ''
   let inCase = false
   let caseDepth = 0
 
   for (let idx = 0; idx < len; idx++) {
-    const line = lines[idx]
-
-    // Empty lines pass through
-    if (line.length === 0 || /^\s*$/.test(line)) {
-      result[idx] = ''
+    const source = lines[idx]
+    const line = source.text
+    if (source.heredoc) {
+      result.push(line)
+      blank = 0
       continue
     }
-
-    // Inside heredoc: pass through unchanged
-    if (inHeredoc) {
-      result[idx] = line
-      if (line.trim() === heredocDelim) {
-        inHeredoc = false
-        heredocDelim = ''
+    if (/^\s*$/.test(line)) {
+      if (source.protectedStart || source.protectedEnd) {
+        result.push(line)
+        blank = 0
+      }
+      else if (++blank <= Math.max(0, cfg.format.maxConsecutiveBlankLines)) {
+        result.push('')
       }
       continue
     }
-
-    // Detect heredoc start (string-aware: `echo "a << b"` is not a heredoc)
-    const delim = heredocDelimiter(line)
-    if (delim) {
-      inHeredoc = true
-      heredocDelim = delim
-    }
-
-    // Strip leading whitespace
-    let wsEnd = 0
-    while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
-      wsEnd++
-    const trimmed = line.slice(wsEnd).trimEnd()
+    blank = 0
+    const trimmed = source.masked.trim()
+    const text = line.trimStart()
+    const output = !source.protectedEnd && cfg.format.trimTrailingWhitespace ? text.trimEnd() : text
 
     // Comment lines: just re-indent
-    if (trimmed.startsWith('#') && idx > 0) {
+    if (text.startsWith('#') && !source.protectedStart && idx > 0) {
       const indent = useTab ? '\t'.repeat(indentLevel) : ' '.repeat(indentLevel * indentSize)
-      result[idx] = indent + trimmed
+      result.push(indent + output)
       continue
     }
 
-    const flow = continuation.read(trimmed)
+    const flow = continuation.readMasked(trimmed, source.protectedEnd)
 
     // Detect case/esac blocks
     if (/^case\b/.test(trimmed) && /\bin\s*$/.test(trimmed)) {
@@ -220,7 +210,7 @@ function processShellLinesFused(content: string, cfg: PickierConfig): string {
 
     const visualLevel = indentLevel + Number(flow.continuation)
     const indent = useTab ? '\t'.repeat(visualLevel) : ' '.repeat(visualLevel * indentSize)
-    result[idx] = indent + trimmed
+    result.push(source.protectedStart ? line : indent + output)
 
     // A header may finish on a continuation line.
     if (flow.continuation) {
@@ -1086,6 +1076,10 @@ export function formatCode(src: string, cfg: PickierConfig, filePath: string): s
 
   // OPTIMIZATION: Only replace \r\n when the file actually contains \r
   const normalized = src.includes('\r') ? src.replace(/\r\n/g, '\n') : src
+  // Generic whitespace cleanup would change quoted shell values and heredocs.
+  if (isShellFile(filePath, normalized))
+    return applyFinalNewline(processShellLinesFused(normalized.replace(RE_LEADING_BLANKS, ''), cfg), cfg)
+
   const rawLines = normalized.split('\n')
   let lines: string[]
 

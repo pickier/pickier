@@ -1,5 +1,6 @@
 import type { RuleModule } from '../../types'
 import { ShellContinuation } from './_continuation'
+import { shellSourceLines } from './_shared'
 
 /**
  * Enforce consistent indentation in shell scripts.
@@ -46,35 +47,20 @@ export const indentRule: RuleModule = {
   },
   check(content, ctx) {
     const issues: ReturnType<RuleModule['check']> = []
-    const lines = content.split(/\r?\n/)
+    const lines = shellSourceLines(content)
     const indentSize = ctx.config.format.indent || 2
     let expectedLevel = 0
     const continuation = new ShellContinuation()
-    let inHeredoc = false
-    let heredocDelim = ''
     let inCase = false
     let caseDepth = 0
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+      const source = lines[i]
+      const line = source.text
 
-      // Skip empty lines
-      if (/^\s*$/.test(line)) continue
-
-      // Heredoc pass-through
-      if (inHeredoc) {
-        if (line.trim() === heredocDelim)
-          inHeredoc = false
-        continue
-      }
-      const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-      if (heredocMatch) {
-        inHeredoc = true
-        heredocDelim = heredocMatch[1]
-      }
-
-      const trimmed = line.replace(/^\s+/, '')
-      const flow = continuation.read(trimmed)
+      if (source.heredoc || /^\s*$/.test(line)) continue
+      const trimmed = source.masked.trim()
+      const flow = continuation.readMasked(trimmed, source.protectedEnd)
 
       // Skip shebang
       if (i === 0 && trimmed.startsWith('#!')) continue
@@ -111,7 +97,7 @@ export const indentRule: RuleModule = {
       const expectedSpaces = (expectedLevel + Number(flow.continuation)) * indentSize
 
       // Report if indentation doesn't match (skip comments that may float)
-      if (actualSpaces !== expectedSpaces && !trimmed.startsWith('#')) {
+      if (actualSpaces !== expectedSpaces && !source.protectedStart && trimmed !== '' && !line.trimStart().startsWith('#')) {
         issues.push({
           filePath: ctx.filePath,
           line: i + 1,
@@ -129,43 +115,35 @@ export const indentRule: RuleModule = {
     return issues
   },
   fix(content, ctx) {
-    const lines = content.split(/\r?\n/)
+    const lines = shellSourceLines(content)
     const indentSize = ctx.config.format.indent || 2
     const useTab = ctx.config.format.indentStyle === 'tabs'
     const result: string[] = []
     let level = 0
     const continuation = new ShellContinuation()
-    let inHeredoc = false
-    let heredocDelim = ''
     let inCase = false
     let caseDepth = 0
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+      const source = lines[i]
+      const line = source.text
 
-      if (/^\s*$/.test(line)) {
-        result.push('')
-        continue
-      }
-
-      if (inHeredoc) {
+      if (source.heredoc) {
         result.push(line)
-        if (line.trim() === heredocDelim)
-          inHeredoc = false
         continue
       }
-      const heredocMatch = line.match(/<<-?\s*['"]?(\w+)['"]?/)
-      if (heredocMatch) {
-        inHeredoc = true
-        heredocDelim = heredocMatch[1]
+      if (/^\s*$/.test(line)) {
+        result.push(source.protectedStart ? line : '')
+        continue
       }
-
-      const trimmed = line.replace(/^\s+/, '').trimEnd()
-      const flow = continuation.read(trimmed)
+      const trimmed = source.masked.trim()
+      const text = line.trimStart()
+      const output = source.protectedEnd ? text : text.trimEnd()
+      const flow = continuation.readMasked(trimmed, source.protectedEnd)
 
       // Shebang
       if (i === 0 && trimmed.startsWith('#!')) {
-        result.push(trimmed)
+        result.push(output)
         continue
       }
 
@@ -185,7 +163,7 @@ export const indentRule: RuleModule = {
 
       const visualLevel = level + Number(flow.continuation)
       const indent = useTab ? '\t'.repeat(visualLevel) : ' '.repeat(visualLevel * indentSize)
-      result.push(indent + trimmed)
+      result.push(source.protectedStart ? line : indent + output)
 
       if (flow.closesHeader || (!flow.continuation && shouldIncreaseAfter(trimmed, inCase)))
         level++
