@@ -833,8 +833,16 @@ async function runPlannedRule(planned: PlannedRule, filePath: string, content: s
     const ruleTimeoutMs = ENV.RULE_TIMEOUT_MS
     const ctx: RuleContext = { ...baseCtx, options: planned.options }
     const started = performance.now()
-    const out = await withTimeout(Promise.resolve().then(() => (rule as any).check(content, ctx)), ruleTimeoutMs, `rule:${fullRuleId}`)
-    const elapsed = performance.now() - started
+    const result = (rule as any).check(content, ctx)
+    const synchronousElapsed = performance.now() - started
+    // Other files run between promise continuations. A synchronous rule owns
+    // only its invocation, not the time another file spends checking content.
+    // Retain the deadline and elapsed guard for JavaScript async plugins.
+    const asynchronous = result != null && typeof result.then === 'function'
+    const out = asynchronous
+      ? await withTimeout(Promise.resolve(result), Math.max(1, ruleTimeoutMs - synchronousElapsed), `rule:${fullRuleId}`)
+      : result
+    const elapsed = asynchronous ? performance.now() - started : synchronousElapsed
     if (elapsed > ruleTimeoutMs) {
       issues.push({
         filePath,
