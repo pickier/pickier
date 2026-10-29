@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.78...v0.1.79)
+
+## 🐛 Bug Fixes
+
+- honor scoped shell directives in reproducible native builds ([3030467](https://github.com/pickier/pickier/commit/3030467)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.79 ([c0b49c3](https://github.com/pickier/pickier/commit/c0b49c3)) _(by Chris <chris@stacksjs.com>)_
+- use published bumpx for ignored native caches ([472b244](https://github.com/pickier/pickier/commit/472b244)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.77...v0.1.78)
 
 ## 🐛 Bug Fixes
