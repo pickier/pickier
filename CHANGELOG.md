@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.79...v0.1.80)
+
+## 🐛 Bug Fixes
+
+- measure each synchronous rule's own execution ([c2c782b](https://github.com/pickier/pickier/commit/c2c782b)) _(by Chris <chris@stacksjs.com>)_
+- rebuild release artifacts before idempotent publication ([7b440ae](https://github.com/pickier/pickier/commit/7b440ae)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.80 ([9da26bb](https://github.com/pickier/pickier/commit/9da26bb)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.78...v0.1.79)
 
 ## 🐛 Bug Fixes

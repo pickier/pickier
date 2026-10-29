@@ -1,7 +1,7 @@
 {
   "name": "@pickier/zig",
   "type": "module",
-  "version": "0.1.79",
+  "version": "0.1.80",
   "private": true,
   "description": "Pickier formatter — Zig native binary",
   "author": "Chris Breuer <chris@stacksjs.org>",
