@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag to build and finalize
+        required: true
+        type: string
 
 jobs:
   npm:
@@ -18,24 +23,40 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Verify the immutable release source
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$ ]]
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
 
       # Installs what deps.yaml lists - Bun, and the Zig that cross-compiles
       # the native lint engine shipped in the package - and the package
       # dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@b033ccf15d2f20c356ba2f6ba7826a682fc53ff5 # v0.11.145
         with:
-          version: '0.11.120'
+          version: '0.11.145'
+
+      # npm can accept an upload before public readback becomes available. A
+      # recovery then skips the existing version, including its lifecycle hooks.
+      # Build on every attempt so the GitHub release always receives its assets.
+      - name: Build the release artifacts
+        working-directory: packages/pickier
+        run: bun run prepublishOnly
 
       - name: Publish
         working-directory: packages/pickier
-        run: pantry publish --npm --access public
+        run: pantry publish --npm --access public --ignore-scripts
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
-        uses: stacksjs/action-releaser@v1.2.6
+        uses: stacksjs/action-releaser@cc6cd61791cf7556459ca35ad536800561277e3e # v1.2.11
         with:
+          tag: ${{ inputs.tag || github.ref_name }}
           files: |
             packages/pickier/bin/pickier-linux-x64.zip
             packages/pickier/bin/pickier-linux-arm64.zip
