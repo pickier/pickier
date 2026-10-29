@@ -322,7 +322,7 @@ function parseDisableDirectives(content: string): DisableDirectives {
     const lineNo = i + 1
 
     // Match disable-next-line comments
-    const nextLineMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable-next-line(?:\s+(\S.*))?$/)
+    const nextLineMatch = t.match(/^(?:\/\/|#)\s*(?:eslint|pickier)-disable-next-line(?:\s+(\S.*))?$/)
     if (nextLineMatch) {
       // Strip trailing -- comments (e.g., "rule-name -- explanation")
       const ruleText = nextLineMatch[1]?.replace(/\s+--\s.*$/, '')
@@ -393,7 +393,7 @@ function parseDisableDirectives(content: string): DisableDirectives {
     }
 
     // Match inline comment disable directives (// eslint-disable or // pickier-disable)
-    const inlineDisableMatch = t.match(/^\/\/\s*(?:eslint|pickier)-disable(?:\s+(\S.*))?$/)
+    const inlineDisableMatch = t.match(/^(?:\/\/|#)\s*(?:eslint|pickier)-disable(?:\s+(\S.*))?$/)
     if (inlineDisableMatch) {
       const ruleList = inlineDisableMatch[1]?.trim().replace(/\s+--\s.*$/, '')
       if (!ruleList || ruleList === '') {
@@ -413,7 +413,7 @@ function parseDisableDirectives(content: string): DisableDirectives {
     }
 
     // Match inline comment enable directives (// eslint-enable or // pickier-enable)
-    const inlineEnableMatch = t.match(/^\/\/\s*(?:eslint|pickier)-enable(?:\s+(\S.*))?$/)
+    const inlineEnableMatch = t.match(/^(?:\/\/|#)\s*(?:eslint|pickier)-enable(?:\s+(\S.*))?$/)
     if (inlineEnableMatch) {
       const ruleList = inlineEnableMatch[1]?.trim()
       if (!ruleList || ruleList === '') {

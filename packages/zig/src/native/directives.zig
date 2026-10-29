@@ -147,10 +147,11 @@ pub fn parseDisableDirectives(content: []const u8, allocator: Allocator) !Disabl
     while (it.next()) |line| {
         line_no += 1;
         const t = text.trim(line);
-        if (t.len < 2 or t[0] != '/') continue;
+        if (t.len < 2 or (t[0] != '/' and t[0] != '#')) continue;
 
-        if (t[1] == '/') {
-            const rest = afterToolName(t[2..]) orelse continue;
+        if (t[0] == '#' or t[1] == '/') {
+            const prefix_len: usize = if (t[0] == '#') 1 else 2;
+            const rest = afterToolName(t[prefix_len..]) orelse continue;
             // /^\/\/\s*(?:eslint|pickier)-disable-next-line(?:\s+(\S.*))?$/
             if (std.mem.startsWith(u8, rest, "-disable-next-line")) {
                 switch (matchRestOfLine(rest["-disable-next-line".len..])) {
@@ -538,4 +539,26 @@ test "comment lines" {
     try std.testing.expect(!m.contains(4));
     try std.testing.expect(!m.contains(5));
     try std.testing.expect(!m.contains(6));
+}
+
+test "hash comment directives keep shell exceptions scoped" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const source =
+        \\#!/bin/sh
+        \\# pickier-disable-next-line shell/no-eval -- Trusted activation API.
+        \\eval "$speech_env"
+        \\eval "$untrusted"
+        \\# eslint-disable shell/no-eval
+        \\eval "$first"
+        \\# eslint-enable shell/no-eval
+        \\eval "$second"
+    ;
+    const parsed = try parseDisableDirectives(source, allocator);
+    try std.testing.expect(isSuppressed("shell/no-eval", 3, &parsed));
+    try std.testing.expect(!isSuppressed("shell/no-eval", 4, &parsed));
+    try std.testing.expect(isSuppressed("shell/no-eval", 6, &parsed));
+    try std.testing.expect(!isSuppressed("shell/no-eval", 8, &parsed));
+    try std.testing.expect(!isSuppressed("other-rule", 3, &parsed));
 }

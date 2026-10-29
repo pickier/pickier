@@ -180,8 +180,8 @@ pub fn parseDisableDirectives(content: []const u8, allocator: Allocator) !Disabl
 
 /// Parse a line comment directive: // eslint-<action> or // pickier-<action>
 fn parseLineComment(line: []const u8, comptime action: []const u8) ?[]const u8 {
-    if (!std.mem.startsWith(u8, line, "//")) return null;
-    const after_slashes = std.mem.trimStart(u8, line[2..], " ");
+    const prefix_len: usize = if (std.mem.startsWith(u8, line, "//")) 2 else if (std.mem.startsWith(u8, line, "#")) 1 else return null;
+    const after_slashes = std.mem.trimStart(u8, line[prefix_len..], " ");
 
     // Try eslint- prefix
     const eslint_prefix = "eslint-" ++ action;
@@ -229,7 +229,17 @@ fn parseBlockComment(line: []const u8, comptime action: []const u8) ?[]const u8 
 
 /// Parse comma-separated rule list into a RuleSet
 fn parseRuleList(rule_list: []const u8, set: *RuleSet, allocator: Allocator) !void {
-    var iter = std.mem.splitScalar(u8, rule_list, ',');
+    var end = rule_list.len;
+    for (rule_list, 0..) |character, index| {
+        if (character == '-' and index > 0 and index + 2 < rule_list.len and
+            rule_list[index + 1] == '-' and std.ascii.isWhitespace(rule_list[index - 1]) and
+            std.ascii.isWhitespace(rule_list[index + 2]))
+        {
+            end = index;
+            break;
+        }
+    }
+    var iter = std.mem.splitScalar(u8, rule_list[0..end], ',');
     while (iter.next()) |raw| {
         const trimmed = std.mem.trim(u8, raw, " \t");
         if (trimmed.len > 0) {
@@ -402,7 +412,7 @@ pub fn getCommentLines(content: []const u8, allocator: Allocator) !std.AutoHashM
             // End of line — determine if comment-only
             const is_comment_only = !line_has_code and
                 (state == .line_comment or state == .block_comment or
-                line_started_in_block or line_had_comment);
+                    line_started_in_block or line_had_comment);
             if (is_comment_only) {
                 try comment_lines.put(line_no, {});
             }
@@ -463,7 +473,7 @@ pub fn getCommentLines(content: []const u8, allocator: Allocator) !std.AutoHashM
     // Handle last line
     const is_comment_only = !line_has_code and
         (state == .line_comment or state == .block_comment or
-        line_started_in_block or line_had_comment);
+            line_started_in_block or line_had_comment);
     if (is_comment_only) {
         try comment_lines.put(line_no, {});
     }
@@ -574,4 +584,26 @@ test "binarySearchLargestLessThan" {
     try std.testing.expect(binarySearchLargestLessThan(&arr, 1) == 0);
     try std.testing.expect(binarySearchLargestLessThan(&arr, 20) == 15);
     try std.testing.expect(binarySearchLargestLessThan(&arr, 10) == 5);
+}
+
+test "hash comment directives keep shell exceptions scoped" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const source =
+        \\#!/bin/sh
+        \\# pickier-disable-next-line shell/no-eval -- Trusted activation API.
+        \\eval "$speech_env"
+        \\eval "$untrusted"
+        \\# eslint-disable shell/no-eval
+        \\eval "$first"
+        \\# eslint-enable shell/no-eval
+        \\eval "$second"
+    ;
+    const parsed = try parseDisableDirectives(source, allocator);
+    try std.testing.expect(isSuppressed("shell/no-eval", 3, &parsed));
+    try std.testing.expect(!isSuppressed("shell/no-eval", 4, &parsed));
+    try std.testing.expect(isSuppressed("shell/no-eval", 6, &parsed));
+    try std.testing.expect(!isSuppressed("shell/no-eval", 8, &parsed));
+    try std.testing.expect(!isSuppressed("other-rule", 3, &parsed));
 }

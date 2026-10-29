@@ -16,6 +16,7 @@ packages/pickier/bin/pickier
 /pantry
 /packages/zig/.zig-cache
 /packages/zig/zig-out
+/packages/zig/zig-pkg
 pantry
 /bechmarks/results
 .pickiercache

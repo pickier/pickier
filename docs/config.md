@@ -188,6 +188,14 @@ console.error('Also allowed')
 // pickier-disable-next-line no-console
 ```
 
+Hash-comment languages such as shell also support next-line directives and
+disable/enable ranges. A reason after `--` documents an intentional exception:
+
+```sh
+# pickier-disable-next-line shell/no-eval -- Pantry emits trusted shell exports.
+eval "$speech_env"
+```
+
 ## JSON Configuration
 
 ```json
