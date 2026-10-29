@@ -12,6 +12,8 @@ import { version } from '../package.json'
  * config - rule functions included, so a changed plugin invalidates it - and
  * the same run options; anything else starts from empty. Runs that write
  * files (`--fix`, `--write`) neither read nor write it.
+ * Internal execution failures are retried: they describe a failed check,
+ * not a completed result for that content.
  *
  * Entries are keyed by the path relative to the working directory, and an
  * issue's own path is stored as a reference to its file, so the same project
@@ -43,6 +45,10 @@ export interface LintCache {
 
 export function hashContent(content: string): string {
   return Bun.hash(content).toString(36)
+}
+
+function completedChecks(issues: LintIssue[]): boolean {
+  return !issues.some(issue => issue.ruleId.endsWith('-internal'))
 }
 
 /** The parts of a run that decide its results, as one string. */
@@ -77,13 +83,17 @@ export function openLintCache(cfg: PickierConfig, options: LintOptions, location
     get(file, content) {
       const key = entryKey(file)
       const entry = previous[key]
-      if (entry && entry.hash === hashContent(content)) {
+      if (entry && entry.hash === hashContent(content) && completedChecks(entry.issues)) {
         next[key] = entry
         return entry.issues.map(issue => issue.filePath === SAME_FILE ? { ...issue, filePath: file } : issue)
       }
       return undefined
     },
     set(file, content, issues) {
+      if (!completedChecks(issues)) {
+        delete next[entryKey(file)]
+        return
+      }
       next[entryKey(file)] = {
         hash: hashContent(content),
         issues: issues.map(issue => issue.filePath === file ? { ...issue, filePath: SAME_FILE } : issue),

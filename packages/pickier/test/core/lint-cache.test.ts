@@ -2,6 +2,9 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { openLintCache } from '../../src/cache'
+import { defaultConfig } from '../../src/config'
+import type { LintIssue } from '../../src/types'
 
 /**
  * `--cache`: a run with the cache reports exactly what a run without it does,
@@ -81,5 +84,49 @@ describe('lint cache', () => {
     const withConfig = lint('--cache', '--config', 'pickier.config.json')
     expect(withConfig.report).toBe(lint('--config', 'pickier.config.json').report)
     rmSync(join(dir, 'pickier.config.json'))
+  })
+
+  it('does not persist an internal execution failure', () => {
+    const location = join(dir, 'transient-cache.json')
+    const cache = openLintCache(defaultConfig, { cache: true }, location)
+    const file = join(dir, 'transient.ts')
+    cache.set(file, 'const value = 1\n', [{
+      filePath: file, line: 1, column: 1, ruleId: 'probe/check-internal',
+      message: 'Rule exceeded timeout budget', severity: 'error',
+    }])
+    cache.save()
+
+    expect(Object.keys(JSON.parse(readFileSync(location, 'utf8')).files)).toEqual([])
+    expect(openLintCache(defaultConfig, { cache: true }, location).get(file, 'const value = 1\n')).toBeUndefined()
+  })
+
+  it('rechecks a legacy cached internal error instead of replaying it forever', () => {
+    const location = join(dir, 'legacy-transient-cache.json')
+    const clean = lint('--cache', '--cache-location', location)
+    const stored = JSON.parse(readFileSync(location, 'utf8'))
+    stored.files[join('src', 'f1.ts')].issues.push({
+      filePath: '', line: 1, column: 1, ruleId: 'probe/check-internal',
+      message: 'Rule threw: temporary failure', severity: 'error',
+    })
+    writeFileSync(location, JSON.stringify(stored))
+
+    const recovered = lint('--cache', '--cache-location', location)
+    expect(recovered.code).toBe(clean.code)
+    expect(recovered.report).toBe(clean.report)
+    expect(readFileSync(location, 'utf8')).not.toContain('temporary failure')
+  })
+
+  it('still reuses an ordinary content error', () => {
+    const location = join(dir, 'content-error-cache.json')
+    const cache = openLintCache(defaultConfig, { cache: true }, location)
+    const file = join(dir, 'content.ts')
+    const issues: LintIssue[] = [{
+      filePath: file, line: 1, column: 1, ruleId: 'probe/content',
+      message: 'Invalid content', severity: 'error',
+    }]
+    cache.set(file, 'invalid\n', issues)
+    cache.save()
+
+    expect(openLintCache(defaultConfig, { cache: true }, location).get(file, 'invalid\n')).toEqual(issues)
   })
 })
