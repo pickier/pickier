@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.80...v0.1.81)
+
+## 🐛 Bug Fixes
+
+- retry internal lint failures instead of caching them ([4a9046b](https://github.com/pickier/pickier/commit/4a9046b)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.81 ([ec2bd1d](https://github.com/pickier/pickier/commit/ec2bd1d)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.79...v0.1.80)
 
 ## 🐛 Bug Fixes
