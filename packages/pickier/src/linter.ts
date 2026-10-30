@@ -70,9 +70,15 @@ export async function lintText(
  * The text `pickier --fix` would write for a file with this content.
  *
  * `runLint` reads and writes files; an editor needs the same fixes applied to
- * an unsaved buffer and handed back as text. This is that, and `runLint`
- * calls it too, so a fix-all in an editor and `pickier --fix` on disk cannot
- * drift apart.
+ * an unsaved buffer and handed back as text. This is that, and it is the only
+ * implementation: `lintFileForRun` for the CLI and `runLintProgrammatic` for
+ * the API both call it, so a fix-all in an editor, `pickier --fix` on disk,
+ * and the programmatic run cannot drift apart.
+ *
+ * They did drift. `runLintProgrammatic` inlined the first two steps and
+ * stopped there, so the API applied every plugin fixer but never the indent
+ * one, and a file the CLI reindented came back from the API still
+ * misindented.
  */
 export function fixText(text: string, cfg: PickierConfig, filePath = 'untitled'): string {
   beginFile()
@@ -261,9 +267,7 @@ export async function runLintProgrammatic(
     }
 
     if (options.fix) {
-      // Built-in fixer: remove debugger statement lines (same gates as the scan)
-      let fixed = removeDebuggerLines(file, src, cfg, suppress, commentLines)
-      fixed = applyPluginFixes(file, fixed, cfg)
+      const fixed = fixText(src, cfg, file)
 
       // If content changed, re-scan the fixed version
       if (fixed !== src) {
@@ -919,12 +923,75 @@ function preserveTemplateBodies(before: string, after: string, filePath: string)
   return restored > 0 ? afterLines.join('\n') : after
 }
 
+/**
+ * `after` with every line this rule is disabled on put back the way it was,
+ * or `before` when that cannot be done without losing something.
+ *
+ * A fixer is handed the whole file and hands a whole file back, so the only
+ * way to tell what it did is to compare the two line by line. Where the line
+ * counts match and no content moved between lines, reinstating a disabled
+ * line leaves the rule's fixes to the rest of the file standing. Where lines
+ * were added or removed there is nothing to line the two versions up
+ * against, and where content moved - `sort-imports` reordering a block -
+ * reinstating one line would hold it twice and lose another; in both cases
+ * the rule's fix is dropped for this file instead.
+ */
+function restoreSuppressedLines(before: string, after: string, ruleId: string, directives: DisableDirectives): string {
+  const beforeLines = before.split(/\r?\n/)
+  const afterLines = after.split(/\r?\n/)
+
+  if (beforeLines.length !== afterLines.length) {
+    for (let i = 0; i < beforeLines.length; i++) {
+      if (isSuppressed(ruleId, i + 1, directives))
+        return before
+    }
+    return after
+  }
+
+  const changed: number[] = []
+  for (let i = 0; i < beforeLines.length; i++) {
+    if (beforeLines[i] !== afterLines[i])
+      changed.push(i)
+  }
+  const suppressed = changed.filter(i => isSuppressed(ruleId, i + 1, directives))
+  if (suppressed.length === 0)
+    return after
+
+  // Content that one changed line gave up and another took on means the
+  // rewrite moved lines rather than editing them in place.
+  const vacated = new Map<string, number>()
+  for (const i of changed) {
+    const key = beforeLines[i].trim()
+    if (key)
+      vacated.set(key, i)
+  }
+  for (const i of changed) {
+    const key = afterLines[i].trim()
+    if (!key)
+      continue
+    const from = vacated.get(key)
+    if (from !== undefined && from !== i)
+      return before
+  }
+
+  const out = afterLines.slice()
+  for (const i of suppressed)
+    out[i] = beforeLines[i]
+  return out.join('\n')
+}
+
 function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig): string {
   const plan = getPluginPlan(cfg)
   const baseCtx: RuleContext = { filePath, config: cfg }
   let out = content
   let changed = true
   let passes = 0
+  // Directives are read off the content a rule was handed, because earlier
+  // fixers in the same pass move lines. Parsed once per version of it rather
+  // than once per rule: 100+ fixers over five passes would otherwise re-read
+  // the file for every one of them.
+  let directiveSource: string | null = null
+  let directives: DisableDirectives | null = null
   while (changed && passes++ < MAX_FIXER_PASSES) {
     changed = false
     for (const planned of plan.fixRules) {
@@ -934,9 +1001,27 @@ function applyPluginFixes(filePath: string, content: string, cfg: PickierConfig)
       const fixed = planned.rule.fix(out, ctx)
       // Rules that edit string content (class lists, prose) mean to reach
       // inside templates; rules that rewrite JS syntax do not.
-      const next = planned.rule.meta?.editsStringContent
+      let next = planned.rule.meta?.editsStringContent
         ? fixed
         : preserveTemplateBodies(out, fixed, filePath)
+      // `applyPlugins` runs every reported issue past `isSuppressed`, so
+      // `// eslint-disable-next-line <rule>` hides a warning. A fixer is
+      // handed the whole file and returns the whole file, so the driver had
+      // no way to tell which lines it rewrote and wrote the result out
+      // verbatim: `--fix` edited lines the reporter had just agreed to leave
+      // alone, the contents of string literals among them (#1394).
+      //
+      // A whole-content fixer offers no ranges to filter, so a disabled
+      // line is reinstated after the fact where the two versions can be
+      // lined up, and the rule's fix is dropped for the file where they
+      // cannot.
+      if (next !== out && out.includes('-disable')) {
+        if (directiveSource !== out) {
+          directives = parseDisableDirectives(out)
+          directiveSource = out
+        }
+        next = restoreSuppressedLines(out, next, planned.fullRuleId, directives!)
+      }
       if (next !== out) {
         out = next
         changed = true
