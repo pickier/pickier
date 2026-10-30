@@ -70,9 +70,15 @@ export async function lintText(
  * The text `pickier --fix` would write for a file with this content.
  *
  * `runLint` reads and writes files; an editor needs the same fixes applied to
- * an unsaved buffer and handed back as text. This is that, and `runLint`
- * calls it too, so a fix-all in an editor and `pickier --fix` on disk cannot
- * drift apart.
+ * an unsaved buffer and handed back as text. This is that, and it is the only
+ * implementation: `lintFileForRun` for the CLI and `runLintProgrammatic` for
+ * the API both call it, so a fix-all in an editor, `pickier --fix` on disk,
+ * and the programmatic run cannot drift apart.
+ *
+ * They did drift. `runLintProgrammatic` inlined the first two steps and
+ * stopped there, so the API applied every plugin fixer but never the indent
+ * one, and a file the CLI reindented came back from the API still
+ * misindented.
  */
 export function fixText(text: string, cfg: PickierConfig, filePath = 'untitled'): string {
   beginFile()
@@ -261,9 +267,7 @@ export async function runLintProgrammatic(
     }
 
     if (options.fix) {
-      // Built-in fixer: remove debugger statement lines (same gates as the scan)
-      let fixed = removeDebuggerLines(file, src, cfg, suppress, commentLines)
-      fixed = applyPluginFixes(file, fixed, cfg)
+      const fixed = fixText(src, cfg, file)
 
       // If content changed, re-scan the fixed version
       if (fixed !== src) {
