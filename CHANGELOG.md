@@ -1,3 +1,33 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.81...v0.1.82)
+
+## 🐛 Bug Fixes
+
+- build the docs and package the extension again (#1403) ([3c3ed57](https://github.com/pickier/pickier/commit/3c3ed57)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1403](https://github.com/pickier/pickier/issues/1403))
+- **lint**: keep --fix off lines a disable directive covers (#1395) ([32e4d88](https://github.com/pickier/pickier/commit/32e4d88)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1394](https://github.com/pickier/pickier/issues/1394), [#1395](https://github.com/pickier/pickier/issues/1395))
+
+## ♻️ Code Refactoring
+
+- **lint**: fix a file one way, not two (#1396) ([3bb2761](https://github.com/pickier/pickier/commit/3bb2761)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1396](https://github.com/pickier/pickier/issues/1396), [#1372](https://github.com/pickier/pickier/issues/1372))
+
+## ✅ Tests
+
+- **vscode**: make the extension's own suite pass, and run it (#1404) ([48d4bf6](https://github.com/pickier/pickier/commit/48d4bf6)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_ ([#1404](https://github.com/pickier/pickier/issues/1404))
+
+## 🔧 Chores
+
+- release v0.1.82 ([542f781](https://github.com/pickier/pickier/commit/542f781)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update dependency @babel/traverse to 8.0.10 (#1399) ([9dfffe7](https://github.com/pickier/pickier/commit/9dfffe7)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1399](https://github.com/pickier/pickier/issues/1399))
+- **deps**: update dependency @babel/parser to 8.0.10 (#1398) ([0b36aa1](https://github.com/pickier/pickier/commit/0b36aa1)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1398](https://github.com/pickier/pickier/issues/1398))
+- **deps**: update dependency @vscode/vsce to 4.1.0 (#1401) ([d6f4a22](https://github.com/pickier/pickier/commit/d6f4a22)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1401](https://github.com/pickier/pickier/issues/1401))
+- **deps**: update dependency @vscode/test-electron to 3.1.0 (#1400) ([2312066](https://github.com/pickier/pickier/commit/2312066)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1400](https://github.com/pickier/pickier/issues/1400))
+- **deps**: update all non-major dependencies (#1397) ([677edf2](https://github.com/pickier/pickier/commit/677edf2)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1397](https://github.com/pickier/pickier/issues/1397))
+- **deps**: update all non-major dependencies (#1375) ([2cc436e](https://github.com/pickier/pickier/commit/2cc436e)) _(by [github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>](https://github.com/github-actions[bot]))_ ([#1375](https://github.com/pickier/pickier/issues/1375))
+
+## Contributors
+
+- _Glenn Michael Torregosa <gtorregosa@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.80...v0.1.81)
 
 ## 🐛 Bug Fixes
