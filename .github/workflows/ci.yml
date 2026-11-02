@@ -96,3 +96,30 @@ jobs:
           for id in $(bun -e "import { NATIVE_RULES } from '../pickier/src/native'; console.log([...NATIVE_RULES].join(' '))"); do
             bun scripts/parity.ts $dirs --rule "$id"
           done
+
+  # The two artifacts a release produces that nothing else here builds. Both
+  # broke on main without a job failing: a docs link resolved from the wrong
+  # directory, and `@types/vscode` drifted past `engines.vscode`, which makes
+  # `vsce package` refuse outright.
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
+      - name: Setup Pantry
+        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        with:
+          version: '0.11.120'
+
+      - name: Build the docs
+        run: bun run build:docs
+
+      - name: Build the VS Code extension
+        working-directory: packages/vscode
+        run: bun run build
+
+      - name: Package the VS Code extension
+        working-directory: packages/vscode
+        run: bunx @vscode/vsce package --no-dependencies --out "$RUNNER_TEMP/pickier.vsix"

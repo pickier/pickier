@@ -542,4 +542,4 @@ See [Configuration Guide](../config.md) and [Advanced Configuration](../advanced
 
 - [CLI Reference](../cli.md)
 - [Configuration Guide](../config.md)
-- [VS Code Extension](./vscode.md)
+- [VS Code Extension](../vscode.md)
