@@ -1,18 +1,27 @@
-// `mock.module(...)` is global to a `bun test` run and the last registration
-// wins, so a file that mocks `pickier` changes what every file loaded after it
-// sees - including the `await import('pickier')` calls inside src/. That made
-// the suite order-dependent: `code-actions.test.ts` passed alone and failed
-// behind a mocking file, `diagnostics.test.ts` did the reverse, and CI's bun
-// ordered the files differently from a local run.
+// `mock.module(...)` is global to a `bun test` process and cannot be undone:
+// re-registering a specifier after it has been resolved has no effect, in a
+// hook or in a test body. So one process has exactly one `pickier`, and a file
+// that stubs it decides what every other file sees - including the
+// `await import('pickier')` calls inside src/.
 //
-// So each file states which one it wants at module level. A file that needs
-// the real linter calls `useRealPickier()`; one that wants canned answers
-// registers its own mock. Either way the file no longer depends on what ran
-// before it.
+// Hence the split. test/real holds the files that exercise the real linter and
+// stubs nothing; test/unit holds the ones that stub it to watch the extension's
+// wiring. They run as two processes (see the package's `test` script), which is
+// what keeps either from deciding the other's outcome. Before the split the
+// suite passed only in one file order: code-actions.test.ts passed alone and
+// failed in CI behind a stub, diagnostics.test.ts did the reverse.
 import { mock } from 'bun:test'
-// Imported by path, which no `mock.module('pickier')` intercepts.
+// Imported by path, so this is the real module even if something registers a
+// stub for the bare specifier.
 import * as realPickier from '../../../pickier/src/index'
 
+/**
+ * Pin `pickier` to the real implementation for this file.
+ *
+ * Nothing in test/real stubs it, so this is belt and braces: it keeps the
+ * intent on the page, and makes a stub added to this directory by mistake
+ * fail loudly here rather than quietly change another file's linting.
+ */
 export function useRealPickier(): void {
   mock.module('pickier', () => realPickier)
 }

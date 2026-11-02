@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 
-import { createVscodeMock } from './utils/vscode-mock'
+import { createVscodeMock } from '../utils/vscode-mock'
 
 // Set up mocks BEFORE importing from source
 mock.module('vscode', () => createVscodeMock())
@@ -24,14 +24,14 @@ function makeDoc(text: string, fileName = '/workspace/file.ts'): any {
 
 
 // Loaded after the mocks above rather than imported at the top of the file: a
-// static `import ... from '../src/formatter'` is hoisted above them, so the module
+// static `import ... from '../../src/formatter'` is hoisted above them, so the module
 // resolved the real `vscode` and threw unless another test file had already
 // registered that mock. That is what made this file pass in a full run and
 // fail on its own.
-let PickierFormattingProvider: typeof import('../src/formatter').PickierFormattingProvider
+let PickierFormattingProvider: typeof import('../../src/formatter').PickierFormattingProvider
 
 beforeAll(async () => {
-  ;({ PickierFormattingProvider } = await import('../src/formatter'))
+  ;({ PickierFormattingProvider } = await import('../../src/formatter'))
 })
 
 describe('PickierFormattingProvider', () => {

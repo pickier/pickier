@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { createVscodeMock } from './utils/vscode-mock'
-import { useRealPickier } from './utils/real-pickier'
+import { createVscodeMock } from '../utils/vscode-mock'
+import { useRealPickier } from '../utils/real-pickier'
 
 // Set up mocks BEFORE importing from source
 mock.module('vscode', () => createVscodeMock())
@@ -21,7 +21,7 @@ describe('PickierDiagnosticProvider', () => {
 
   it('provides diagnostics via programmatic lintText', async () => {
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
     const output = vscode.window.createOutputChannel('Pickier')
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
@@ -48,7 +48,7 @@ describe('PickierDiagnosticProvider', () => {
 
   it('provides no diagnostics for clean code', async () => {
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
     const { lintText } = await import('pickier')
     const { defaultConfig } = await import('pickier')
     const output = vscode.window.createOutputChannel('Pickier')
@@ -82,7 +82,7 @@ export const y = 2
   it('respects cancellation', async () => {
     // Use module-level mock - lintText will be fast enough for this test
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
     const output = vscode.window.createOutputChannel('Pickier')
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
@@ -102,7 +102,7 @@ describe('lintPathsToDiagnostics', () => {
     // This test verifies the function exists and can be imported
     // Detailed functionality is already tested via PickierDiagnosticProvider tests above
     // which use the same underlying linting logic
-    const { lintPathsToDiagnostics } = await import('../src/diagnostics')
+    const { lintPathsToDiagnostics } = await import('../../src/diagnostics')
     expect(typeof lintPathsToDiagnostics).toBe('function')
   })
 })

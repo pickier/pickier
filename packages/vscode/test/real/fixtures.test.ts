@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { useRealPickier } from './utils/real-pickier'
+import { useRealPickier } from '../utils/real-pickier'
 
 // This file exercises the real linter, not a stub of it.
 useRealPickier()
 
 describe('Test Fixtures with Real Pickier', () => {
-  const fixturesDir = join(__dirname, 'fixtures')
+  const fixturesDir = join(__dirname, '..', 'fixtures')
 
   it('format-quotes.ts - detects quote style issues', async () => {
     const { lintText, defaultConfig } = await import('pickier')
@@ -387,7 +387,7 @@ describe('Test Fixtures with Real Pickier', () => {
 })
 
 describe('Edge Case Tests - Stress Testing', () => {
-  const fixturesDir = join(__dirname, 'fixtures')
+  const fixturesDir = join(__dirname, '..', 'fixtures')
 
   it('edge-case-nested-structures.ts - handles deeply nested code', async () => {
     const { lintText, defaultConfig } = await import('pickier')

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, mock } from 'bun:test'
 
-import { createVscodeMock } from './utils/vscode-mock'
-import { useRealPickier } from './utils/real-pickier'
+import { createVscodeMock } from '../utils/vscode-mock'
+import { useRealPickier } from '../utils/real-pickier'
 
 // Set up mocks at module level
 mock.module('vscode', () => createVscodeMock())
@@ -13,15 +13,15 @@ mock.module('bunfig', () => ({
 useRealPickier()
 
 // Loaded after the mocks above rather than imported at the top of the file:
-// a static `import ... from '../src/commands'` is hoisted above them, so
+// a static `import ... from '../../src/commands'` is hoisted above them, so
 // src/commands.ts resolved the real `vscode` and threw "Cannot find package
 // 'vscode'" unless some other test file had already registered that mock.
-let organizeImports: typeof import('../src/commands').organizeImports
-let showOutputChannel: typeof import('../src/commands').showOutputChannel
-let restartExtension: typeof import('../src/commands').restartExtension
+let organizeImports: typeof import('../../src/commands').organizeImports
+let showOutputChannel: typeof import('../../src/commands').showOutputChannel
+let restartExtension: typeof import('../../src/commands').restartExtension
 
 beforeAll(async () => {
-  ;({ organizeImports, showOutputChannel, restartExtension } = await import('../src/commands'))
+  ;({ organizeImports, showOutputChannel, restartExtension } = await import('../../src/commands'))
 })
 
 describe('organizeImports', () => {
