@@ -214,8 +214,8 @@
     "vscode:prepublish": "bun run build",
     "build": "bun build.ts",
     "watch": "bun build ./src/extension.ts --external vscode --outdir dist --format esm --watch",
-    "pretest": "bun run compile && bun run lint",
-    "lint": "eslint src --ext ts",
+    "pretest": "bun run build && bun run lint",
+    "lint": "bunx --bun pickier src",
     "test": "bun test",
     "package": "bunx @vscode/vsce package --no-dependencies"
   },

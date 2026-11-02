@@ -97,10 +97,12 @@ jobs:
             bun scripts/parity.ts $dirs --rule "$id"
           done
 
-  # The two artifacts a release produces that nothing else here builds. Both
-  # broke on main without a job failing: a docs link resolved from the wrong
-  # directory, and `@types/vscode` drifted past `engines.vscode`, which makes
-  # `vsce package` refuse outright.
+  # What the other jobs here do not reach. `bun test` is scoped to
+  # packages/pickier by the root bunfig, and nothing built the docs or the
+  # extension, so all three broke on main without a job failing: a docs link
+  # resolved from the wrong directory, `@types/vscode` drifted past
+  # `engines.vscode` (which makes `vsce package` refuse outright), and the
+  # extension's own suite sat at 7 failures for nine months.
   package:
     runs-on: ubuntu-latest
 
@@ -116,9 +118,10 @@ jobs:
       - name: Build the docs
         run: bun run build:docs
 
-      - name: Build the VS Code extension
+      # `pretest` builds the extension and lints it, so this covers both.
+      - name: VS Code extension tests
         working-directory: packages/vscode
-        run: bun run build
+        run: bun run test
 
       - name: Package the VS Code extension
         working-directory: packages/vscode

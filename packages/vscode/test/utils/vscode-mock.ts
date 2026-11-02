@@ -1,6 +1,66 @@
 import { mock } from 'bun:test'
 import { EventEmitter } from 'node:events'
 
+/**
+ * A stand-in for `vscode.TextDocument`, backed by a string.
+ *
+ * The tests used to write one of these inline wherever they needed a
+ * document, with whichever members the code under test happened to reach at
+ * the time. Then `code-actions.ts` started reading `document.lineAt(...)` to
+ * build its "disable this rule for this line" action, and every one of those
+ * literals was missing it. Deriving the whole surface from the text keeps the
+ * next member the extension reaches for from being the next failure.
+ */
+export function createTextDocument(text: string, fileName = '/test.ts', languageId = 'typescript'): any {
+  const lines = text.split(/\r?\n/)
+  return {
+    fileName,
+    languageId,
+    uri: { toString: () => `file://${fileName}`, fsPath: fileName, path: fileName, scheme: 'file' },
+    version: 1,
+    lineCount: lines.length,
+    getText: (range?: any) => {
+      if (!range)
+        return text
+      const from = range.start, to = range.end
+      if (from.line === to.line)
+        return (lines[from.line] ?? '').slice(from.character, to.character)
+      const out = [(lines[from.line] ?? '').slice(from.character)]
+      for (let i = from.line + 1; i < to.line; i++) out.push(lines[i] ?? '')
+      out.push((lines[to.line] ?? '').slice(0, to.character))
+      return out.join('\n')
+    },
+    // VS Code takes either a line number or a Position here.
+    lineAt: (lineOrPosition: number | { line: number }) => {
+      const line = typeof lineOrPosition === 'number' ? lineOrPosition : lineOrPosition.line
+      const lineText = lines[line] ?? ''
+      return {
+        lineNumber: line,
+        text: lineText,
+        range: { start: { line, character: 0 }, end: { line, character: lineText.length } },
+        firstNonWhitespaceCharacterIndex: lineText.length - lineText.trimStart().length,
+        isEmptyOrWhitespace: lineText.trim().length === 0,
+      }
+    },
+    positionAt: (offset: number) => {
+      let remaining = Math.max(0, Math.min(offset, text.length))
+      for (let line = 0; line < lines.length; line++) {
+        const width = lines[line].length
+        if (remaining <= width)
+          return { line, character: remaining }
+        remaining -= width + 1
+      }
+      const last = lines.length - 1
+      return { line: last, character: lines[last].length }
+    },
+    offsetAt: (position: { line: number, character: number }) => {
+      let offset = 0
+      for (let line = 0; line < position.line && line < lines.length; line++) offset += lines[line].length + 1
+      return offset + position.character
+    },
+  }
+}
+
 export function createVscodeMock(overrides: Partial<any> = {}): any {
   // Simple event emitter helpers to simulate VS Code event API
   const makeEvent = <T = any>() => {
@@ -107,9 +167,26 @@ export function createVscodeMock(overrides: Partial<any> = {}): any {
     private changes = new Map<string, any[]>()
 
     replace(uri: any, range: any, newText: string) {
+      this.record(uri, { range, newText })
+    }
+
+    // `code-actions.ts` inserts a disable comment above a line with this.
+    insert(uri: any, position: any, newText: string) {
+      this.record(uri, { range: { start: position, end: position }, newText })
+    }
+
+    delete(uri: any, range: any) {
+      this.record(uri, { range, newText: '' })
+    }
+
+    get(uri: any) {
+      return this.changes.get(typeof uri === 'string' ? uri : uri.toString()) ?? []
+    }
+
+    private record(uri: any, edit: any) {
       const key = typeof uri === 'string' ? uri : uri.toString()
       const edits = this.changes.get(key) || []
-      edits.push({ range, newText })
+      edits.push(edit)
       this.changes.set(key, edits)
     }
   }
@@ -260,6 +337,8 @@ export function createVscodeMock(overrides: Partial<any> = {}): any {
       registerDocumentFormattingEditProvider: mock(() => ({ dispose() {} })),
       registerDocumentRangeFormattingEditProvider: mock(() => ({ dispose() {} })),
       registerCodeActionsProvider: mock(() => ({ dispose() {} })),
+      registerHoverProvider: mock(() => ({ dispose() {} })),
+      registerCodeLensProvider: mock(() => ({ dispose() {} })),
     },
 
     commands: {
@@ -271,6 +350,7 @@ export function createVscodeMock(overrides: Partial<any> = {}): any {
           },
         }
       }),
+      executeCommand: mock(async () => undefined),
       _invoke: (cmd: string, ...args: any[]) => commandsMap.get(cmd)?.(...args),
     },
   }

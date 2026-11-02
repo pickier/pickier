@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { createVscodeMock } from './utils/vscode-mock'
+import { createTextDocument, createVscodeMock } from './utils/vscode-mock'
 
 // Set up mocks at module level
 mock.module('vscode', () => createVscodeMock())
@@ -78,11 +78,7 @@ describe('PickierCodeActionProvider', () => {
 
     // Use real code with quote style issues (fixable by formatCode)
     const code = 'const x = "test"'
-    const doc = {
-      getText: () => code,
-      fileName: '/test.ts',
-      uri: { toString: () => 'file:///test.ts' },
-    } as any
+    const doc = createTextDocument(code)
 
     // Verify pickier detects the quote issue and can fix it
     const config = { ...defaultConfig, format: { ...defaultConfig.format, quotes: 'single' as const } }
@@ -147,11 +143,7 @@ describe('PickierCodeActionProvider', () => {
     const { PickierCodeActionProvider } = await import('../src/code-actions')
     const provider = new PickierCodeActionProvider()
 
-    const doc = {
-      getText: () => 'debugger',
-      fileName: '/test.ts',
-      uri: { toString: () => 'file:///test.ts' },
-    } as any
+    const doc = createTextDocument('debugger')
 
     const diagnostic = new vscode.Diagnostic(
       new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 8)),
