@@ -215,7 +215,7 @@
     "build": "bun build.ts",
     "watch": "bun build ./src/extension.ts --external vscode --outdir dist --format esm --watch",
     "pretest": "bun run build && bun run lint",
-    "lint": "bunx --bun pickier src",
+    "lint": "../pickier/pickier run src --mode lint",
     "test": "bun test",
     "package": "bunx @vscode/vsce package --no-dependencies"
   },
