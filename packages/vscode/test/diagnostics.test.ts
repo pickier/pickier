@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test'
 import { createVscodeMock } from './utils/vscode-mock'
+import { useRealPickier } from './utils/real-pickier'
 
 // Set up mocks BEFORE importing from source
 mock.module('vscode', () => createVscodeMock())
@@ -11,6 +12,9 @@ mock.module('bunfig', () => ({
     return opts.defaultConfig || {}
   },
 }))
+
+// This file exercises the real linter, not a stub of it.
+useRealPickier()
 
 describe('PickierDiagnosticProvider', () => {
   // Use module-level mocks - no need to override in beforeEach
@@ -51,9 +55,11 @@ describe('PickierDiagnosticProvider', () => {
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
 
-    // Clean code with no errors
-    const code = `const x = 1
-const y = 2`
+    // Clean code with no errors. Exported, because two unused `const`s are
+    // two `pickier/no-unused-vars` issues and this asserts there are none.
+    const code = `export const x = 1
+export const y = 2
+`
 
     const doc = {
       getText: () => code,

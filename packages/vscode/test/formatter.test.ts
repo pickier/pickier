@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { PickierFormattingProvider } from '../src/formatter'
+import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { createVscodeMock } from './utils/vscode-mock'
 
@@ -22,6 +21,18 @@ function makeDoc(text: string, fileName = '/workspace/file.ts'): any {
     positionAt: (o: number) => ({ line: 0, character: o }),
   }
 }
+
+
+// Loaded after the mocks above rather than imported at the top of the file: a
+// static `import ... from '../src/formatter'` is hoisted above them, so the module
+// resolved the real `vscode` and threw unless another test file had already
+// registered that mock. That is what made this file pass in a full run and
+// fail on its own.
+let PickierFormattingProvider: typeof import('../src/formatter').PickierFormattingProvider
+
+beforeAll(async () => {
+  ;({ PickierFormattingProvider } = await import('../src/formatter'))
+})
 
 describe('PickierFormattingProvider', () => {
   beforeEach(() => {

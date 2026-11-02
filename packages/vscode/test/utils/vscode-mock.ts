@@ -112,7 +112,54 @@ export function createVscodeMock(overrides: Partial<any> = {}): any {
   class DiagnosticImpl {
     source?: string
     code?: any
+    relatedInformation?: any[]
+    tags?: number[]
     constructor(public range: any, public message: string, public severity: number) {}
+  }
+
+  // `diagnostics.ts` attaches an issue's help text as related information, and
+  // `hover.ts` / `code-lens.ts` build their own values. None of these were on
+  // the mock, so convertIssueToDiagnostic threw on `new vscode.Location(...)`
+  // and provideDiagnostics swallowed it in its catch - the collection was
+  // never set and the test saw a provider that silently did nothing.
+  class LocationImpl {
+    constructor(public uri: any, public range: any) {}
+  }
+  class DiagnosticRelatedInformationImpl {
+    constructor(public location: any, public message: string) {}
+  }
+  class HoverImpl {
+    constructor(public contents: any, public range?: any) {}
+  }
+  class CodeLensImpl {
+    isResolved = false
+    constructor(public range: any, public command?: any) {}
+  }
+  class MarkdownStringImpl {
+    value = ''
+    isTrusted = false
+    supportHtml = false
+    constructor(value = '') { this.value = value }
+
+    appendText(text: string) {
+      this.value += text
+      return this
+    }
+
+    appendMarkdown(markdown: string) {
+      this.value += markdown
+      return this
+    }
+
+    appendCodeblock(code: string, language = '') {
+      this.value += `\n\`\`\`${language}\n${code}\n\`\`\`\n`
+      return this
+    }
+  }
+
+  const DiagnosticTag = {
+    Unnecessary: 1,
+    Deprecated: 2,
   }
 
   const DiagnosticSeverity = {
@@ -277,6 +324,12 @@ export function createVscodeMock(overrides: Partial<any> = {}): any {
     Position: PositionImpl,
     Diagnostic: DiagnosticImpl,
     DiagnosticSeverity,
+    DiagnosticTag,
+    DiagnosticRelatedInformation: DiagnosticRelatedInformationImpl,
+    Location: LocationImpl,
+    Hover: HoverImpl,
+    CodeLens: CodeLensImpl,
+    MarkdownString: MarkdownStringImpl,
     TextEdit: TextEditImpl,
     StatusBarAlignment,
     CancellationTokenSource: CancellationTokenSourceImpl,

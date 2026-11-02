@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { useRealPickier } from './utils/real-pickier'
+
+// This file exercises the real linter, not a stub of it.
+useRealPickier()
 
 describe('Test Fixtures with Real Pickier', () => {
   const fixturesDir = join(__dirname, 'fixtures')

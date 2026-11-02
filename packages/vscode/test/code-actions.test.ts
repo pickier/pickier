@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { createTextDocument, createVscodeMock } from './utils/vscode-mock'
+import { useRealPickier } from './utils/real-pickier'
 
 // Set up mocks at module level
 mock.module('vscode', () => createVscodeMock())
 mock.module('bunfig', () => ({
   loadConfig: async (opts: any) => opts.defaultConfig || {},
 }))
+
+// This file exercises the real linter, not a stub of it.
+useRealPickier()
 
 describe('PickierCodeActionProvider', () => {
   beforeEach(async () => {
