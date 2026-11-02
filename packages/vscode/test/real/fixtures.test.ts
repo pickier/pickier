@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { useRealPickier } from '../utils/real-pickier'
+
+// This file exercises the real linter, not a stub of it.
+useRealPickier()
 
 describe('Test Fixtures with Real Pickier', () => {
-  const fixturesDir = join(__dirname, 'fixtures')
+  const fixturesDir = join(__dirname, '..', 'fixtures')
 
   it('format-quotes.ts - detects quote style issues', async () => {
     const { lintText, defaultConfig } = await import('pickier')
@@ -39,8 +43,10 @@ describe('Test Fixtures with Real Pickier', () => {
 
     // Should detect both debugger and console issues
     expect(issues.length).toBeGreaterThan(0)
-    expect(issues.some(i => i.ruleId === 'noDebugger')).toBe(true)
-    expect(issues.some(i => i.ruleId === 'noConsole')).toBe(true)
+    // pickier reports kebab-case rule ids; `noDebugger`/`noConsole` are the
+    // config keys that switch them on, not what comes back on an issue.
+    expect(issues.some(i => i.ruleId === 'no-debugger')).toBe(true)
+    expect(issues.some(i => i.ruleId === 'no-console')).toBe(true)
   })
 
   it('lint-cond-assign.ts - detects assignment in conditionals', async () => {
@@ -55,7 +61,7 @@ describe('Test Fixtures with Real Pickier', () => {
 
     // Should detect assignment in conditions
     expect(issues.length).toBeGreaterThan(0)
-    expect(issues.some(i => i.ruleId === 'noCondAssign')).toBe(true)
+    expect(issues.some(i => i.ruleId === 'no-cond-assign')).toBe(true)
   })
 
   it('pickier-prefer-const.ts - detects let that should be const', async () => {
@@ -381,7 +387,7 @@ describe('Test Fixtures with Real Pickier', () => {
 })
 
 describe('Edge Case Tests - Stress Testing', () => {
-  const fixturesDir = join(__dirname, 'fixtures')
+  const fixturesDir = join(__dirname, '..', 'fixtures')
 
   it('edge-case-nested-structures.ts - handles deeply nested code', async () => {
     const { lintText, defaultConfig } = await import('pickier')
@@ -701,12 +707,14 @@ describe('Edge Case Tests - Stress Testing', () => {
     }
     const issues = await lintText(code, config, 'test.ts')
 
-    // Should report correct line number for the issue
-    const condAssignIssue = issues.find(i => i.ruleId === 'noCondAssign')
-    if (condAssignIssue) {
-      expect(condAssignIssue.line).toBe(2)
-      expect(condAssignIssue.column).toBeGreaterThan(0)
-    }
+    // Should report correct line number for the issue. Asserted outright
+    // rather than under `if (condAssignIssue)`: the id this looks for was
+    // `noCondAssign`, which lintText never reports, so the guard was always
+    // false and the two assertions below it never ran.
+    const condAssignIssue = issues.find(i => i.ruleId === 'no-cond-assign')
+    expect(condAssignIssue).toBeDefined()
+    expect(condAssignIssue!.line).toBe(2)
+    expect(condAssignIssue!.column).toBeGreaterThan(0)
   })
 
   it('detects issues across all edge case files', async () => {

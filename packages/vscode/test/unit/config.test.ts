@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { clearConfigCache, getPickierConfig, watchConfigFile } from '../src/config'
+import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 
-import { createVscodeMock } from './utils/vscode-mock'
+import { createVscodeMock } from '../utils/vscode-mock'
 
 // Set up mocks at module level
 mock.module('vscode', () => createVscodeMock())
@@ -12,6 +11,20 @@ mock.module('bunfig', () => ({
     customOption: 'test',
   }),
 }))
+
+
+// Loaded after the mocks above rather than imported at the top of the file: a
+// static `import ... from '../../src/config'` is hoisted above them, so the module
+// resolved the real `vscode` and threw unless another test file had already
+// registered that mock. That is what made this file pass in a full run and
+// fail on its own.
+let clearConfigCache: typeof import('../../src/config').clearConfigCache
+let getPickierConfig: typeof import('../../src/config').getPickierConfig
+let watchConfigFile: typeof import('../../src/config').watchConfigFile
+
+beforeAll(async () => {
+  ;({ clearConfigCache, getPickierConfig, watchConfigFile } = await import('../../src/config'))
+})
 
 describe('getPickierConfig', () => {
   beforeEach(() => {
