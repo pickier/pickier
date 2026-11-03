@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.82...v0.1.83)
+
+## 🐛 Bug Fixes
+
+- honor literal project-relative ignore paths ([fa942a7](https://github.com/pickier/pickier/commit/fa942a7)) _(by Chris <chris@stacksjs.com>)_ ([#1406](https://github.com/pickier/pickier/issues/1406))
+
+## 🔧 Chores
+
+- release v0.1.83 ([3695c95](https://github.com/pickier/pickier/commit/3695c95)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.81...v0.1.82)
 
 ## 🐛 Bug Fixes
