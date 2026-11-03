@@ -113,7 +113,7 @@ function* walkDir(dir: string, ignore: string[], dot: boolean, cwd: string): Gen
  * falls back to a pure Node fs recursive walk otherwise.
  */
 export async function glob(patterns: string[], opts: GlobOptions = {}): Promise<string[]> {
-  const cwd = opts.cwd ?? process.cwd()
+  const cwd = resolve(opts.cwd ?? process.cwd())
   const ignore = opts.ignore ?? []
   const dot = opts.dot ?? false
   const absolute = opts.absolute ?? true
@@ -609,7 +609,7 @@ function toPosixPath(p: string): string {
 
 interface CompiledIgnorePattern {
   raw: string
-  kind: 'extension' | 'segment' | 'suffix'
+  kind: 'extension' | 'segment' | 'suffix' | 'path'
   value: string
 }
 
@@ -619,6 +619,12 @@ function compileIgnoreGlobs(ignoreGlobs: readonly string[]): CompiledIgnorePatte
     const gg = toPosixPath(g.trim())
     if (!gg)
       continue
+
+    // Literal files and directories are relative to the project root unless absolute.
+    if (!gg.startsWith('!') && !/[*?[\]{}]|[+@!]\(/.test(gg)) {
+      compiled.push({ raw: gg, kind: 'path', value: gg })
+      continue
+    }
 
     // handle file extension patterns like **/*.test.ts or **/*.spec.ts
     const filePattern = gg.match(/\*\*\/\*\.(.+)$/)
@@ -670,7 +676,8 @@ export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string 
   // Patterns that survive an outside-the-project scan, where a project's own
   // `docs/**` or test globs must not be applied to arbitrary external paths.
   const universalRaw = new Set<string>([...UNIVERSAL_IGNORES, ...ALWAYS_IGNORES])
-  const normalizedCwd = toPosixPath(cwd).replace(/\/$/, '')
+  const absoluteCwd = resolve(cwd)
+  const normalizedCwd = toPosixPath(absoluteCwd).replace(/\/$/, '')
   const cwdPrefix = `${normalizedCwd}/`
   // The strings each pattern tests for, built once rather than per path
   const tests = compiled.map(pattern => ({
@@ -678,10 +685,11 @@ export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string 
     universal: universalRaw.has(pattern.raw),
     suffix: pattern.kind === 'extension' ? `.${pattern.value}` : `/${pattern.value}`,
     inner: `/${pattern.value}/`,
+    path: pattern.kind === 'path' ? toPosixPath(resolve(absoluteCwd, pattern.value)).replace(/\/$/, '') : '',
   }))
 
   return (absPath: string): boolean => {
-    const normalizedAbs = toPosixPath(absPath)
+    const normalizedAbs = toPosixPath(resolve(absoluteCwd, toPosixPath(absPath)))
     // Require a separator after the root so siblings sharing a name prefix
     // (/project vs /project-data) don't count as inside the project.
     const isOutsideProject = normalizedAbs !== normalizedCwd
@@ -690,11 +698,17 @@ export function createIgnoreMatcher(ignoreGlobs: readonly string[], cwd: string 
       ? normalizedAbs
       : normalizedAbs.slice(normalizedCwd.length)
 
-    for (const { pattern, universal, suffix, inner } of tests) {
+    for (const { pattern, universal, suffix, inner, path } of tests) {
       // Outside-project scans must not apply project-specific ignore rules such
       // as docs/** or custom test globs to arbitrary external paths.
       if (isOutsideProject && !universal)
         continue
+
+      if (pattern.kind === 'path') {
+        if (normalizedAbs === path || normalizedAbs.startsWith(`${path}/`))
+          return true
+        continue
+      }
 
       if (pattern.kind === 'extension') {
         if (rel.endsWith(suffix))
