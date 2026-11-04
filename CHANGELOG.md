@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.83...v0.1.84)
+
+## 🐛 Bug Fixes
+
+- preserve function bodies around nested template URLs ([420b077](https://github.com/pickier/pickier/commit/420b077)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.84 ([facad38](https://github.com/pickier/pickier/commit/facad38)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.82...v0.1.83)
 
 ## 🐛 Bug Fixes
