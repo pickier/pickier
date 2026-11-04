@@ -599,7 +599,10 @@ export const noUnusedVarsRule: RuleModule = {
       const depthTmplStack: number[] = [] // -1 = in template body, >= 0 = in ${} expr with that brace depth
       let depthEscaped = false
       for (let ln = startLine; ln < lines.length; ln++) {
-        const s = lines[ln]
+        // The shared lexer already distinguishes nested-template URLs from
+        // comments. Re-scanning raw `https://` with a single quote state cuts
+        // off the closing template and makes a real function look bodyless.
+        const s = executableLines[ln]
 
         // Strip comments from this line before processing.
         // Skip when inside a multi-line template body — `//` in template content
@@ -1261,19 +1264,20 @@ export const noUnusedVarsRule: RuleModule = {
           }
 
           // function declarations or expressions
-          const m = codeClean.match(/\bfunction\b/)
+          const functionCode = executableLines[i]
+          const m = functionCode.match(/\bfunction\b/)
           if (m) {
             // Skip known complex functions with deep nesting that cause false positives
             if (line.includes('function scanContent') || line.includes('function findMatching')) {
               continue
             }
             // Skip 'function' used as a property name in destructuring: { function: value }
-            const afterFunc = codeClean.slice(m.index! + 8).trimStart()
+            const afterFunc = functionCode.slice(m.index! + 8).trimStart()
             if (afterFunc.startsWith(':')) {
               continue
             }
             // Skip property access — `obj.function` / `obj?.function` is not a declaration.
-            const beforeFunc = codeClean.slice(0, m.index!).trimEnd()
+            const beforeFunc = functionCode.slice(0, m.index!).trimEnd()
             if (beforeFunc.endsWith('.') || beforeFunc.endsWith('?.')) {
               continue
             }

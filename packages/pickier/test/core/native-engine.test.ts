@@ -52,6 +52,8 @@ const sources = [
   ],
 ]
 sources[0]!.push(
+  'export const generatedHandler = `function handler(event) {\n  return event.request;\n}`',
+  'export function deploy(config: Config, options: Options): string { const host = config.host; const path = options.path; const commands = [`curl ${quote(`https://${host}${path}`)}`]; return commands.join("\\n") }',
   'const css = `\n.ink { stroke: black; fill: none; }\n`',
   ';(rows[day] ||= []).push(row)',
   'const report = { rate: Math.round(count / (active + count) * 1000) / 10 }',

@@ -25,6 +25,30 @@ function lint(source: string): { message: string }[] {
 }
 
 describe('a template nested inside a template', () => {
+  it('does not analyze a generated function on a template’s opening line as host code', () => {
+    expect(lint([
+      'export const code = `function handler(event) {',
+      '  const request = event.request;',
+      '  return request;',
+      '}`',
+    ].join('\n'))).toEqual([])
+  })
+
+  it('keeps URLs inside nested templates from truncating the function body as comments', () => {
+    const source = [
+      'export function deploy(config: Config, options: Options): string {',
+      '  const host = config.host',
+      '  const path = options.path',
+      '  const commands = [`curl ${quote(`https://${host}${path}`)}`]',
+      '  return commands.join("\\n")',
+      '}',
+    ].join('\n')
+    expect(lint(source)).toEqual([])
+    expect(lint(source.replace('options: Options)', 'options: Options, unused: unknown)')).map(issue => issue.message)).toEqual([
+      expect.stringContaining("'unused' is defined but never used"),
+    ])
+  })
+
   it('does not make the next function\'s parameter look unused', () => {
     const source = [
       'export function quote(value: string): string {',

@@ -687,7 +687,9 @@ const Checker = struct {
 
         var ln = start_line;
         while (ln < self.lines.len) : (ln += 1) {
-            const s = self.lines[ln];
+            // Match TypeScript: trust the shared lexer for nested template
+            // boundaries instead of treating a URL's // as a comment.
+            const s = self.executable_lines[ln];
             const in_multi_line_body = stack.items.len > 0 and stack.items[stack.items.len - 1] == -1;
             var line_to_process = s;
             if (!in_multi_line_body and js.contains(s, '/')) {
@@ -1390,8 +1392,8 @@ const Checker = struct {
             if (!plain_line) code_clean = try self.maskTemplates(&st, code_clean);
 
             if (has.f) {
-                if (findFunctionKeyword(code_clean)) |func_idx| {
-                    try self.functionParams(i, line, code_clean, func_idx);
+                if (findFunctionKeyword(self.executable_lines[i])) |func_idx| {
+                    try self.functionParams(i, line, self.executable_lines[i], func_idx);
                     continue;
                 }
             }
