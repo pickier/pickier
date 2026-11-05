@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.85...v0.1.86)
+
+## 🐛 Bug Fixes
+
+- use qualified release candidate recovery tooling ([23b7b65](https://github.com/pickier/pickier/commit/23b7b65)) _(by Chris <chris@stacksjs.com>)_ ([#1409](https://github.com/pickier/pickier/issues/1409), [stacksjs/bumpx#2018](https://github.com/stacksjs/bumpx/issues/2018))
+
+## 🔧 Chores
+
+- release v0.1.86 ([5870014](https://github.com/pickier/pickier/commit/5870014)) _(by Chris <chris@stacksjs.com>)_
+- reconcile Pantry workspace dependency lock ([d7a5e97](https://github.com/pickier/pickier/commit/d7a5e97)) _(by Chris <chris@stacksjs.com>)_ ([#1409](https://github.com/pickier/pickier/issues/1409))
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.84...v0.1.85)
 
 ## 🐛 Bug Fixes
