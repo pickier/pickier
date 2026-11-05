@@ -30,6 +30,10 @@ const RE_SWITCH_HEADER = /^switch\s*\(/
 // A `case <expr>:` or `default:` label. The body it opens is NOT braced, so
 // the brace tracking above cannot see it at all - see caseDepth below.
 const RE_CASE_LABEL = /^(?:case\b[\s\S]*:|default\s*:)/
+// A line that ends at its arrow leaves the body for the line below, which
+// belongs one level deeper. Tested on masked, comment-stripped code so an
+// arrow inside a string or trailing comment cannot stand in for a real one.
+const RE_ARROW_TAIL = /=>$/
 
 /**
  * Brace-less control-flow line whose single statement hangs one level deeper:
@@ -936,14 +940,20 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
       //     if (before.includes('//'))
       //       return true            // snapped back to the `if`'s level
       //
+      // An arrow body hangs for the same reason and was lost the same way:
+      //
+      //     items.find(
+      //       item =>
+      //       item.endsWith('x')     // snapped back to the arrow's level
+      //
       // Masking costs a lex, so only a line that could hang one is masked.
-      if (!RE_CONTROL_START.test(trimmed)) {
+      if (!RE_CONTROL_START.test(trimmed) && trimmed.indexOf('=>') === -1) {
         hangDepth = 0
       }
       else {
         const masked = maskNonCode(trimmed)
         const code = masked.includes('//') ? masked.replace(RE_TRAILING_LINE_COMMENT, '') : masked
-        hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
+        hangDepth = isHangingControlLine(code) || RE_ARROW_TAIL.test(code) ? hangDepth + 1 : 0
       }
     }
 
