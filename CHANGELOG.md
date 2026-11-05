@@ -1,3 +1,19 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.84...v0.1.85)
+
+## 🐛 Bug Fixes
+
+- **format**: hang the body of a line that ends at its arrow ([fe7d376](https://github.com/pickier/pickier/commit/fe7d376)) _(by glennmichael123 <gtorregosa@gmail.com>)_ ([#1369](https://github.com/pickier/pickier/issues/1369))
+- **format**: indent a case body one level past its label ([81d6943](https://github.com/pickier/pickier/commit/81d6943)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.1.85 ([47d5ede](https://github.com/pickier/pickier/commit/47d5ede)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.83...v0.1.84)
 
 ## 🐛 Bug Fixes
