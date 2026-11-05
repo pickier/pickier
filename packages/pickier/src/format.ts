@@ -23,6 +23,13 @@ const RE_CONTROL_START = /^(?:if|else|for|while|do)\b/
 // that start a line continue the previous statement. `?.` is optional
 // chaining; a lone `:` could be a case label so require a space after it.
 const RE_CONTINUATION_LINE = /^(?:\.[\w$[]|\?[\s.:]|:\s|&&|\|\|)/
+// A `switch (...) {` header, so the block it opens can be told apart from an
+// object literal: only inside a switch body does a `default:` line mean a case
+// label rather than a property named `default`.
+const RE_SWITCH_HEADER = /^switch\s*\(/
+// A `case <expr>:` or `default:` label. The body it opens is NOT braced, so
+// the brace tracking above cannot see it at all - see caseDepth below.
+const RE_CASE_LABEL = /^(?:case\b[\s\S]*:|default\s*:)/
 
 /**
  * Brace-less control-flow line whose single statement hangs one level deeper:
@@ -791,6 +798,19 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
   // closing `})` came back a level short.
   const blockBumps: number[] = []
   let bumpDepth = 0
+  // A `case`/`default:` label opens a body that carries no braces, so the
+  // brace tracker above never counts a level for it and every statement in the
+  // body came back at the label's own indentation:
+  //
+  //     case 'major':
+  //     next.minor = 0          // belongs one level deeper
+  //
+  // That is what the formatter did to every switch it was run over. These
+  // track, per open block, whether the block is a switch body and whether a
+  // label inside it is currently owed a level.
+  const blockIsSwitch: boolean[] = []
+  const caseBumps: number[] = []
+  let caseDepth = 0
   const tmplStack: TmplCtx[] = []
 
   for (let idx = 0; idx < len; idx++) {
@@ -864,6 +884,10 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
     if (RE_CLOSING_BRACE.test(trimmed)) {
       indentLevel = Math.max(0, indentLevel - 1)
       closingBump = blockBumps.pop() ?? 0
+      // Given up before this line's own indent is measured: the brace closing
+      // a switch belongs to the switch statement, not to its last case body.
+      caseDepth -= caseBumps.pop() ?? 0
+      blockIsSwitch.pop()
     }
 
     // Continuation lines (`.method()` chains, ternary `?` / `:` branches,
@@ -871,9 +895,16 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
     // statement they continue — previously they were flattened (#1369)
     const continuationBump = RE_CONTINUATION_LINE.test(trimmed) ? 1 : 0
 
+    // `default:` is a legal property name, so a label only counts inside a
+    // switch body - never in an object literal that happens to declare one.
+    const switchIdx = caseBumps.length - 1
+    const isCaseLabel = switchIdx >= 0 && blockIsSwitch[switchIdx] === true && RE_CASE_LABEL.test(trimmed)
+    // The label announces the body; it does not sit in it.
+    const caseLabelAdjust = isCaseLabel ? -(caseBumps[switchIdx] ?? 0) : 0
+
     const indent = cfg.format.preserveCodeIndentation
       ? line.slice(0, wsEnd)
-      : makeIndent(indentLevel + bumpDepth + hangDepth + continuationBump, cfg)
+      : makeIndent(indentLevel + bumpDepth + hangDepth + continuationBump + caseDepth + caseLabelAdjust, cfg)
     bumpDepth -= closingBump
 
     // Opens a block: ends in `{`, `[` or `(` (`trimmed` has no trailing whitespace)
@@ -886,6 +917,8 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
       // belongs to the statement, as does its body.
       const inherited = continuationBump === 1 && trimmed.charCodeAt(0) === 46 ? 1 : 0
       blockBumps.push(inherited)
+      blockIsSwitch.push(RE_SWITCH_HEADER.test(trimmed))
+      caseBumps.push(0)
       bumpDepth += inherited
       hangDepth = 0
     }
@@ -912,6 +945,16 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
         const code = masked.includes('//') ? masked.replace(RE_TRAILING_LINE_COMMENT, '') : masked
         hangDepth = isHangingControlLine(code) ? hangDepth + 1 : 0
       }
+    }
+
+    if (isCaseLabel) {
+      // An unbraced label owes its body one level until the next label or the
+      // switch's own closing brace. A braced one (`case x: {`) owes nothing -
+      // the brace tracker already counted that level on this same line.
+      const opensOwnBlock = lastCode === 123 || lastCode === 91 || lastCode === 40
+      const owed = opensOwnBlock ? 0 : 1
+      caseDepth += owed - (caseBumps[switchIdx] ?? 0)
+      caseBumps[switchIdx] = owed
     }
 
     // Phase 3: Normalize spacing. The rules run on the code alone and the
