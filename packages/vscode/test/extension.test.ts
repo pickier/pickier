@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { createVscodeMock } from '../utils/vscode-mock'
+import { createVscodeMock } from './utils/vscode-mock'
 
 // Set up mocks at module level to ensure they're applied before any imports
 mock.module('vscode', () => createVscodeMock())
@@ -49,7 +49,7 @@ describe('extension activate/deactivate', () => {
     const context = { subscriptions: [] as any[] } as any
 
     // Import activate function dynamically to avoid circular dependency
-    const { activate } = await import('../../src/extension')
+    const { activate } = await import('../src/extension')
 
     await activate(context)
 
@@ -69,7 +69,7 @@ describe('extension activate/deactivate', () => {
   it('deactivates: disposes resources and cancels tokens', async () => {
     const vscode = await import('vscode')
     const context = { subscriptions: [] as any[] } as any
-    const { activate, deactivate } = await import('../../src/extension')
+    const { activate, deactivate } = await import('../src/extension')
 
     await activate(context)
     deactivate()
@@ -84,7 +84,7 @@ describe('extension activate/deactivate', () => {
   it('command handlers run without throwing', async () => {
     const vscode = await import('vscode')
     const context = { subscriptions: [] as any[] } as any
-    const { activate } = await import('../../src/extension')
+    const { activate } = await import('../src/extension')
 
     await activate(context)
 

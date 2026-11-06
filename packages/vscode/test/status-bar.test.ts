@@ -1,21 +1,10 @@
-import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { PickierStatusBar } from '../src/status-bar'
 
-import { createVscodeMock } from '../utils/vscode-mock'
+import { createVscodeMock } from './utils/vscode-mock'
 
 // Mock VS Code API before importing module
 mock.module('vscode', () => createVscodeMock())
-
-
-// Loaded after the mocks above rather than imported at the top of the file: a
-// static `import ... from '../../src/status-bar'` is hoisted above them, so the module
-// resolved the real `vscode` and threw unless another test file had already
-// registered that mock. That is what made this file pass in a full run and
-// fail on its own.
-let PickierStatusBar: typeof import('../../src/status-bar').PickierStatusBar
-
-beforeAll(async () => {
-  ;({ PickierStatusBar } = await import('../../src/status-bar'))
-})
 
 describe('PickierStatusBar', () => {
   beforeEach(() => {
@@ -61,7 +50,7 @@ describe('PickierStatusBar', () => {
     })
     const vscode = await import('vscode')
     const item = vscode.window.createStatusBarItem()
-    const bar = new (await import('../../src/status-bar')).PickierStatusBar()
+    const bar = new (await import('../src/status-bar')).PickierStatusBar()
     bar.update({ languageId: 'typescript' } as any)
     expect(item.hide).toHaveBeenCalled()
   })

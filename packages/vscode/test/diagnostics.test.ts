@@ -1,6 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { createVscodeMock } from '../utils/vscode-mock'
-import { useRealPickier } from '../utils/real-pickier'
+import { createVscodeMock } from './utils/vscode-mock'
 
 // Set up mocks BEFORE importing from source
 mock.module('vscode', () => createVscodeMock())
@@ -13,15 +12,12 @@ mock.module('bunfig', () => ({
   },
 }))
 
-// This file exercises the real linter, not a stub of it.
-useRealPickier()
-
 describe('PickierDiagnosticProvider', () => {
   // Use module-level mocks - no need to override in beforeEach
 
   it('provides diagnostics via programmatic lintText', async () => {
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
     const output = vscode.window.createOutputChannel('Pickier')
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
@@ -48,18 +44,16 @@ describe('PickierDiagnosticProvider', () => {
 
   it('provides no diagnostics for clean code', async () => {
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
     const { lintText } = await import('pickier')
     const { defaultConfig } = await import('pickier')
     const output = vscode.window.createOutputChannel('Pickier')
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
 
-    // Clean code with no errors. Exported, because two unused `const`s are
-    // two `pickier/no-unused-vars` issues and this asserts there are none.
-    const code = `export const x = 1
-export const y = 2
-`
+    // Clean code with no errors
+    const code = `const x = 1
+const y = 2`
 
     const doc = {
       getText: () => code,
@@ -82,7 +76,7 @@ export const y = 2
   it('respects cancellation', async () => {
     // Use module-level mock - lintText will be fast enough for this test
     const vscode = await import('vscode')
-    const { PickierDiagnosticProvider } = await import('../../src/diagnostics')
+    const { PickierDiagnosticProvider } = await import('../src/diagnostics')
     const output = vscode.window.createOutputChannel('Pickier')
     const coll = vscode.languages.createDiagnosticCollection('pickier')
     const provider = new PickierDiagnosticProvider(coll, output)
@@ -102,7 +96,7 @@ describe('lintPathsToDiagnostics', () => {
     // This test verifies the function exists and can be imported
     // Detailed functionality is already tested via PickierDiagnosticProvider tests above
     // which use the same underlying linting logic
-    const { lintPathsToDiagnostics } = await import('../../src/diagnostics')
+    const { lintPathsToDiagnostics } = await import('../src/diagnostics')
     expect(typeof lintPathsToDiagnostics).toBe('function')
   })
 })

@@ -216,10 +216,8 @@
     "watch": "bun build ./src/extension.ts --external vscode --outdir dist --format esm --watch",
     "pretest": "bun run build && bun run lint",
     "lint": "../pickier/pickier run src --mode lint",
-    "test": "bun run test:real && bun run test:unit",
-    "package": "bunx @vscode/vsce package --no-dependencies",
-    "test:real": "bun test test/real",
-    "test:unit": "bun test test/unit"
+    "test": "bun test",
+    "package": "bunx @vscode/vsce package --no-dependencies"
   },
   "dependencies": {
     "pickier": "workspace:*"

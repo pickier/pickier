@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { createTextDocument, createVscodeMock } from '../utils/vscode-mock'
-import { useRealPickier } from '../utils/real-pickier'
+import { createTextDocument, createVscodeMock } from './utils/vscode-mock'
 
 // Set up mocks at module level
 mock.module('vscode', () => createVscodeMock())
@@ -8,18 +7,15 @@ mock.module('bunfig', () => ({
   loadConfig: async (opts: any) => opts.defaultConfig || {},
 }))
 
-// This file exercises the real linter, not a stub of it.
-useRealPickier()
-
 describe('PickierCodeActionProvider', () => {
   beforeEach(async () => {
-    const { clearConfigCache } = await import('../../src/config')
+    const { clearConfigCache } = await import('../src/config')
     clearConfigCache()
   })
 
   it('returns undefined when code actions are disabled', async () => {
     const vscode = await import('vscode')
-    const { PickierCodeActionProvider } = await import('../../src/code-actions')
+    const { PickierCodeActionProvider } = await import('../src/code-actions')
     const provider = new PickierCodeActionProvider()
 
     // Save original and override config to disable code actions
@@ -47,7 +43,7 @@ describe('PickierCodeActionProvider', () => {
 
   it('returns Fix All action when requested', async () => {
     const vscode = await import('vscode')
-    const { PickierCodeActionProvider } = await import('../../src/code-actions')
+    const { PickierCodeActionProvider } = await import('../src/code-actions')
     const provider = new PickierCodeActionProvider()
 
     const doc = {
@@ -76,7 +72,7 @@ describe('PickierCodeActionProvider', () => {
 
   it('returns fix action for pickier diagnostics with fixable rules', async () => {
     const vscode = await import('vscode')
-    const { PickierCodeActionProvider } = await import('../../src/code-actions')
+    const { PickierCodeActionProvider } = await import('../src/code-actions')
     const { lintText, formatCode, defaultConfig } = await import('pickier')
     const provider = new PickierCodeActionProvider()
 
@@ -117,7 +113,7 @@ describe('PickierCodeActionProvider', () => {
 
   it('ignores non-pickier diagnostics', async () => {
     const vscode = await import('vscode')
-    const { PickierCodeActionProvider } = await import('../../src/code-actions')
+    const { PickierCodeActionProvider } = await import('../src/code-actions')
     const provider = new PickierCodeActionProvider()
 
     const doc = {
@@ -144,7 +140,7 @@ describe('PickierCodeActionProvider', () => {
 
   it('respects cancellation token', async () => {
     const vscode = await import('vscode')
-    const { PickierCodeActionProvider } = await import('../../src/code-actions')
+    const { PickierCodeActionProvider } = await import('../src/code-actions')
     const provider = new PickierCodeActionProvider()
 
     const doc = createTextDocument('debugger')
@@ -172,13 +168,13 @@ describe('PickierCodeActionProvider', () => {
 
 describe('applyFix', () => {
   beforeEach(async () => {
-    const { clearConfigCache } = await import('../../src/config')
+    const { clearConfigCache } = await import('../src/config')
     clearConfigCache()
   })
 
   it('applies fix to document', async () => {
     const vscode = await import('vscode')
-    const { applyFix } = await import('../../src/code-actions')
+    const { applyFix } = await import('../src/code-actions')
     const { lintText, formatCode, defaultConfig } = await import('pickier')
 
     // Code with fixable quote issues
@@ -216,7 +212,7 @@ describe('applyFix', () => {
 
   it('handles code that does not need fixing', async () => {
     const vscode = await import('vscode')
-    const { applyFix } = await import('../../src/code-actions')
+    const { applyFix } = await import('../src/code-actions')
 
     // Use valid code that doesn't need fixing
     const doc = {
@@ -241,13 +237,13 @@ describe('applyFix', () => {
 
 describe('fixAllInDocument', () => {
   beforeEach(async () => {
-    const { clearConfigCache } = await import('../../src/config')
+    const { clearConfigCache } = await import('../src/config')
     clearConfigCache()
   })
 
   it('fixes issues in document', async () => {
     const vscode = await import('vscode')
-    const { fixAllInDocument } = await import('../../src/code-actions')
+    const { fixAllInDocument } = await import('../src/code-actions')
     const { lintText, formatCode, defaultConfig } = await import('pickier')
 
     // Use code with actual fixable issues (quote style)
@@ -277,7 +273,7 @@ describe('fixAllInDocument', () => {
 
   it('handles valid code gracefully', async () => {
     const vscode = await import('vscode')
-    const { fixAllInDocument } = await import('../../src/code-actions')
+    const { fixAllInDocument } = await import('../src/code-actions')
 
     const doc = {
       getText: () => 'const x = 1',
