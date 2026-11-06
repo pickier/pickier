@@ -47,7 +47,7 @@
     "typecheck": "bun --bun tsc --noEmit"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "0.2.31",
+    "@stacksjs/bumpx": "0.2.32",
     "@stacksjs/bunpress": "^0.2.31",
     "@stacksjs/clarity": "^0.3.24",
     "@stacksjs/gitlint": "^0.1.8",
@@ -55,7 +55,7 @@
     "@types/bun": "^1.4.4",
     "buddy-bot": "^0.10.5",
     "bun-git-hooks": "^0.3.3",
-    "bun-plugin-dtsx": "^0.11.23",
+    "bun-plugin-dtsx": "^0.11.31",
     "typescript": "^7.0.2"
   },
   "dependencies": {
