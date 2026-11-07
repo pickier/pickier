@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.87...v0.1.88)
+
+## 🐛 Bug Fixes
+
+- preserve used arrow parameters in comparison blocks ([629c5b9](https://github.com/pickier/pickier/commit/629c5b9)) _(by Chris <chris@stacksjs.com>)_ ([pickier/pickier#1412](https://github.com/pickier/pickier/issues/1412), [zig-utils/zig-config#1](https://github.com/zig-utils/zig-config/issues/1), [pantry-pm/pantry#295](https://github.com/pantry-pm/pantry/issues/295))
+
+## 🔧 Chores
+
+- release v0.1.88 ([dd8d445](https://github.com/pickier/pickier/commit/dd8d445)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.86...v0.1.87)
 
 ## 🐛 Bug Fixes
