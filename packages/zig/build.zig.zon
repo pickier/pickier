@@ -4,8 +4,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .@"zig-config" = .{
-            .url = "https://github.com/zig-utils/zig-config/archive/refs/tags/v0.1.2.tar.gz",
-            .hash = "zig_config-0.1.1-2XP112waAQAWLqHIYoAqpsztxmK2-GqzThYUrZwYqFgP",
+            .url = "https://github.com/zig-utils/zig-config/archive/refs/tags/v0.1.3.tar.gz",
+            .hash = "zig_config-0.1.3-2XP110UdAQAID_n21NmBFyJfKDp4lPa_Bj91km9igos3",
         },
     },
     .paths = .{

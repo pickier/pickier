@@ -665,11 +665,13 @@ const Checker = struct {
     }
 
     /// `findBodyRange`: the lines from the body's `{` to its matching `}`.
-    fn findBodyRange(self: *Checker, start_line_in: usize, start_col_from: usize) !?Range {
+    fn findBodyRange(self: *Checker, start_line_in: usize, start_col_from: usize, known_open_col: ?usize) !?Range {
         var start_line = start_line_in;
-        var open_found = false;
-        var open_col: usize = 0;
-        var depth: i64 = 0;
+        // An explicit arrow block has no return-type ambiguity. Start at its
+        // known delimiter before interpreting any comparison in its body.
+        var open_found = known_open_col != null;
+        var open_col: usize = known_open_col orelse 0;
+        var depth: i64 = if (open_found) 1 else 0;
         // Return type annotation tracking, across lines
         var body_brace_depth: i64 = 0;
         var body_saw_brace_pair = false;
@@ -720,7 +722,7 @@ const Checker = struct {
             }
             const ltp = line_to_process;
 
-            var start_idx: usize = 0;
+            var start_idx: usize = if (ln == start_line and known_open_col != null) known_open_col.? + 1 else 0;
             if (!open_found) {
                 var found: ?usize = null;
                 var search_start = if (is_first_search_line) start_col_from else 0;
@@ -1400,7 +1402,7 @@ const Checker = struct {
 
             // Every arrow needs a `=>`
             if (!has.eq) continue;
-            if (js.indexOfLit(line, 0, "=>")) |arrow_idx| {
+            if (js.indexOfLit(self.executable_lines[i], 0, "=>")) |arrow_idx| {
                 if (js.indexOfLit(code_clean, 0, "=>") != null) {
                     switch (try self.parenArrow(i, line, arrow_idx)) {
                         .done => continue,
@@ -1409,7 +1411,7 @@ const Checker = struct {
                 }
             }
 
-            try self.singleParamArrows(i, line, code_clean);
+            try self.singleParamArrows(i, line, self.executable_lines[i]);
         }
     }
 
@@ -1463,7 +1465,7 @@ const Checker = struct {
         if (self.signatureHasNoBody(close_line, close)) return;
 
         const params = try self.paramNames(buf.items);
-        const range = try self.findBodyRange(close_line, close);
+        const range = try self.findBodyRange(close_line, close, null);
         // Retain the opening brace found by the scanner, including nested literals.
         const brace = if (range) |r| (if (r.from == close_line) r.open_col else null) else null;
         try self.checkParams(i, params, self.bodyText(range, close_line, brace));
@@ -1518,8 +1520,8 @@ const Checker = struct {
     fn arrowBody(self: *Checker, i: usize, line: Str, arrow_idx: usize) !Joined {
         const after_arrow = js.trimStart(line[@min(arrow_idx + 2, line.len)..]);
         if (js.startsWith(after_arrow, "{")) {
-            const range = try self.findBodyRange(i, arrow_idx);
-            const brace = if (range) |r| (if (r.from == i) js.indexOfScalarFrom(self.lines[r.from], arrow_idx, '{') else null) else null;
+            const brace = line.len - after_arrow.len;
+            const range = try self.findBodyRange(i, arrow_idx, brace);
             return self.bodyText(range, i, brace);
         }
         return try self.arrowExpressionBody(i, arrow_idx);
@@ -1686,24 +1688,12 @@ const Checker = struct {
             // `\b${name}\s*=>` in the original line; a `$` in the name is an
             // anchor there and never matches
             if (js.contains(name, '$')) continue;
-            const match_text = findNamedArrow(line, name) orelse continue;
-            const arrow_idx = js.indexOf(line, match_text).? + match_text.len - 2;
+            // The match already carries the actual executable arrow offset;
+            // raw strings earlier on this line are not a delimiter source.
+            const arrow_idx = m.end - 2;
             const body = try self.arrowBody(i, line, arrow_idx);
             if (!try self.bodyMentions(name, body)) try self.report(i, name, .parameter);
         }
-    }
-
-    /// The text of the first `\b${name}\s*=>` match in `line`.
-    fn findNamedArrow(line: Str, name: Str) ?Str {
-        var from: usize = 0;
-        while (js.indexOfFrom(line, from, name)) |p| {
-            from = p + 1;
-            if (p > 0 and js.isWord(line[p - 1])) continue;
-            var q = p + name.len;
-            while (q < line.len and js.isWs(line[q])) q += 1;
-            if (js.startsWithAt(line, q, "=>")) return line[p .. q + 2];
-        }
-        return null;
     }
 };
 

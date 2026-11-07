@@ -581,10 +581,12 @@ export const noUnusedVarsRule: RuleModule = {
       return true
     }
 
-    const findBodyRange = (startLine: number, startColFrom?: number): { from: number, to: number, openCol: number } | null => {
-      let openCol = 0
-      let openFound = false
-      let depth = 0
+    const findBodyRange = (startLine: number, startColFrom?: number, knownOpenCol?: number): { from: number, to: number, openCol: number } | null => {
+      // `=> {` already identifies a block, so its comparisons and nested
+      // expressions must never be interpreted as return-type annotations.
+      let openCol = knownOpenCol ?? 0
+      let openFound = knownOpenCol !== undefined
+      let depth = openFound ? 1 : 0
       // Persistent state for multi-line return type annotation detection
       let bodyBraceDepth = 0
       let bodySawBracePair = false
@@ -724,7 +726,7 @@ export const noUnusedVarsRule: RuleModule = {
         if (!inMultiLineTmplBody)
           lineToProcess = stripRegexFromLine(lineToProcess)
 
-        let startIdx = 0
+        let startIdx = ln === startLine && knownOpenCol !== undefined ? knownOpenCol + 1 : 0
         if (!openFound) {
           // Find function body '{' outside of strings and angle brackets
           // Handle return type annotations like ': { text: string }' by tracking brace pairs
@@ -1373,7 +1375,7 @@ export const noUnusedVarsRule: RuleModule = {
 
           // arrow functions (parenthesized params) - match patterns like: const f = (a,b) => ..., or standalone (a,b) => ...
           // Find arrow first, then work backwards to find the parameters
-          const arrowIdx = line.indexOf('=>')
+          const arrowIdx = executableLines[i].indexOf('=>')
           if (arrowIdx !== -1 && codeClean.includes('=>')) {
             // Work backwards from => to find the closing ) of parameters
             let closeParenIdx = -1
@@ -1529,7 +1531,7 @@ export const noUnusedVarsRule: RuleModule = {
                       // Function body braces appear immediately after => with only whitespace in between
                       const afterArrow = line.slice(arrowIdx + 2).trimStart()
                       if (afterArrow.startsWith('{')) {
-                        const bodyRange = findBodyRange(i, arrowIdx)
+                        const bodyRange = findBodyRange(i, arrowIdx, line.indexOf('{', arrowIdx + 2))
                         // Get body text, avoiding parameter declarations
                         if (bodyRange) {
                           if (bodyRange.from === i) {
@@ -1571,13 +1573,13 @@ export const noUnusedVarsRule: RuleModule = {
               const reSingleArrow = /(?:^|[=,:({\s])\s*([$A-Z_][\w$]*)\s*=>/gi
               let match: RegExpExecArray | null
               // eslint-disable-next-line no-cond-assign
-              while ((match = reSingleArrow.exec(codeClean)) !== null) {
+              while ((match = reSingleArrow.exec(executableLines[i])) !== null) {
                 const name = match[1]
                 if (!name || argIgnoreRe.test(name) || name === 'undefined')
                   continue
                 // Skip return type annotations like ): ReturnType => or ): string =>
                 // When : precedes the identifier and ) precedes the :, it's a return type
-                const beforeMatch = codeClean.slice(0, match.index + match[0].indexOf(name)).trimEnd()
+                const beforeMatch = executableLines[i].slice(0, match.index + match[0].indexOf(name)).trimEnd()
                 if (/\)\s*:$/.test(beforeMatch) || /\)\s*:\s*$/.test(beforeMatch)) {
                   continue
                 }
@@ -1592,17 +1594,18 @@ export const noUnusedVarsRule: RuleModule = {
                 if (/^(?:string|number|boolean|void|never|any|unknown|object|bigint|symbol|undefined|null)$/.test(name)) {
                   continue
                 }
-                // Find the arrow position in the ORIGINAL line
+                // The shared lexer preserves offsets while hiding literals.
+                // Validate the existing parameter spelling on this executable
+                // match, rather than finding an earlier quoted arrow in line.
                 const arrowPattern = new RegExp(`\\b${name}\\s*=>`)
-                const arrowMatch = line.match(arrowPattern)
-                if (!arrowMatch)
+                if (!arrowPattern.test(match[0]))
                   continue
-                const arrowIdx = line.indexOf(arrowMatch[0]) + arrowMatch[0].lastIndexOf('=>')
+                const arrowIdx = match.index + match[0].lastIndexOf('=>')
                 let bodyText = ''
                 // Check if there's a function body with braces (not just object literals in the expression)
                 const afterArrow = line.slice(arrowIdx + 2).trimStart()
                 if (afterArrow.startsWith('{')) {
-                  const bodyRange = findBodyRange(i, arrowIdx)
+                  const bodyRange = findBodyRange(i, arrowIdx, line.indexOf('{', arrowIdx + 2))
                   // Get body text, avoiding parameter declarations
                   if (bodyRange) {
                     if (bodyRange.from === i) {
