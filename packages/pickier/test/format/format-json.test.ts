@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { describe, expect, it } from 'bun:test'
 import { runFormat } from '../../src/formatter'
 
 function tmp(): string {
@@ -61,16 +61,17 @@ describe('JSON formatting', () => {
     expect(parsed.files).toEqual(['README.md', 'bin', 'dist', 'src'])
   })
 
-  it('sorts package.json exports with proper sub-key order', async () => {
+  it('preserves authored package.json export condition priority', async () => {
     const dir = tmp()
     const file = join(dir, 'package.json')
     const unsorted = JSON.stringify({
       name: 'test',
       exports: {
         '.': {
-          default: './dist/index.js',
-          import: './dist/index.mjs',
           types: './dist/index.d.ts',
+          browser: './dist/browser.js',
+          import: './dist/index.mjs',
+          default: './dist/index.js',
         },
       },
     }, null, 2)
@@ -82,11 +83,7 @@ describe('JSON formatting', () => {
     const result = readFileSync(file, 'utf8')
     const parsed = JSON.parse(result)
 
-    // Check exports sub-key order (types, import, require, default)
-    const exportKeys = Object.keys(parsed.exports['.'])
-    expect(exportKeys[0]).toBe('types')
-    expect(exportKeys[1]).toBe('import')
-    expect(exportKeys[2]).toBe('default')
+    expect(Object.keys(parsed.exports['.'])).toEqual(['types', 'browser', 'import', 'default'])
   })
 
   it('sorts package.json git hooks in canonical order', async () => {

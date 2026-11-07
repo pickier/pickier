@@ -1,7 +1,7 @@
 import type { PickierConfig } from './types'
-import { shellSourceLines } from './rules/shell/_shared'
-import { ShellContinuation } from './rules/shell/_continuation'
 import { maskNonCode } from './lexer'
+import { ShellContinuation } from './rules/shell/_continuation'
+import { shellSourceLines } from './rules/shell/_shared'
 
 const CODE_EXTS = new Set(['.ts', '.js'])
 const JSON_EXTS = new Set(['.json', '.jsonc'])
@@ -16,6 +16,9 @@ const _RE_LEADING_WS = /^[ \t]*/
 // flattened multi-line arrays and call arguments to the enclosing level
 const RE_CLOSING_BRACE = /^[}\])]/
 const RE_TRAILING_LINE_COMMENT = /\s*\/\/.*$/
+// maskNonCode preserves delimiters. Remove its blanked comments only for
+// indentation classification, where comment markers are not code tokens.
+const RE_MASKED_COMMENTS = /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\r\n]*/g
 const RE_CONTROL_OPEN = /^(?:if|else\s+if|for|while)\s*\(/
 /** Lines isHangingControlLine could say yes to; the rest skip the mask. */
 const RE_CONTROL_START = /^(?:if|else|for|while|do)\b/
@@ -880,12 +883,17 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
     while (wsEnd < line.length && (line.charCodeAt(wsEnd) === 32 || line.charCodeAt(wsEnd) === 9))
       wsEnd++
     const trimmed = line.slice(wsEnd).trimEnd()
+    // Comments may contain delimiters or precede real code on the same line.
+    // Classify the code that remains, without rewriting the authored comment.
+    const indentationCode = trimmed.includes('//') || trimmed.includes('/*')
+      ? maskNonCode(trimmed).replace(RE_MASKED_COMMENTS, ' ').trim()
+      : trimmed
 
     // A closing line sits where the line that opened its block sat, so it
     // keeps that block's inherited levels for its own indent and gives them
     // up afterwards
     let closingBump = 0
-    if (RE_CLOSING_BRACE.test(trimmed)) {
+    if (RE_CLOSING_BRACE.test(indentationCode)) {
       indentLevel = Math.max(0, indentLevel - 1)
       closingBump = blockBumps.pop() ?? 0
       // Given up before this line's own indent is measured: the brace closing
@@ -897,12 +905,12 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
     // Continuation lines (`.method()` chains, ternary `?` / `:` branches,
     // `&&` / `||` operands) conventionally sit one level deeper than the
     // statement they continue — previously they were flattened (#1369)
-    const continuationBump = RE_CONTINUATION_LINE.test(trimmed) ? 1 : 0
+    const continuationBump = RE_CONTINUATION_LINE.test(indentationCode) ? 1 : 0
 
     // `default:` is a legal property name, so a label only counts inside a
     // switch body - never in an object literal that happens to declare one.
     const switchIdx = caseBumps.length - 1
-    const isCaseLabel = switchIdx >= 0 && blockIsSwitch[switchIdx] === true && RE_CASE_LABEL.test(trimmed)
+    const isCaseLabel = switchIdx >= 0 && blockIsSwitch[switchIdx] === true && RE_CASE_LABEL.test(indentationCode)
     // The label announces the body; it does not sit in it.
     const caseLabelAdjust = isCaseLabel ? -(caseBumps[switchIdx] ?? 0) : 0
 
@@ -912,21 +920,21 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
     bumpDepth -= closingBump
 
     // Opens a block: ends in `{`, `[` or `(` (`trimmed` has no trailing whitespace)
-    const lastCode = trimmed.charCodeAt(trimmed.length - 1)
+    const lastCode = indentationCode.charCodeAt(indentationCode.length - 1)
     if (lastCode === 123 || lastCode === 91 || lastCode === 40) {
       indentLevel += 1
       // Only a chained call carries its own level into the block it opens:
       // the callback belongs to that `.method(` line. A wrapped condition
       // (`&& …) {`) is part of a statement header, and the block it opens
       // belongs to the statement, as does its body.
-      const inherited = continuationBump === 1 && trimmed.charCodeAt(0) === 46 ? 1 : 0
+      const inherited = continuationBump === 1 && indentationCode.charCodeAt(0) === 46 ? 1 : 0
       blockBumps.push(inherited)
-      blockIsSwitch.push(RE_SWITCH_HEADER.test(trimmed))
+      blockIsSwitch.push(RE_SWITCH_HEADER.test(indentationCode))
       caseBumps.push(0)
       bumpDepth += inherited
       hangDepth = 0
     }
-    else if (!trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*')) {
+    else if (indentationCode) {
       // Brace-less control flow (`if (x)` / `else` / `for (...)` without `{`)
       // hangs its single statement one level deeper; previously that
       // statement was snapped back to the enclosing level (#1369).
@@ -947,11 +955,11 @@ function processCodeLinesFused(lines: string[], cfg: PickierConfig): string[] {
       //       item.endsWith('x')     // snapped back to the arrow's level
       //
       // Masking costs a lex, so only a line that could hang one is masked.
-      if (!RE_CONTROL_START.test(trimmed) && trimmed.indexOf('=>') === -1) {
+      if (!RE_CONTROL_START.test(indentationCode) && indentationCode.indexOf('=>') === -1) {
         hangDepth = 0
       }
       else {
-        const masked = maskNonCode(trimmed)
+        const masked = maskNonCode(indentationCode)
         const code = masked.includes('//') ? masked.replace(RE_TRAILING_LINE_COMMENT, '') : masked
         hangDepth = isHangingControlLine(code) || RE_ARROW_TAIL.test(code) ? hangDepth + 1 : 0
       }
@@ -2147,21 +2155,8 @@ function sortPackageJsonContent(text: string): string {
   // pnpm.overrides nested
   if (sortedTop.pnpm && typeof sortedTop.pnpm === 'object' && sortedTop.pnpm.overrides && typeof sortedTop.pnpm.overrides === 'object')
     sortedTop.pnpm.overrides = sortDepsAsc(sortedTop.pnpm.overrides)
-  // exports specific sub-key order
-  if (sortedTop.exports && typeof sortedTop.exports === 'object') {
-    const exp = sortedTop.exports
-    const subOrder = ['types', 'import', 'require', 'default']
-    if (!Array.isArray(exp)) {
-      const out: Record<string, any> = {}
-      for (const key of Object.keys(exp)) {
-        const val = exp[key]
-        if (val && typeof val === 'object' && !Array.isArray(val))
-          out[key] = sortObjectKeys(val, subOrder)
-        else out[key] = val
-      }
-      sortedTop.exports = out
-    }
-  }
+  // Export conditions are evaluated in insertion order. Sorting them changes
+  // runtime resolution, including nested conditions and fallback arrays.
   // git hooks order inside known containers
   const hookOrder = ['pre-commit', 'prepare-commit-msg', 'commit-msg', 'post-commit', 'pre-rebase', 'post-rewrite', 'post-checkout', 'post-merge', 'pre-push', 'pre-auto-gc']
   for (const hk of ['gitHooks', 'husky', 'simple-git-hooks']) {
