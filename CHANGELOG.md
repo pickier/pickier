@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.86...v0.1.87)
+
+## 🐛 Bug Fixes
+
+- **format**: preserve export resolution and comment boundaries ([ae40bda](https://github.com/pickier/pickier/commit/ae40bda)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.87 ([c08635e](https://github.com/pickier/pickier/commit/c08635e)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.85...v0.1.86)
 
 ## 🐛 Bug Fixes
