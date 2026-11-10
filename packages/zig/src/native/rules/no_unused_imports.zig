@@ -26,44 +26,20 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
     if (!js.containsBytes(ctx.content, "import")) return;
     const allocator = ctx.allocator;
     const text = try js.toUtf16(allocator, ctx.content);
-    const lines = try js.splitLines(allocator, text);
-
-    var bindings: std.ArrayList(Binding) = .empty;
-    const import_lines = try allocator.alloc(bool, lines.len);
-    @memset(import_lines, false);
-
-    var statement: std.ArrayList(u16) = .empty;
-    var i: usize = 0;
-    while (i < lines.len) : (i += 1) {
-        if (!startsImportStatement(lines[i])) continue;
-
-        // The whole statement, which may wrap across lines - at most 40 more
-        statement.clearRetainingCapacity();
-        try statement.appendSlice(allocator, lines[i]);
-        var end = i;
-        const limit = @min(lines.len - 1, i + 40);
-        while (end < limit and !hasFromClause(statement.items) and !isSideEffectImport(statement.items)) {
-            end += 1;
-            try statement.append(allocator, '\n');
-            try statement.appendSlice(allocator, lines[end]);
-        }
-        if (!hasFromClause(statement.items) and !isSideEffectImport(statement.items)) continue;
-
-        for (i..end + 1) |ln| import_lines[ln] = true;
-        try bindingsOf(allocator, statement.items, i, lines, &bindings);
-        i = end;
-    }
-
+    const tokens = try importTokens(allocator, text);
+    const declarations = try importSpans(allocator, text, tokens);
+    const bindings = declarations.bindings;
     if (bindings.items.len == 0) return;
 
-    // Everything but the import statements, joined, with comments masked
-    var body: std.ArrayList(u16) = .empty;
-    try body.ensureTotalCapacity(allocator, text.len);
-    for (lines, 0..) |line, k| {
-        if (k > 0) body.appendAssumeCapacity('\n');
-        if (!import_lines[k]) body.appendSliceAssumeCapacity(line);
+    // Exclude declaration spans, preserving every other same-line use and
+    // every UTF-16 offset used by the report.
+    const body = try allocator.dupe(u16, text);
+    for (declarations.spans.items) |span| {
+        for (body[span.start..span.end]) |*unit| {
+            if (unit.* != '\n' and unit.* != '\r' and unit.* != 0x2028 and unit.* != 0x2029) unit.* = ' ';
+        }
     }
-    const searchable = try lexer.maskComments(allocator, @as([]const u16, body.items));
+    const searchable = try lexer.maskComments(allocator, @as([]const u16, body));
 
     // `(?<![\w$])name(?![\w$])` matches exactly where a maximal `[\w$]` run
     // equals the name: one pass over the runs marks the bound names seen.
@@ -102,201 +78,255 @@ pub fn check(ctx: *const types.RuleContext, out: *std.ArrayList(types.Issue)) an
     }
 }
 
-/// `/^\s*import(?![\w$])\s*(?![(.])/` - an import statement, not `import(…)`
-/// or `import.meta`. Whitespace before the `(` or `.` still matches: the
-/// `\s*` gives back a space and the lookahead then sees that instead.
-fn startsImportStatement(line: Str) bool {
-    const rest = js.trimStart(line);
-    if (!js.startsWith(rest, "import")) return false;
-    if (rest.len == 6) return true;
-    const c = rest[6];
-    return !js.isIdent(c) and c != '(' and c != '.';
-}
+const Token = struct {
+    kind: enum { word, string, punct },
+    start: usize,
+    end: usize,
+};
 
-/// `/\bfrom\s*['"][^'"]*['"]/`
-fn hasFromClause(s: Str) bool {
-    var from: usize = 0;
-    while (js.indexOfLit(s, from, "from")) |p| {
-        from = p + 1;
-        if (p > 0 and js.isWord(s[p - 1])) continue;
-        var q = p + 4;
-        while (q < s.len and js.isWs(s[q])) q += 1;
-        if (q >= s.len or (s[q] != '\'' and s[q] != '"')) continue;
-        for (s[q + 1 ..]) |c| {
-            if (c == '\'' or c == '"') return true;
-        }
-    }
-    return false;
-}
+const Span = struct { start: usize, end: usize };
+const Declarations = struct {
+    bindings: std.ArrayList(Binding) = .empty,
+    spans: std.ArrayList(Span) = .empty,
+};
 
-/// `/^\s*import\s*['"]/`
-fn isSideEffectImport(s: Str) bool {
-    const rest = js.trimStart(s);
-    if (!js.startsWith(rest, "import")) return false;
-    const after = js.trimStart(rest[6..]);
-    return after.len > 0 and (after[0] == '\'' or after[0] == '"');
-}
-
-/// The length of `/^type\s+/` at the start of `s`, or 0.
-fn typePrefixLen(s: Str) usize {
-    if (!js.startsWith(s, "type")) return 0;
-    var k: usize = 4;
-    while (k < s.len and js.isWs(s[k])) k += 1;
-    return if (k > 4) k else 0;
-}
-
-/// The local names an import statement binds.
-fn bindingsOf(allocator: Allocator, statement: Str, start_line: usize, lines: []const Str, out: *std.ArrayList(Binding)) !void {
-    // `/^\s*import\s+type\b/`, and the clause after `/^\s*import\s+/`
-    var clause = statement;
-    var is_type_import = false;
-    {
-        const rest = js.trimStart(statement);
-        if (js.startsWith(rest, "import")) {
-            const after = js.trimStart(rest[6..]);
-            if (after.len < rest.len - 6) {
-                clause = after;
-                is_type_import = js.startsWith(after, "type") and (after.len == 4 or !js.isWord(after[4]));
-            }
-        }
-    }
-    clause = stripFromClause(clause);
-
-    // A side-effect import (`import 'x'`) binds nothing
-    if (clause.len > 0 and (clause[0] == '\'' or clause[0] == '"')) return;
-
-    // `/\{([\s\S]*)\}/`: the first `{` to the last `}`
-    const open = js.indexOfScalar(clause, '{');
-    var braces: ?Str = null;
-    if (open) |o| {
-        if (js.lastIndexOfScalar(clause, '}')) |close| {
-            if (close > o) braces = clause[o + 1 .. close];
-        }
-    }
-
-    if (braces) |inner| {
-        var pieces = std.mem.splitScalar(u16, inner, ',');
-        while (pieces.next()) |piece| {
-            const trimmed = js.trim(piece);
-            if (trimmed.len == 0) continue;
-            const type_len = typePrefixLen(trimmed);
-            const without_type = trimmed[type_len..];
-            // `b as c` binds `c`
-            try record(allocator, lastAfterAs(without_type), is_type_import or type_len > 0, start_line, lines, out);
-        }
-    }
-
-    const before_braces = if (braces != null) clause[0..open.?] else clause;
-    var pieces = std.mem.splitScalar(u16, before_braces, ',');
-    while (pieces.next()) |piece| {
-        var trimmed = js.trim(piece);
-        trimmed = trimmed[typePrefixLen(trimmed)..];
-        if (trimmed.len == 0) continue;
-        try record(allocator, namespaceName(trimmed) orelse trimmed, is_type_import, start_line, lines, out);
-    }
-}
-
-/// `clause.replace(/\s+from\s+['"][^'"]+['"].*$/s, '')`
-fn stripFromClause(clause: Str) Str {
-    var p: usize = 0;
-    while (p < clause.len) {
-        if (!js.isWs(clause[p])) {
-            p += 1;
+/// The shared lexer owns comments, quoted strings, templates and regexes.
+/// Only declaration grammar needs tokens; opaque regions cannot introduce an
+/// `import` keyword. All positions remain UTF-16, as in the TypeScript rule.
+fn importTokens(allocator: Allocator, text: Str) ![]Token {
+    const lexed = try lexer.lexSource(allocator, text);
+    var tokens: std.ArrayList(Token) = .empty;
+    var at: usize = 0;
+    var region_index: usize = 0;
+    var template_index: usize = 0;
+    while (at < text.len) {
+        while (template_index < lexed.templates.len and lexed.templates[template_index][1] < at) template_index += 1;
+        if (template_index < lexed.templates.len and lexed.templates[template_index][0] == at) {
+            at = @min(text.len, lexed.templates[template_index][1] + 1);
+            template_index += 1;
             continue;
         }
-        const run_start = p;
-        while (p < clause.len and js.isWs(clause[p])) p += 1;
-        if (!js.startsWithAt(clause, p, "from")) continue;
-        var q = p + 4;
-        const ws_start = q;
-        while (q < clause.len and js.isWs(clause[q])) q += 1;
-        if (q == ws_start or q >= clause.len) continue;
-        if (clause[q] != '\'' and clause[q] != '"') continue;
-        var r = q + 1;
-        while (r < clause.len and clause[r] != '\'' and clause[r] != '"') r += 1;
-        if (r < clause.len and r > q + 1) return clause[0..run_start];
-    }
-    return clause;
-}
-
-/// The last piece of `s.split(/\s+as\s+/)`.
-fn lastAfterAs(s: Str) Str {
-    var last_start: usize = 0;
-    var p: usize = 0;
-    while (p < s.len) {
-        if (!js.isWs(s[p])) {
-            p += 1;
-            continue;
-        }
-        var q = p;
-        while (q < s.len and js.isWs(s[q])) q += 1;
-        if (js.startsWithAt(s, q, "as")) {
-            var r = q + 2;
-            while (r < s.len and js.isWs(s[r])) r += 1;
-            if (r > q + 2) {
-                last_start = r;
-                p = r;
+        while (region_index < lexed.regions.len and lexed.regions[region_index].end <= at) region_index += 1;
+        if (region_index < lexed.regions.len) {
+            const region = lexed.regions[region_index];
+            const opening = region.start -| (if (region.kind == .comment) @as(usize, 2) else 1);
+            if (opening == at and region.kind != .template) {
+                const start = at;
+                at = @min(text.len, region.end + @as(usize, if (region.kind == .comment and text[start + 1] == '*') 2 else if (region.kind == .comment) 0 else 1));
+                if (region.kind == .string and region.end < text.len and text[region.end] == text[start]) {
+                    try tokens.append(allocator, .{ .kind = .string, .start = start, .end = at });
+                }
+                if (region.kind == .regex) while (at < text.len and js.isWord(text[at])) : (at += 1) {};
+                region_index += 1;
                 continue;
             }
         }
-        p += 1;
-    }
-    return s[last_start..];
-}
-
-/// `/^\*\s+as\s+(\w+)$/`
-fn namespaceName(s: Str) ?Str {
-    if (s.len == 0 or s[0] != '*') return null;
-    var k: usize = 1;
-    while (k < s.len and js.isWs(s[k])) k += 1;
-    if (k == 1 or !js.startsWithAt(s, k, "as")) return null;
-    k += 2;
-    const ws = k;
-    while (k < s.len and js.isWs(s[k])) k += 1;
-    if (k == ws or k >= s.len) return null;
-    for (s[k..]) |c| {
-        if (!js.isWord(c)) return null;
-    }
-    return s[k..];
-}
-
-/// `/^[A-Z_$][\w$]*$/i`
-fn isIdentifier(s: Str) bool {
-    if (s.len == 0 or !js.isIdentStart(s[0])) return false;
-    for (s[1..]) |c| {
-        if (!js.isIdent(c)) return false;
-    }
-    return true;
-}
-
-/// `/\bfrom\b/`
-fn hasFromWord(s: Str) bool {
-    var from: usize = 0;
-    while (js.indexOfLit(s, from, "from")) |p| {
-        from = p + 1;
-        if (p > 0 and js.isWord(s[p - 1])) continue;
-        if (p + 4 < s.len and js.isWord(s[p + 4])) continue;
-        return true;
-    }
-    return false;
-}
-
-fn record(allocator: Allocator, raw_name: Str, type_only: bool, start_line: usize, lines: []const Str, out: *std.ArrayList(Binding)) !void {
-    const name = js.trim(raw_name);
-    if (name.len == 0 or js.eql(name, "type")) return;
-    // Only a real identifier is reported; anything else is a misread statement
-    if (!isIdentifier(name)) return;
-    // The statement buffer is reused for the next import
-    const owned = try allocator.dupe(u16, name);
-
-    // Point at the name itself, searching to the end of the statement
-    var ln = start_line;
-    while (ln < lines.len) : (ln += 1) {
-        if (js.searchWholeIdentifier(lines[ln], name)) |column| {
-            try out.append(allocator, .{ .name = owned, .line = @intCast(ln + 1), .column = column, .type_only = type_only });
-            return;
+        if (text[at] <= 0x20 or js.isWs(text[at])) {
+            at += 1;
+            continue;
         }
-        if (hasFromWord(lines[ln])) break;
+        const start = at;
+        if (importWordPart(text[at])) {
+            at += 1;
+            while (at < text.len and importWordPart(text[at])) at += 1;
+            try tokens.append(allocator, .{ .kind = .word, .start = start, .end = at });
+        } else {
+            at += 1;
+            try tokens.append(allocator, .{ .kind = .punct, .start = start, .end = at });
+        }
     }
-    try out.append(allocator, .{ .name = owned, .line = @intCast(start_line + 1), .column = 0, .type_only = type_only });
+    return tokens.items;
+}
+
+fn importWordPart(unit: u16) bool {
+    if (unit <= 0x20 or js.isWs(unit)) return false;
+    return switch (unit) {
+        '(', ')', '{', '}', '[', ']', ';', ':', ',', '.', '<', '>', '+', '-', '*', '%', '&', '|', '^', '!', '?', '=', '~', '\'', '"', '`', '/' => false,
+        else => true,
+    };
+}
+
+fn tokenIs(tokens: []const Token, text: Str, index: usize, comptime value: []const u8) bool {
+    return index < tokens.len and js.eql(text[tokens[index].start..tokens[index].end], value);
+}
+
+fn tokenKind(tokens: []const Token, index: usize, kind: @FieldType(Token, "kind")) bool {
+    return index < tokens.len and tokens[index].kind == kind;
+}
+
+fn recordToken(allocator: Allocator, text: Str, tokens: []const Token, index: usize, type_only: bool, bindings: *std.ArrayList(Binding)) !void {
+    if (!tokenKind(tokens, index, .word)) return;
+    const token = tokens[index];
+    const name = text[token.start..token.end];
+    if (name.len == 0 or !js.isIdentStart(name[0])) return;
+    for (name[1..]) |unit| if (!js.isIdent(unit)) return;
+    var line: u32 = 1;
+    var column: usize = 0;
+    for (text[0..token.start]) |unit| {
+        if (unit == '\n') {
+            line += 1;
+            column = 0;
+        } else column += 1;
+    }
+    try bindings.append(allocator, .{ .name = name, .line = line, .column = column, .type_only = type_only });
+}
+
+fn importSpans(allocator: Allocator, text: Str, tokens: []const Token) !Declarations {
+    var declarations: Declarations = .{};
+    var i: usize = 0;
+    while (i < tokens.len) : (i += 1) {
+        if (!tokenKind(tokens, i, .word) or !tokenIs(tokens, text, i, "import") or
+            (i > 0 and tokenIs(tokens, text, i - 1, "."))) continue;
+        const start = i;
+        var cursor = i + 1;
+        var type_only = false;
+        var bindings: std.ArrayList(Binding) = .empty;
+        if (tokenIs(tokens, text, cursor, "type") and
+            (tokenIs(tokens, text, cursor + 1, "{") or tokenIs(tokens, text, cursor + 1, "*") or
+                (tokenKind(tokens, cursor + 1, .word) and !tokenIs(tokens, text, cursor + 1, "from"))))
+        {
+            type_only = true;
+            cursor += 1;
+        }
+        if (!tokenKind(tokens, cursor, .string)) {
+            if (tokenKind(tokens, cursor, .word)) {
+                try recordToken(allocator, text, tokens, cursor, type_only, &bindings);
+                cursor += 1;
+                if (tokenIs(tokens, text, cursor, ",")) cursor += 1;
+            }
+            if (tokenIs(tokens, text, cursor, "*")) {
+                cursor += 1;
+                if (!tokenIs(tokens, text, cursor, "as")) continue;
+                cursor += 1;
+                if (!tokenKind(tokens, cursor, .word)) continue;
+                try recordToken(allocator, text, tokens, cursor, type_only, &bindings);
+                cursor += 1;
+            } else if (tokenIs(tokens, text, cursor, "{")) {
+                cursor += 1;
+                var valid = true;
+                while (cursor < tokens.len and !tokenIs(tokens, text, cursor, "}")) {
+                    var specifier_type = type_only;
+                    if (tokenIs(tokens, text, cursor, "type") and
+                        !tokenIs(tokens, text, cursor + 1, ",") and !tokenIs(tokens, text, cursor + 1, "}") and !tokenIs(tokens, text, cursor + 1, "as"))
+                    {
+                        specifier_type = true;
+                        cursor += 1;
+                    }
+                    var local = cursor;
+                    cursor += 1;
+                    if (!tokenKind(tokens, local, .word) and !tokenKind(tokens, local, .string)) {
+                        valid = false;
+                        break;
+                    }
+                    if (tokenIs(tokens, text, cursor, "as")) {
+                        cursor += 1;
+                        local = cursor;
+                        cursor += 1;
+                    }
+                    try recordToken(allocator, text, tokens, local, specifier_type, &bindings);
+                    if (!tokenIs(tokens, text, cursor, ",")) break;
+                    cursor += 1;
+                }
+                if (!valid or !tokenIs(tokens, text, cursor, "}")) continue;
+                cursor += 1;
+            }
+            if (!tokenIs(tokens, text, cursor, "from")) continue;
+            cursor += 1;
+        }
+        if (!tokenKind(tokens, cursor, .string)) continue;
+        var end = tokens[cursor].end;
+        cursor += 1;
+        if ((tokenIs(tokens, text, cursor, "with") or tokenIs(tokens, text, cursor, "assert")) and tokenIs(tokens, text, cursor + 1, "{")) {
+            cursor += 2;
+            var depth: usize = 1;
+            while (cursor < tokens.len and depth > 0) : (cursor += 1) {
+                if (tokenIs(tokens, text, cursor, "{")) depth += 1;
+                if (tokenIs(tokens, text, cursor, "}")) depth -= 1;
+                end = tokens[cursor].end;
+            }
+            if (depth != 0) continue;
+        }
+        if (tokenIs(tokens, text, cursor, ";")) {
+            end = tokens[cursor].end;
+            cursor += 1;
+        }
+        try declarations.bindings.appendSlice(allocator, bindings.items);
+        try declarations.spans.append(allocator, .{ .start = tokens[start].start, .end = end });
+        i = cursor - 1;
+    }
+    return declarations;
+}
+
+test "unused import statement boundaries retain same-line uses" {
+    for ([_][]const u8{
+        "import{readFileSync as read}from'node:fs';import path from'node:path';console.log(read(path.resolve('x')))\n",
+        "import { readFileSync as read } from 'node:fs'; import path from 'node:path'; console.log(read(path.resolve('x')))\n",
+        "import * as paths from 'node:path';console.log(paths.resolve('x'))\n",
+        "import 'setup';import { used } from 'pkg';console.log(used)\n",
+        "import {\n  used,\n} from 'pkg';console.log(used)\n",
+        "import type { Value } from 'pkg';export const value:Value={}\n",
+        "import/*from 'fake'*/{used/*, unused*/}from'pkg';console.log(used)\n",
+        "import type from 'pkg';console.log(type)\n",
+        "import from from 'pkg';console.log(from)\n",
+        "import { type as value } from 'pkg';console.log(value)\n",
+        "import { 'original' as local } from 'pkg';console.log(local)\n",
+        "import value from 'pkg' with { type: 'json' };console.log(value)\n",
+        "import { used } from 'pkg'\nconst text = `${'}' + `import { fake } from 'other'`}`\nconsole.log(text,used)\n",
+    }) |source| {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const settings: types.Settings = .{};
+        const context: types.RuleContext = .{ .file_path = "subject.ts", .content = source, .options = null, .settings = &settings, .allocator = arena.allocator() };
+        var issues: std.ArrayList(types.Issue) = .empty;
+        try check(&context, &issues);
+        try std.testing.expectEqual(@as(usize, 0), issues.items.len);
+    }
+}
+
+test "unused import statement boundaries report each binding position" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const source = "import unused from 'a';import{other as unusedToo}from'b';console.log('done')\n";
+    const settings: types.Settings = .{};
+    const context: types.RuleContext = .{ .file_path = "subject.ts", .content = source, .options = null, .settings = &settings, .allocator = arena.allocator() };
+    var issues: std.ArrayList(types.Issue) = .empty;
+    try check(&context, &issues);
+    try std.testing.expectEqual(@as(usize, 2), issues.items.len);
+    try std.testing.expectEqualStrings("'unused' is imported but never used", issues.items[0].message);
+    try std.testing.expectEqual(@as(u32, 1), issues.items[0].line);
+    try std.testing.expectEqual(@as(u32, @intCast(std.mem.indexOf(u8, source, "unused").? + 1)), issues.items[0].column);
+    try std.testing.expectEqualStrings("'unusedToo' is imported but never used", issues.items[1].message);
+    try std.testing.expectEqual(@as(u32, 1), issues.items[1].line);
+    try std.testing.expectEqual(@as(u32, @intCast(std.mem.indexOf(u8, source, "unusedToo").? + 1)), issues.items[1].column);
+}
+
+test "unused import statement boundaries exclude other clauses and prose" {
+    for ([_]struct { source: []const u8, expected: usize }{
+        .{ .source = "import { shared } from 'a';import { shared as alias } from 'b'\n", .expected = 2 },
+        .{ .source = "import from from 'pkg';\n", .expected = 1 },
+        .{ .source = "import type,{unused}from'pkg';console.log(type)\n", .expected = 1 },
+        .{ .source = "/* 🟢 */import { λ, unused } from 'pkg';\n", .expected = 1 },
+        .{ .source = "import type from 'pkg' with { type: 'json' };\n", .expected = 1 },
+        .{ .source = "import missing from 'unfinished\n", .expected = 0 },
+        .{ .source = "const text=\"import { missing } from 'pkg';\";\n// import { commented } from 'pkg'\nimport('pkg').then(mod=>console.log(mod,text))\n", .expected = 0 },
+    }) |case| {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const settings: types.Settings = .{};
+        const context: types.RuleContext = .{ .file_path = "subject.ts", .content = case.source, .options = null, .settings = &settings, .allocator = arena.allocator() };
+        var issues: std.ArrayList(types.Issue) = .empty;
+        try check(&context, &issues);
+        try std.testing.expectEqual(case.expected, issues.items.len);
+        if (case.expected == 1) {
+            const subject = try js.toUtf16(arena.allocator(), case.source);
+            if (js.indexOfLit(subject, 0, "unused")) |position| {
+                try std.testing.expectEqualStrings("'unused' is imported but never used", issues.items[0].message);
+                try std.testing.expectEqual(@as(u32, @intCast(position + 1)), issues.items[0].column);
+            }
+        }
+        if (case.expected == 2) {
+            try std.testing.expectEqualStrings("'shared' is imported but never used", issues.items[0].message);
+            try std.testing.expectEqualStrings("'alias' is imported but never used", issues.items[1].message);
+        }
+    }
 }

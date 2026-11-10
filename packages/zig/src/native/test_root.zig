@@ -21,5 +21,6 @@ test {
     _ = @import("rules/general_no_new.zig");
     _ = @import("rules/no_regex_spaces.zig");
     _ = @import("rules/pg_import.zig");
+    _ = @import("rules/no_unused_imports.zig");
     _ = @import("rules/prefer_global_buffer.zig");
 }

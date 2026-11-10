@@ -25,6 +25,7 @@
  */
 
 import type { RuleModule } from '../../types'
+import { buildSourceMap, tokenize } from '../../ast'
 import { maskCommentText } from '../general/no-unused-vars'
 
 /**
@@ -55,148 +56,120 @@ interface ImportBinding {
   typeOnly: boolean
 }
 
-/**
- * The local names an import statement introduces.
- *
- * `import d, { a, b as c, type T } from 'x'` binds `d`, `a`, `c` and `T`;
- * `import * as ns from 'x'` binds `ns`; `import 'x'` binds nothing, which is
- * the point of writing it, so a side-effect import is never reported.
- */
-function bindingsOf(statement: string, startLine: number, lines: string[]): ImportBinding[] {
-  const bindings: ImportBinding[] = []
+interface ImportSpan {
+  start: number
+  end: number
+  bindings: ImportBinding[]
+}
 
-  const isTypeImport = /^\s*import\s+type\b/.test(statement)
-  const clause = statement.replace(/^\s*import\s+/, '').replace(/\s+from\s+['"][^'"]+['"].*$/s, '')
-
-  // A side-effect import (`import 'x'`) has no clause to speak of.
-  if (/^['"]/.test(clause))
-    return bindings
-
-  const record = (rawName: string, typeOnly: boolean): void => {
-    const name = rawName.trim()
-    if (!name || name === 'type')
-      return
-
-    /*
-     * Only a real identifier gets reported. Anything else means this textual
-     * parse misread the statement - and the consequence is not a bad message,
-     * it is a crash: these names are interpolated into a `RegExp`, so a stray
-     * `(` from a mis-parse threw "unmatched parentheses" and took the whole
-     * rule down for that file. Silence on input we did not understand is the
-     * correct answer for a rule whose reports get acted on by deleting lines.
-     */
-    if (!/^[A-Z_$][\w$]*$/i.test(name))
-      return
-
-    // Find where the name actually sits, so the report points at it rather
-    // than at the start of the statement.
-    for (let ln = startLine; ln < lines.length; ln++) {
-      const column = lines[ln].search(wholeIdentifier(name))
-      if (column !== -1) {
-        bindings.push({ name, line: ln + 1, column, typeOnly })
-        return
-      }
-      // Stop at the end of the statement.
-      if (/\bfrom\b/.test(lines[ln]))
-        break
-    }
-
-    bindings.push({ name, line: startLine + 1, column: 0, typeOnly })
-  }
-
-  // Named bindings, which may carry their own per-specifier `type`.
-  const braces = clause.match(/\{([\s\S]*)\}/)
-  if (braces) {
-    for (const piece of braces[1].split(',')) {
-      const trimmed = piece.trim()
-      if (!trimmed)
-        continue
-      const perSpecifierType = /^type\s+/.test(trimmed)
-      const withoutType = trimmed.replace(/^type\s+/, '')
-      // `b as c` binds `c`; a plain `a` binds `a`.
-      const aliased = withoutType.split(/\s+as\s+/)
-      record(aliased[aliased.length - 1], isTypeImport || perSpecifierType)
-    }
-  }
-
-  // Default and namespace bindings, i.e. everything before the braces.
-  const beforeBraces = braces ? clause.slice(0, clause.indexOf('{')) : clause
-  for (const piece of beforeBraces.split(',')) {
-    const trimmed = piece.trim().replace(/^type\s+/, '')
-    if (!trimmed)
+/** Parse declaration tokens, so a statement can end anywhere on a line. */
+function importSpans(text: string): ImportSpan[] {
+  const tokens = tokenize(text).filter(token => token.type !== 'LineComment' && token.type !== 'BlockComment')
+  const locations = buildSourceMap(text)
+  const spans: ImportSpan[] = []
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].type !== 'Word' || tokens[i].value !== 'import' || tokens[i - 1]?.value === '.')
       continue
-    const namespace = trimmed.match(/^\*\s+as\s+(\w+)$/)
-    record(namespace ? namespace[1] : trimmed, isTypeImport)
+    const start = i
+    let cursor = i + 1
+    let typeOnly = false
+    const bindings: ImportBinding[] = []
+    const record = (index: number, type: boolean): void => {
+      const token = tokens[index]
+      if (!token || token.type !== 'Word' || !/^[A-Z_$][\w$]*$/i.test(token.value))
+        return
+      const loc = locations.indexToLoc(token.start)
+      bindings.push({ name: token.value, line: loc.line, column: loc.column - 1, typeOnly: type })
+    }
+    // `import type from 'pkg'` binds a default value named `type`.
+    if (tokens[cursor]?.value === 'type' && (['{', '*'].includes(tokens[cursor + 1]?.value) || (tokens[cursor + 1]?.type === 'Word' && tokens[cursor + 1]?.value !== 'from'))) {
+      typeOnly = true
+      cursor++
+    }
+    if (tokens[cursor]?.type !== 'String') {
+      if (tokens[cursor]?.type === 'Word') {
+        record(cursor++, typeOnly)
+        if (tokens[cursor]?.value === ',')
+          cursor++
+      }
+      if (tokens[cursor]?.value === '*') {
+        cursor++
+        if (tokens[cursor++]?.value !== 'as' || tokens[cursor]?.type !== 'Word')
+          continue
+        record(cursor++, typeOnly)
+      }
+      else if (tokens[cursor]?.value === '{') {
+        cursor++
+        let valid = true
+        while (cursor < tokens.length && tokens[cursor].value !== '}') {
+          let specifierType = typeOnly
+          if (tokens[cursor].value === 'type' && ![',', '}', 'as'].includes(tokens[cursor + 1]?.value)) {
+            specifierType = true
+            cursor++
+          }
+          let local = cursor++
+          if (!['Word', 'String'].includes(tokens[local]?.type)) {
+            valid = false
+            break
+          }
+          if (tokens[cursor]?.value === 'as') {
+            cursor++
+            local = cursor++
+          }
+          record(local, specifierType)
+          if (tokens[cursor]?.value !== ',')
+            break
+          cursor++
+        }
+        if (!valid || tokens[cursor++]?.value !== '}')
+          continue
+      }
+      if (tokens[cursor++]?.value !== 'from')
+        continue
+    }
+    const source = tokens[cursor]
+    if (source?.type !== 'String' || source.value.length < 2 || source.value[source.value.length - 1] !== source.value[0])
+      continue
+    let end = source.end
+    cursor++
+    if (['with', 'assert'].includes(tokens[cursor]?.value) && tokens[cursor + 1]?.value === '{') {
+      cursor += 2
+      let depth = 1
+      while (cursor < tokens.length && depth > 0) {
+        const token = tokens[cursor++]
+        if (token.value === '{') depth++
+        if (token.value === '}') depth--
+        end = token.end
+      }
+      if (depth !== 0)
+        continue
+    }
+    if (tokens[cursor]?.value === ';')
+      end = tokens[cursor++].end
+    spans.push({ start: tokens[start].start, end, bindings })
+    i = cursor - 1
   }
-
-  return bindings
+  return spans
 }
 
 export const noUnusedImportsRule: RuleModule = {
   meta: { docs: 'Disallow imports that nothing in the file uses' },
   check: (text, ctx) => {
     const issues: ReturnType<RuleModule['check']> = []
-    const lines = text.split(/\r?\n/)
-
-    const bindings: ImportBinding[] = []
-    /** Lines belonging to an import statement, which a use may not come from. */
-    const importLines = new Set<number>()
-
-    for (let i = 0; i < lines.length; i++) {
-      /*
-       * A `import` STATEMENT, not `import(…)` or `import.meta`.
-       *
-       * Two lookaheads, and both were learned the same way. `/^\s*import\b/`
-       * matched a dynamic import, and `/^\s*import\s*(?![(.])/` matched a
-       * line beginning `imports.push(…)` - a perfectly ordinary local named
-       * `imports`, which is what a file that BUILDS import statements calls
-       * its accumulator.
-       *
-       * The damage in both cases is not a spurious binding: the scan then runs
-       * forward looking for a `from` clause that is not there, swallows dozens
-       * of real lines as "part of the import", and blanks them out of the
-       * search body. Every genuinely-used name in that stretch then reads as
-       * unused. One such line mid-file was enough to report imports a file
-       * uses six times.
-       */
-      if (!/^\s*import(?![\w$])\s*(?![(.])/.test(lines[i]))
-        continue
-
-      /*
-       * Collect the whole statement, which may wrap across lines - bounded, so
-       * a form this scanner does not understand costs one misread statement
-       * rather than the rest of the file.
-       */
-      let statement = lines[i]
-      let end = i
-      const limit = Math.min(lines.length - 1, i + 40)
-      while (end < limit && !/\bfrom\s*['"][^'"]*['"]/.test(statement) && !/^\s*import\s*['"]/.test(statement)) {
-        end++
-        statement += `\n${lines[end]}`
-      }
-
-      // Never found a `from`: not a statement this rule understands.
-      if (!/\bfrom\s*['"][^'"]*['"]/.test(statement) && !/^\s*import\s*['"]/.test(statement))
-        continue
-
-      for (let ln = i; ln <= end; ln++)
-        importLines.add(ln)
-
-      bindings.push(...bindingsOf(statement, i, lines))
-      i = end
-    }
-
+    const spans = importSpans(text)
+    const bindings = spans.flatMap(span => span.bindings)
     if (bindings.length === 0)
       return issues
 
-    /*
-     * Everything that is not an import statement, with comments masked - a name
-     * mentioned only in a comment is not a use. Strings are left intact on
-     * purpose; see the note at the top of this file.
-     */
-    const body = lines
-      .map((line, index) => (importLines.has(index) ? '' : line))
-      .join('\n')
+    // Mask exact declaration spans while preserving uses and UTF-16 locations
+    // before or after an import on the same line.
+    let body = ''
+    let from = 0
+    for (const span of spans) {
+      body += text.slice(from, span.start) + text.slice(span.start, span.end).replace(/[^\r\n\u2028\u2029]/g, ' ')
+      from = span.end
+    }
+    body += text.slice(from)
     const searchable = maskCommentText(body)
 
     for (const binding of bindings) {

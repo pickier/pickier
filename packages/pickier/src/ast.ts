@@ -1,3 +1,5 @@
+import { lexSource } from './lexer'
+
 // Lightweight parsing utilities (no deps). Intentionally minimal for Pickier rules.
 // Provides tokenization, simple bracket matching, and loc <-> index mapping.
 
@@ -6,7 +8,7 @@ export interface Range { start: number, end: number }
 export interface Token { type: string, value: string, start: number, end: number }
 
 export interface SourceMap {
-  // 0-based line starts byte offsets
+  // 0-based UTF-16 line offsets
   lineStarts: number[]
   indexToLoc: (idx: number) => Loc
 }
@@ -38,163 +40,74 @@ export function buildSourceMap(text: string): SourceMap {
   return { lineStarts, indexToLoc }
 }
 
-// Very small tokenizer sufficient for structural tasks. Tracks strings, template, regex, comments.
+// Structural tokens share the lexical regions used by the rule scanners.
+// Opaque templates and regexes retain their complete source span.
 export function tokenize(text: string): Token[] {
   const tokens: Token[] = []
-  const push = (type: string, s: number, e: number) => tokens.push({ type, value: text.slice(s, e), start: s, end: e })
+  const push = (type: string, start: number, end: number): void => {
+    tokens.push({ type, value: text.slice(start, end), start, end })
+  }
+  const lexed = lexSource(text)
+  const wordCharRe = new RegExp('[^\\s(){}[\\]' + ';' + ':,.<>+\\-*%&|^!?=~\'"`/]')
+  let regionIndex = 0
+  let templateIndex = 0
   let i = 0
   const n = text.length
   while (i < n) {
+    while (templateIndex < lexed.templates.length && lexed.templates[templateIndex][1] < i)
+      templateIndex++
+    const template = lexed.templates[templateIndex]
+    if (template?.[0] === i) {
+      const end = Math.min(n, template[1] + 1)
+      push('Template', i, end)
+      i = end
+      templateIndex++
+      continue
+    }
+    while (regionIndex < lexed.regions.length && lexed.regions[regionIndex].end <= i)
+      regionIndex++
+    const region = lexed.regions[regionIndex]
+    if (region && region.kind !== 'template' && region.start - (region.kind === 'comment' ? 2 : 1) === i) {
+      let end = region.end
+      let type: string
+      if (region.kind === 'comment') {
+        const block = text[i + 1] === '*'
+        type = block ? 'BlockComment' : 'LineComment'
+        if (block && text.slice(end, end + 2) === '*/')
+          end += 2
+      }
+      else if (region.kind === 'string') {
+        type = 'String'
+        if (text[end] === text[i])
+          end++
+      }
+      else {
+        type = 'Regex'
+        end = Math.min(n, end + 1)
+        while (end < n && /[a-z]/i.test(text[end])) end++
+      }
+      push(type, i, end)
+      i = end
+      regionIndex++
+      continue
+    }
     const c = text[i]
-    // whitespace
-    if (c <= ' ') {
+    if (c <= ' ' || /\s/.test(c)) {
       i++
       continue
     }
-    // line comment
-    if (c === '/' && text[i + 1] === '/') {
-      const s = i
-      i += 2
-      while (i < n && text[i] !== '\n') i++
-      push('LineComment', s, i)
-      continue
-    }
-    // block comment
-    if (c === '/' && text[i + 1] === '*') {
-      const s = i
-      i += 2
-      while (i < n && !(text[i] === '*' && text[i + 1] === '/')) i++
-      i = Math.min(n, i + 2)
-      push('BlockComment', s, i)
-      continue
-    }
-    // string
-    if (c === '"' || c === '\'') {
-      const q = c
-      const s = i
-      i++
-      while (i < n) {
-        const ch = text[i]
-        if (ch === '\\') {
-          i += 2
-          continue
-        }
-        if (ch === q) {
-          i++
-          break
-        }
-        i++
-      }
-      push('String', s, i)
-      continue
-    }
-    // template
-    if (c === '`') {
-      const s = i
-      i++
-      let depth = 0
-      while (i < n) {
-        const ch = text[i]
-        if (ch === '\\') {
-          i += 2
-          continue
-        }
-        if (ch === '`' && depth === 0) {
-          i++
-          break
-        }
-        if (ch === '$' && text[i + 1] === '{') {
-          depth++
-          i += 2
-          continue
-        }
-        if (ch === '}' && depth > 0) {
-          depth--
-          i++
-          continue
-        }
-        i++
-      }
-      push('Template', s, i)
-      continue
-    }
-    // slash handling: comments, regex, or division punctuator
-    if (c === '/') {
-      // handled comments above? we are before comment checks, so do them first
-      if (text[i + 1] === '/') {
-        const s = i
-        i += 2
-        while (i < n && text[i] !== '\n') i++
-        push('LineComment', s, i)
-        continue
-      }
-      if (text[i + 1] === '*') {
-        const s = i
-        i += 2
-        while (i < n && !(text[i] === '*' && text[i + 1] === '/')) i++
-        i = Math.min(n, i + 2)
-        push('BlockComment', s, i)
-        continue
-      }
-      if (isRegexPossible(tokens)) {
-        const s = i
-        i++
-        while (i < n) {
-          const ch = text[i]
-          if (ch === '\\') {
-            i += 2
-            continue
-          }
-          if (ch === '/') {
-            i++
-            break
-          }
-          i++
-        }
-        // flags
-        while (i < n && /[a-z]/i.test(text[i])) i++
-        push('Regex', s, i)
-        continue
-      }
-      // otherwise treat as division operator punctuator
+    if ('(){}[];:,.<>+-*%&|^!?=~/'.includes(c)) {
       push('Punct', i, i + 1)
       i++
       continue
     }
-    // punctuators (excluding '/') which is handled above
-    if ('(){}[];:,.<>+-*%&|^!?=~'.includes(c)) {
-      push('Punct', i, i + 1)
+    const start = i
+    while (i < n && wordCharRe.test(text[i])) i++
+    if (i === start)
       i++
-      continue
-    }
-    // identifier/number
-    const s = i
-    const wordCharRe = new RegExp('[^\\s(){}[\\]' + ';' + ':,.<>+\\-*%&|^!?=~\'"`/]')
-    while (i < n && wordCharRe.test(text[i])) {
-      i++
-    }
-    if (i > s) {
-      push('Word', s, i)
-    }
-    else {
-      // fallback: consume one char to avoid infinite loop
-      push('Word', i, i + 1)
-      i++
-    }
+    push('Word', start, i)
   }
   return tokens
-}
-
-function isRegexPossible(tokens: Token[]): boolean {
-  if (tokens.length === 0)
-    return true
-  const t = tokens[tokens.length - 1]
-  // after these token types, a regex can appear
-  const punctRe = new RegExp('[(!,{' + ';' + ':?=]')
-  return (
-    (t.type === 'Punct' && punctRe.test(t.value))
-    || (t.type === 'Word' && /^(?:return|throw|case|of|in|instanceof|typeof|void|new)$/.test(t.value))
-  )
 }
 
 export function findMatching(text: string, start: number, open: string, close: string): number {
