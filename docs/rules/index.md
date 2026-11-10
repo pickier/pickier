@@ -38,6 +38,7 @@ Pickier includes a comprehensive set of linting rules organized into plugins. Al
 | `pickier/sort-enums` | Sort | ✅ | off | Enforce sorted enum members |
 | `pickier/sort-heritage-clauses` | Sort | ✅ | off | Enforce sorted heritage clauses |
 | `pickier/sort-tailwind-classes` | Sort | ✅ | off | Enforce canonical Tailwind CSS class order |
+| `pickier/no-margin-spaced-components` | stx | ❌ | warn | Disallow `space-*`/`divide-*` on the parent of an stx component |
 | `regexp/no-super-linear-backtracking` | RegExp | ❌ | error | Disallow exponential backtracking in regexes |
 | `regexp/no-unused-capturing-group` | RegExp | ❌ | warn | Disallow unused capturing groups |
 | `regexp/no-useless-lazy` | RegExp | ✅ | warn | Disallow useless lazy quantifiers |
@@ -319,6 +320,9 @@ The `pickier/` plugin contains sorting and import organization rules specific to
 
 **Style Rules:**
 - `top-level-function` - Enforce top-level function declarations
+
+**stx Rules:**
+- `no-margin-spaced-components` - Disallow `space-*`/`divide-*` on the parent of an stx component ([docs](./no-margin-spaced-components.md))
 
 ## Style Plugin
 

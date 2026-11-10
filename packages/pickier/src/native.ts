@@ -63,6 +63,14 @@ const CODE_PLUGINS = new Set(['eslint', 'general', 'quality', 'pickier', 'style'
  */
 const NON_CODE_PLUGINS = new Set(['markdown', 'publint', 'lockfile', 'shell'])
 
+/**
+ * Rules of a code plugin that never apply to a file the engine lints: they
+ * check stx templates, and the engine is only given TS/JS files.
+ */
+const NON_CODE_RULES: ReadonlySet<string> = new Set<string>([
+  'pickier/no-margin-spaced-components',
+])
+
 export interface NativeRequest {
   format: { quotes: 'single' | 'double', indent: number, indentStyle: 'spaces' | 'tabs' }
   builtins: Record<string, 'error' | 'warning' | null>
@@ -101,7 +109,7 @@ function formatSettings(cfg: PickierConfig): NativeRequest['format'] {
 export function nativeRequest(cfg: PickierConfig): { request: NativeRequest, ruleIds: string[] } {
   const builtins = builtinSeverities(cfg)
   const rules = plannedCheckRules(cfg)
-    .filter(r => CODE_PLUGINS.has(r.plugin))
+    .filter(r => CODE_PLUGINS.has(r.plugin) && !NON_CODE_RULES.has(r.id))
     .map(r => ruleSetting(cfg, r))
   const ruleIds = [
     ...Object.entries(builtins).filter(([, sev]) => sev !== null).map(([id]) => id),
@@ -151,7 +159,7 @@ export function nativePlan(cfg: PickierConfig, options: LintOptions): NativePlan
       rules.push(ruleSetting(cfg, r))
       positions.push(position)
     }
-    else if (!NON_CODE_PLUGINS.has(r.plugin)) {
+    else if (!NON_CODE_PLUGINS.has(r.plugin) && !NON_CODE_RULES.has(r.id)) {
       hybrid = true
     }
   })

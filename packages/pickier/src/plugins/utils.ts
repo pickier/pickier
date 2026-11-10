@@ -45,6 +45,27 @@ export function notMarkdown(rule: RuleModule): RuleModule {
   }
 }
 
+const STX_EXTS = /\.stx$/i
+
+/** A rule about stx templates: what it checks is how stx renders markup. */
+export function stxOnly(rule: RuleModule): RuleModule {
+  return {
+    meta: rule.meta,
+    check: (content: string, context: RuleContext): LintIssue[] => {
+      if (!STX_EXTS.test(context.filePath))
+        return []
+      return rule.check(content, context)
+    },
+    fix: rule.fix
+      ? (content: string, context: RuleContext): string => {
+          if (!STX_EXTS.test(context.filePath))
+            return content
+          return rule.fix!(content, context)
+        }
+      : undefined,
+  }
+}
+
 const SHELL_EXTS = /\.(?:sh|bash|zsh|ksh|dash)$/
 const SHELL_SHEBANG = /^#!\s*(?:\/usr\/bin\/env\s+)?(?:ba|z|k|da)?sh\b/
 

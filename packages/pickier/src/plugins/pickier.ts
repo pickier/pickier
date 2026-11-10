@@ -20,7 +20,8 @@ import { sortNamedImportsRule } from '../rules/sort/named-imports'
 import { sortObjectsRule } from '../rules/sort/objects'
 import { topLevelFunctionRule } from '../rules/style/top-level-function'
 import { sortTailwindClassesRule } from '../rules/sort/tailwind-classes'
-import { codeOnly, notMarkdown } from './utils'
+import { noMarginSpacedComponentsRule } from '../rules/stx/no-margin-spaced-components'
+import { codeOnly, notMarkdown, stxOnly } from './utils'
 
 export const pickierPlugin: PickierPlugin = {
   name: 'pickier',
@@ -50,6 +51,10 @@ export const pickierPlugin: PickierPlugin = {
     // Tailwind
     // Class lists in Markdown are examples in the prose, often deliberately unsorted
     'sort-tailwind-classes': notMarkdown(sortTailwindClassesRule),
+
+    // stx
+    // A component's wrapper takes no box, so a sibling margin never reaches it
+    'no-margin-spaced-components': stxOnly(noMarginSpacedComponentsRule),
 
     // General rules (also registered in general plugin for backward compat)
     'prefer-const': codeOnly(preferConstRule),
