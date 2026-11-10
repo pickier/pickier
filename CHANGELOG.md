@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.89...v0.1.90)
+
+## 🐛 Bug Fixes
+
+- preserve code spans in Markdown link checks ([59867ea](https://github.com/pickier/pickier/commit/59867ea)) _(by Chris <chris@stacksjs.com>)_ ([#1414](https://github.com/pickier/pickier/issues/1414))
+
+## 🔧 Chores
+
+- release v0.1.90 ([701415b](https://github.com/pickier/pickier/commit/701415b)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.88...v0.1.89)
 
 ## 🐛 Bug Fixes
