@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.88...v0.1.89)
+
+## 🐛 Bug Fixes
+
+- preserve import statement boundaries in unused binding checks ([fcc40da](https://github.com/pickier/pickier/commit/fcc40da)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.89 ([9eb5c66](https://github.com/pickier/pickier/commit/9eb5c66)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.87...v0.1.88)
 
 ## 🐛 Bug Fixes
