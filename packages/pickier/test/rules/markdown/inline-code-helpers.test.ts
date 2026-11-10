@@ -102,3 +102,25 @@ describe('maskInlineCode', () => {
     expect(masked.indexOf('x')).toBe(line.indexOf('x'))
   })
 })
+
+
+describe('code span delimiter escapes', () => {
+  it('keeps escaped opening delimiters as prose', () => {
+    const source = '\\`literal\\`'
+    expect(maskInlineCode(source)).toBe(source)
+  })
+
+  it('allows a delimiter after an escaped backslash', () => {
+    const source = '\\\\`code`'
+    const masked = maskInlineCode(source)
+    expect(masked).toBe('\\\\      ')
+    expect(masked.length).toBe(source.length)
+  })
+
+  it('treats a backslash before the closing delimiter as code content', () => {
+    const source = '`code\\` after'
+    const masked = maskInlineCode(source)
+    expect(masked).toBe('        after')
+    expect(masked.length).toBe(source.length)
+  })
+})

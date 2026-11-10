@@ -1,5 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { getCodeBlockLines } from './_fence-tracking'
+import { getCodeBlockLines, maskInlineCodeAcrossLines } from './_fence-tracking'
 
 /**
  * MD011 - Reversed link syntax
@@ -16,11 +16,12 @@ export const noReversedLinksRule: RuleModule = {
     // looks like reversed-link syntax `(text)[url]`) must not be flagged.
     // See https://github.com/pickier/pickier/issues/1355.
     const inCode = getCodeBlockLines(lines)
+    const masked = maskInlineCodeAcrossLines(lines)
 
     for (let i = 0; i < lines.length; i++) {
       if (inCode.has(i))
         continue
-      const line = lines[i]
+      const line = masked[i]!
 
       // Check for reversed link syntax: (text)[url] instead of [text](url)
       const matches = line.matchAll(/\(([^)]+)\)\[(?:[^\]]+)\]/g)
