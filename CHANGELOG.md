@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.90...v0.1.91)
+
+## ✨ Features
+
+- **rules**: add pickier/no-margin-spaced-components for stx templates ([d25a7dd](https://github.com/pickier/pickier/commit/d25a7dd)) _(by Chris Breuer <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.91 ([6e797fb](https://github.com/pickier/pickier/commit/6e797fb)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+- _Chris Breuer <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.89...v0.1.90)
 
 ## 🐛 Bug Fixes
