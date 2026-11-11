@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.91...v0.1.92)
+
+## 🐛 Bug Fixes
+
+- **format**: preserve type and value import binding groups ([86928c9](https://github.com/pickier/pickier/commit/86928c9)) _(by Chris <chris@stacksjs.com>)_
+- **release**: publish with a pantry that completes an accepted upload ([1834a0f](https://github.com/pickier/pickier/commit/1834a0f)) _(by Chris <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.92 ([35b1009](https://github.com/pickier/pickier/commit/35b1009)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.90...v0.1.91)
 
 ## ✨ Features
