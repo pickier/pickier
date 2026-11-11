@@ -12,7 +12,14 @@ on:
         type: string
 
 jobs:
+  source-gate:
+    name: Verify the exact release source
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag || github.ref }}
+
   npm:
+    needs: source-gate
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,9 +43,9 @@ jobs:
       # the native lint engine shipped in the package - and the package
       # dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@624cd6674f8c5c2d4e4204c11ece62a00d7fac0a # v0.11.184
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.184'
+          version: '0.11.197'
 
       # npm can accept an upload before public readback becomes available. A
       # recovery then skips the existing version, including its lifecycle hooks.
@@ -46,6 +53,20 @@ jobs:
       - name: Build the release artifacts
         working-directory: packages/pickier
         run: bun run prepublishOnly
+
+      - name: Qualify original package bytes before publication
+        id: package-sdk
+        run: bun run test:package
+        env:
+          PICKIER_PACKAGE_EVIDENCE: ${{ runner.temp }}/pickier-package-sdk
+
+      - name: Retain publication SDK evidence
+        if: always() && steps.package-sdk.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pickier-package-sdk-release
+          path: ${{ runner.temp }}/pickier-package-sdk
+          if-no-files-found: error
 
       - name: Publish
         working-directory: packages/pickier

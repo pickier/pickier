@@ -1,5 +1,5 @@
 import type { BunPlugin } from 'bun'
-import { dts } from 'bun-plugin-dtsx'
+import { dts } from '@dtsx/bun'
 import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -47,12 +47,14 @@ if (import.meta.main) {
   }
 
   // pickier-disable-next-line ts/no-top-level-await
-  await Bun.build({
+  const result = await Bun.build({
     entrypoints: ['src/index.ts', 'bin/cli.ts', 'src/lint-worker.ts'],
     outdir: './dist',
     target: 'bun',
     minify: true,
     splitting: true,
-    plugins: [lazyBuiltins, dts()],
+    plugins: [lazyBuiltins, dts({ root: '.', outdir: './dist', entrypoints: ['src/index.ts', 'bin/cli.ts', 'src/lint-worker.ts'], moduleSpecifierMode: 'node' })],
   })
+  if (!result.success)
+    throw new AggregateError(result.logs, 'Pickier build failed')
 }

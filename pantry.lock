@@ -5,10 +5,11 @@
     "": {
       "name": "pickier",
       "dependencies": {
-        "@stacksjs/clapp": "^0.2.16",
+        "@stacksjs/clapp": "^0.2.17",
         "@stacksjs/clarity": "^0.3.33"
       },
       "devDependencies": {
+        "@dtsx/bun": "^0.11.48",
         "@stacksjs/bumpx": "0.2.31",
         "@stacksjs/bunpress": "^0.2.31",
         "@stacksjs/clarity": "^0.3.24",
@@ -17,7 +18,6 @@
         "@types/bun": "^1.4.4",
         "buddy-bot": "^0.10.5",
         "bun-git-hooks": "^0.3.3",
-        "bun-plugin-dtsx": "^0.11.23",
         "typescript": "^7.0.2"
       },
       "system": {
@@ -29,7 +29,7 @@
       "name": "pickier",
       "version": "0.1.91",
       "dependencies": {
-        "@stacksjs/clapp": "^0.2.3",
+        "@stacksjs/clapp": "^0.2.17",
         "@stacksjs/clarity": "^0.3.24"
       },
       "devDependencies": {

@@ -1,6 +1,11 @@
 name: CI
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -19,12 +24,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.120'
+          version: '0.11.197'
 
       - name: Lint
         run: bun run lint
@@ -34,12 +41,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.120'
+          version: '0.11.197'
 
       - name: Typecheck
         run: bun --bun run typecheck
@@ -49,12 +58,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.120'
+          version: '0.11.197'
 
       - name: Unit Test
         run: bun run test
@@ -67,16 +78,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.120'
+          version: '0.11.197'
 
       - name: Native unit tests
         working-directory: packages/zig
         run: |
+          zig test src/format.zig
           zig test src/native/test_root.zig
           zig test src/native/text.zig
           zig test src/walker.zig
@@ -108,12 +122,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@3de609e1a7e305393b3d94e2848d859b39c5b5de # v0.11.120
+        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
         with:
-          version: '0.11.120'
+          version: '0.11.197'
+
+      - name: Build the public library and CLI
+        working-directory: packages/pickier
+        run: bun run build
+
+      - name: Verify the original installed SDK and formatted consumer
+        id: package-sdk
+        run: bun run test:package
+        env:
+          PICKIER_PACKAGE_EVIDENCE: ${{ runner.temp }}/pickier-package-sdk
+
+      - name: Retain package SDK evidence
+        if: always() && steps.package-sdk.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pickier-package-sdk-ci
+          path: ${{ runner.temp }}/pickier-package-sdk
+          if-no-files-found: error
 
       - name: Build the docs
         run: bun run build:docs

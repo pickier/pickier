@@ -32,9 +32,10 @@
     "changelog": "bunx logsmith --verbose",
     "changelog:generate": "bunx logsmith --output CHANGELOG.md",
     "release": "./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun @stacksjs/bumpx prompt --recursive",
-    "release:patch": "./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun @stacksjs/bumpx patch --recursive --yes",
-    "publish:patch": "./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun @stacksjs/bumpx patch --recursive --yes",
+    "release:patch": "./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun @stacksjs/bumpx patch --recursive --commit --tag --push --yes",
+    "publish:patch": "./packages/pickier/pickier run CHANGELOG.md --mode lint --fix && bunx --bun @stacksjs/bumpx patch --recursive --commit --tag --push --yes",
     "test": "bun run --cwd packages/pickier test",
+    "test:package": "bun packages/pickier/scripts/verify-package.ts",
     "test:core": "bun run --cwd packages/pickier test:core",
     "test:format": "bun run --cwd packages/pickier test:format",
     "test:lint": "bun run --cwd packages/pickier test:lint",
@@ -55,11 +56,11 @@
     "@types/bun": "^1.4.4",
     "buddy-bot": "^0.10.5",
     "bun-git-hooks": "^0.3.3",
-    "bun-plugin-dtsx": "^0.11.23",
+    "@dtsx/bun": "^0.11.48",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@stacksjs/clapp": "^0.2.16",
+    "@stacksjs/clapp": "^0.2.17",
     "@stacksjs/clarity": "^0.3.33"
   },
   "git-hooks": {

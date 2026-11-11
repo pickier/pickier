@@ -28,6 +28,7 @@
     "packages/pickier/src/**/*.ts",
     "packages/pickier/bin/**/*.ts",
     "packages/pickier/build.ts",
+    "packages/pickier/scripts/verify-package.ts",
     "packages/pickier/test/**/*.ts",
     "packages/zig/**/*.ts"
   ],

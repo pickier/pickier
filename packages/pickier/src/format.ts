@@ -1796,8 +1796,8 @@ function formatImportLines(lines: string[]): string[] | null {
     if (imp.kind === 'side-effect')
       return true
     if (imp.kind === 'type')
-      return imp.namedTypes.length > 0
-    return Boolean(imp.defaultName || imp.namespaceName || imp.named.length > 0)
+      return Boolean(imp.defaultName || imp.namespaceName || imp.namedTypes.length > 0)
+    return Boolean(imp.defaultName || imp.namespaceName || imp.named.length > 0 || imp.namedTypes.length > 0)
   })
 
   // An import that did not survive hands its comments to the next one that
@@ -1819,7 +1819,7 @@ function formatImportLines(lines: string[]): string[] | null {
     interleaved.push(...carried)
 
   // merge by source into one value and one type per module
-  const bySource: Map<string, { value?: ParsedImport, type?: ParsedImport, side?: ParsedImport[] }> = new Map()
+  const bySource: Map<string, { values?: Map<string, ParsedImport>, type?: ParsedImport, standaloneTypes?: ParsedImport[], side?: ParsedImport[] }> = new Map()
   const keepComments = (into: ParsedImport, from: ParsedImport): void => {
     if (!from.comments)
       return
@@ -1832,24 +1832,37 @@ function formatImportLines(lines: string[]): string[] | null {
       bucket.side.push(imp)
     }
     else if (imp.kind === 'type') {
+      // TypeScript requires default and namespace type bindings to remain
+      // separate from named bindings and from aliases of the same export.
+      if (imp.defaultName || imp.namespaceName) {
+        bucket.standaloneTypes ??= []
+        bucket.standaloneTypes.push(imp)
+        bySource.set(imp.source, bucket)
+        continue
+      }
       if (!bucket.type)
         bucket.type = { kind: 'type', source: imp.source, named: [], namedTypes: [], original: '' }
       keepComments(bucket.type, imp)
       bucket.type.namedTypes = (bucket.type.namedTypes || []).concat(imp.namedTypes)
     }
     else {
-      if (!bucket.value)
-        bucket.value = { kind: 'value', source: imp.source, named: [], namedTypes: [], original: '' }
-      keepComments(bucket.value, imp)
-      if (imp.defaultName)
-        bucket.value.defaultName = imp.defaultName
-      if (imp.namespaceName)
-        bucket.value.namespaceName = imp.namespaceName
-      bucket.value.named = (bucket.value.named || []).concat(imp.named)
+      const hasValues = Boolean(imp.defaultName || imp.namespaceName || imp.named.length > 0)
+      if (hasValues) {
+        bucket.values ??= new Map()
+        const key = JSON.stringify([imp.defaultName ?? '', imp.namespaceName ?? ''])
+        let value = bucket.values.get(key)
+        if (!value) {
+          value = { kind: 'value', source: imp.source, defaultName: imp.defaultName, namespaceName: imp.namespaceName, named: [], namedTypes: [], original: '' }
+          bucket.values.set(key, value)
+        }
+        keepComments(value, imp)
+        value.named.push(...imp.named)
+      }
       // if imp has namedTypes mixed in value, move them to type bucket
       if (imp.namedTypes.length > 0) {
         if (!bucket.type)
           bucket.type = { kind: 'type', source: imp.source, named: [], namedTypes: [], original: '' }
+        if (!hasValues) keepComments(bucket.type, imp)
         bucket.type.namedTypes = bucket.type.namedTypes.concat(imp.namedTypes)
       }
     }
@@ -1859,12 +1872,29 @@ function formatImportLines(lines: string[]): string[] | null {
   // build output imports
   const entries: ParsedImport[] = []
   for (const [_sourcePath, bucket] of bySource) {
+    if (bucket.standaloneTypes)
+      entries.push(...bucket.standaloneTypes)
     if (bucket.side)
       entries.push(...bucket.side)
-    if (bucket.value) {
-      // sort by left-side identifier
-      bucket.value.named.sort((a, b) => a.name.localeCompare(b.name))
-      entries.push(bucket.value)
+    if (bucket.values) {
+      const defaults = [...bucket.values.values()].filter(value => value.defaultName && !value.namespaceName)
+      const namespaces = [...bucket.values.values()].filter(value => value.namespaceName)
+      const namedKey = JSON.stringify(['', ''])
+      const named = bucket.values.get(namedKey)
+      if (defaults.length === 1 && named) {
+        defaults[0].named.push(...named.named)
+        keepComments(defaults[0], named)
+        bucket.values.delete(namedKey)
+      }
+      if (defaults.length === 1 && namespaces.length === 1 && defaults[0].named.length === 0 && !namespaces[0].defaultName) {
+        namespaces[0].defaultName = defaults[0].defaultName
+        keepComments(namespaces[0], defaults[0])
+        bucket.values.delete(JSON.stringify([defaults[0].defaultName, '']))
+      }
+      for (const value of bucket.values.values()) {
+        value.named.sort((a, b) => a.name.localeCompare(b.name))
+        entries.push(value)
+      }
     }
     if (bucket.type && bucket.type.namedTypes.length > 0) {
       // dedupe and sort
@@ -1886,7 +1916,7 @@ function formatImportLines(lines: string[]): string[] | null {
   // Within type and value kinds, sort externals before relatives. For values with same rank, sort by form (default, namespace, named), then by source.
   const rank = (p: string) => p.startsWith('.') ? 2 : (p.startsWith('node:') ? 0 : 1)
   const formRank = (imp: ParsedImport): number => {
-    if (imp.kind !== 'value')
+    if (imp.kind !== 'value' && imp.kind !== 'type')
       return 99
     if (imp.defaultName)
       return 0
@@ -1910,7 +1940,13 @@ function formatImportLines(lines: string[]): string[] | null {
       const rb = rank(b.source)
       if (ra !== rb)
         return ra - rb
-      return a.source.localeCompare(b.source)
+      const moduleOrder = a.source.localeCompare(b.source)
+      if (moduleOrder) return moduleOrder
+      const formOrder = formRank(a) - formRank(b)
+      if (formOrder) return formOrder
+      const left = a.defaultName ?? a.namespaceName ?? ''
+      const right = b.defaultName ?? b.namespaceName ?? ''
+      return left < right ? -1 : left > right ? 1 : 0
     }
     if (a.kind === 'value' && b.kind === 'value') {
       const ra = rank(a.source)
@@ -1921,7 +1957,11 @@ function formatImportLines(lines: string[]): string[] | null {
       const fb = formRank(b)
       if (fa !== fb)
         return fa - fb
-      return a.source.localeCompare(b.source)
+      const moduleOrder = a.source.localeCompare(b.source)
+      if (moduleOrder) return moduleOrder
+      const left = a.defaultName ?? a.namespaceName ?? ''
+      const right = b.defaultName ?? b.namespaceName ?? ''
+      return left < right ? -1 : left > right ? 1 : 0
     }
     return a.source.localeCompare(b.source)
   })
@@ -1962,6 +2002,10 @@ function renderImport(imp: ParsedImport): string {
   if (imp.kind === 'side-effect')
     return `import '${imp.source}'`
   if (imp.kind === 'type') {
+    if (imp.defaultName)
+      return `import type ${imp.defaultName} from '${imp.source}'`
+    if (imp.namespaceName)
+      return `import type * as ${imp.namespaceName} from '${imp.source}'`
     const named = imp.namedTypes.map(s => s.alias ? `${s.name} as ${s.alias}` : s.name).join(', ')
     return `import type { ${named} } from '${imp.source}'`
   }
@@ -1984,8 +2028,14 @@ function parseImportStatement(stmt: string): ParsedImport | undefined {
   if (m) {
     return { kind: 'side-effect', source: m[1], named: [], namedTypes: [], original: stmt }
   }
+  m = stmt.match(/^\s*import\s+type\s+([\w$]+)\s+from\s+['"]([^'"]+)['"]\s*;?$/)
+  if (m)
+    return { kind: 'type', source: m[2], defaultName: m[1], named: [], namedTypes: [], original: stmt }
+  m = stmt.match(/^\s*import\s+type\s*\*\s*as\s+([\w$]+)\s+from\s+['"]([^'"]+)['"]\s*;?$/)
+  if (m)
+    return { kind: 'type', source: m[2], namespaceName: m[1], named: [], namedTypes: [], original: stmt }
   // type-only: import type { A, B as C } from 'x'
-  m = stmt.match(/^\s*import\s+type\s+\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/)
+  m = stmt.match(/^\s*import\s+type\s*\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/)
   if (m) {
     const spec = m[1]
     const source = m[2]
@@ -2015,11 +2065,11 @@ function parseImportStatement(stmt: string): ParsedImport | undefined {
     const inner = namedMatch[1]
     const items = inner.split(',').map(s => s.trim()).filter(Boolean)
     for (const it of items) {
-      const isType = /^type\s+/.test(it)
-      const t = it.replace(/^type\s+/, '')
+      const isType = /^type\s+/.test(it) && !/^type\s+as\s+[\w$]+$/.test(it)
+      const t = isType ? it.replace(/^type\s+/, '') : it
       const mm = t.match(/^(\w+)(?:\s+as\s+(\w+))?$/)
       if (!mm)
-        continue
+        return undefined
       const entry = { name: mm[1], alias: mm[2] }
       if (isType)
         namedTypes.push(entry)
@@ -2035,8 +2085,10 @@ function parseImportStatement(stmt: string): ParsedImport | undefined {
     for (const p of parts) {
       if (p.startsWith('* as '))
         namespaceName = p.slice(5).trim()
-      else if (/^\w+$/.test(p))
+      else if (/^[\w$]+$/.test(p))
         defaultName = p
+      else
+        return undefined
     }
   }
   return { kind: 'value', source, defaultName, namespaceName, named, namedTypes, original: stmt }

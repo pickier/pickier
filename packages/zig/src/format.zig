@@ -387,15 +387,18 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
         const line = lines.items[idx];
         const trimmed = std.mem.trim(u8, line, " \t");
 
-        if (trimmed.len == 0 or startsWith(trimmed, "//") or startsWith(trimmed, "/*")) {
+        if (trimmed.len == 0) {
             idx += 1;
             continue;
         }
+        // This organizer cannot attach interleaved comments to declarations.
+        // Keep the source block intact instead of consuming those comments.
+        if (startsWith(trimmed, "//") or startsWith(trimmed, "/*")) return @constCast(content);
         if (!startsWith(trimmed, "import")) break;
 
         if (try parseImportStatement(trimmed, allocator)) |parsed| {
             try imports.append(allocator, parsed);
-        }
+        } else return @constCast(content);
         idx += 1;
     }
 
@@ -444,15 +447,16 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
             try non_empty.append(allocator, imp);
             continue;
         }
-        if (imp.default_name != null or imp.namespace_name != null or imp.named.len > 0) {
+        if (imp.default_name != null or imp.namespace_name != null or imp.named.len > 0 or imp.named_types.len > 0) {
             try non_empty.append(allocator, imp);
         }
     }
 
     // Merge imports from same source
     var by_source = std.StringHashMap(struct {
-        value: ?ParsedImport,
+        values: std.StringHashMap(ParsedImport),
         type_imp: ?ParsedImport,
+        standalone_types: std.ArrayList(ParsedImport),
         sides: std.ArrayList(ParsedImport),
     }).init(allocator);
 
@@ -460,8 +464,9 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
         const entry = try by_source.getOrPut(imp.source);
         if (!entry.found_existing) {
             entry.value_ptr.* = .{
-                .value = null,
+                .values = std.StringHashMap(ParsedImport).init(allocator),
                 .type_imp = null,
+                .standalone_types = .empty,
                 .sides = .empty,
             };
         }
@@ -469,6 +474,10 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
         if (imp.kind == .side_effect) {
             try entry.value_ptr.sides.append(allocator, imp);
         } else if (imp.kind == .type_only) {
+            if (imp.default_name != null or imp.namespace_name != null) {
+                try entry.value_ptr.standalone_types.append(allocator, imp);
+                continue;
+            }
             if (entry.value_ptr.type_imp == null) {
                 entry.value_ptr.type_imp = imp;
             } else {
@@ -479,30 +488,28 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
                 entry.value_ptr.type_imp.?.named_types = try merged.toOwnedSlice(allocator);
             }
         } else {
-            if (entry.value_ptr.value == null) {
-                entry.value_ptr.value = imp;
-            } else {
-                // Merge
-                if (imp.default_name != null) entry.value_ptr.value.?.default_name = imp.default_name;
-                if (imp.namespace_name != null) entry.value_ptr.value.?.namespace_name = imp.namespace_name;
-                var merged: std.ArrayList(NamedSpecifier) = .empty;
-                try merged.appendSlice(allocator, entry.value_ptr.value.?.named);
-                try merged.appendSlice(allocator, imp.named);
-                entry.value_ptr.value.?.named = try merged.toOwnedSlice(allocator);
-                // Move type specifiers from value import to type bucket
-                if (imp.named_types.len > 0) {
-                    if (entry.value_ptr.type_imp == null) {
-                        entry.value_ptr.type_imp = ParsedImport{
-                            .kind = .type_only,
-                            .source = imp.source,
-                            .named_types = imp.named_types,
-                        };
-                    } else {
-                        var tm: std.ArrayList(NamedSpecifier) = .empty;
-                        try tm.appendSlice(allocator, entry.value_ptr.type_imp.?.named_types);
-                        try tm.appendSlice(allocator, imp.named_types);
-                        entry.value_ptr.type_imp.?.named_types = try tm.toOwnedSlice(allocator);
-                    }
+            if (imp.default_name != null or imp.namespace_name != null or imp.named.len > 0) {
+                const default_name = imp.default_name orelse "";
+                const key = try std.fmt.allocPrint(allocator, "{d}:{s}:{s}", .{ default_name.len, default_name, imp.namespace_name orelse "" });
+                const value = try entry.value_ptr.values.getOrPut(key);
+                if (!value.found_existing) {
+                    value.value_ptr.* = imp;
+                    value.value_ptr.named_types = &.{};
+                } else {
+                    var merged: std.ArrayList(NamedSpecifier) = .empty;
+                    try merged.appendSlice(allocator, value.value_ptr.named);
+                    try merged.appendSlice(allocator, imp.named);
+                    value.value_ptr.named = try merged.toOwnedSlice(allocator);
+                }
+            }
+            if (imp.named_types.len > 0) {
+                if (entry.value_ptr.type_imp == null) {
+                    entry.value_ptr.type_imp = ParsedImport{ .kind = .type_only, .source = imp.source, .named_types = imp.named_types };
+                } else {
+                    var types: std.ArrayList(NamedSpecifier) = .empty;
+                    try types.appendSlice(allocator, entry.value_ptr.type_imp.?.named_types);
+                    try types.appendSlice(allocator, imp.named_types);
+                    entry.value_ptr.type_imp.?.named_types = try types.toOwnedSlice(allocator);
                 }
             }
         }
@@ -512,13 +519,45 @@ fn formatImportsStr(content: []const u8, allocator: Allocator) ![]u8 {
     var entries: std.ArrayList(ParsedImport) = .empty;
     var map_iter = by_source.iterator();
     while (map_iter.next()) |kv| {
+        try entries.appendSlice(allocator, kv.value_ptr.standalone_types.items);
         for (kv.value_ptr.sides.items) |side| {
             try entries.append(allocator, side);
         }
-        if (kv.value_ptr.value) |*val| {
-            // Sort named specifiers
-            sortSpecifiers(val.named);
-            try entries.append(allocator, val.*);
+        var defaults: usize = 0;
+        var namespaces: usize = 0;
+        var default_value: ?*ParsedImport = null;
+        var namespace_value: ?*ParsedImport = null;
+        var values = kv.value_ptr.values.valueIterator();
+        while (values.next()) |value| {
+            if (value.namespace_name != null) {
+                namespaces += 1;
+                namespace_value = value;
+            } else if (value.default_name != null) {
+                defaults += 1;
+                default_value = value;
+            }
+        }
+        var skip_named = false;
+        var skip_default = false;
+        if (defaults == 1) {
+            if (kv.value_ptr.values.getPtr("0::")) |named| {
+                var merged: std.ArrayList(NamedSpecifier) = .empty;
+                try merged.appendSlice(allocator, default_value.?.named);
+                try merged.appendSlice(allocator, named.named);
+                default_value.?.named = try merged.toOwnedSlice(allocator);
+                skip_named = true;
+            }
+            if (namespaces == 1 and default_value.?.named.len == 0 and namespace_value.?.default_name == null) {
+                namespace_value.?.default_name = default_value.?.default_name;
+                skip_default = true;
+            }
+        }
+        var value_entries = kv.value_ptr.values.iterator();
+        while (value_entries.next()) |value| {
+            if (skip_named and std.mem.eql(u8, value.key_ptr.*, "0::")) continue;
+            if (skip_default and value.value_ptr.default_name != null and value.value_ptr.namespace_name == null) continue;
+            sortSpecifiers(value.value_ptr.named);
+            try entries.append(allocator, value.value_ptr.*);
         }
         if (kv.value_ptr.type_imp) |*ti| {
             if (ti.named_types.len > 0) {
@@ -575,6 +614,15 @@ fn importOrder(_: void, a: ParsedImport, b: ParsedImport) bool {
     const src_rank_b = sourceRank(b.source);
     if (src_rank_a != src_rank_b) return src_rank_a < src_rank_b;
 
+    if (a.kind == .type_only and b.kind == .type_only) {
+        const source_order = std.mem.order(u8, a.source, b.source);
+        if (source_order != .eq) return source_order == .lt;
+        const form_a = formRank(a);
+        const form_b = formRank(b);
+        if (form_a != form_b) return form_a < form_b;
+        return std.mem.order(u8, a.default_name orelse a.namespace_name orelse "", b.default_name orelse b.namespace_name orelse "") == .lt;
+    }
+
     // Within same kind and rank, sort by form (for values: default < namespace < named)
     if (a.kind == .value and b.kind == .value) {
         const form_a = formRank(a);
@@ -583,7 +631,9 @@ fn importOrder(_: void, a: ParsedImport, b: ParsedImport) bool {
     }
 
     // Finally alphabetical by source
-    return std.mem.order(u8, a.source, b.source) == .lt;
+    const source_order = std.mem.order(u8, a.source, b.source);
+    if (source_order != .eq) return source_order == .lt;
+    return std.mem.order(u8, a.default_name orelse a.namespace_name orelse "", b.default_name orelse b.namespace_name orelse "") == .lt;
 }
 
 fn kindRank(kind: ImportKind) u8 {
@@ -623,9 +673,18 @@ fn renderImport(imp: ParsedImport, output: *std.ArrayList(u8), allocator: Alloca
     }
 
     if (imp.kind == .type_only) {
-        try output.appendSlice(allocator, "import type { ");
-        try renderSpecifiers(imp.named_types, output, allocator);
-        try output.appendSlice(allocator, " } from '");
+        try output.appendSlice(allocator, "import type ");
+        if (imp.default_name) |name| {
+            try output.appendSlice(allocator, name);
+        } else if (imp.namespace_name) |name| {
+            try output.appendSlice(allocator, "* as ");
+            try output.appendSlice(allocator, name);
+        } else {
+            try output.appendSlice(allocator, "{ ");
+            try renderSpecifiers(imp.named_types, output, allocator);
+            try output.appendSlice(allocator, " }");
+        }
+        try output.appendSlice(allocator, " from '");
         try output.appendSlice(allocator, imp.source);
         try output.append(allocator, '\'');
         return;
@@ -682,28 +741,39 @@ fn parseImportStatement(stmt: []const u8, allocator: Allocator) !?ParsedImport {
         return ParsedImport{ .kind = .side_effect, .source = source };
     }
 
-    // Type-only: import type { ... } from 'source'
+    const from_pos = findFrom(stmt) orelse return null;
+    const source = extractSourceAfterFrom(stmt, from_pos) orelse return null;
+    const source_end = @intFromPtr(source.ptr) - @intFromPtr(stmt.ptr) + source.len + 1;
+    if (std.mem.trim(u8, stmt[source_end..], " \t;").len != 0) return null;
+
+    // A value default named `type` has no binding between it and `from`.
     var is_type_only = false;
-    if (pos + 5 <= stmt.len and std.mem.eql(u8, stmt[pos .. pos + 5], "type ")) {
-        // Check it's "import type {" not "import type from"
-        const after_type = skipWs(stmt, pos + 5);
-        if (after_type < stmt.len and stmt[after_type] == '{') {
+    if (pos + 4 < stmt.len and std.mem.eql(u8, stmt[pos .. pos + 4], "type") and
+        (std.ascii.isWhitespace(stmt[pos + 4]) or stmt[pos + 4] == '{' or stmt[pos + 4] == '*'))
+    {
+        const after_type = skipWs(stmt, pos + 4);
+        if (after_type < from_pos) {
             is_type_only = true;
             pos = after_type;
         }
     }
-
-    // Find "from" keyword and extract source
-    const from_pos = findFrom(stmt) orelse return null;
-    const source = extractSourceAfterFrom(stmt, from_pos) orelse return null;
 
     // Extract the specifier part (between "import [type]" and "from")
     const spec_start = if (is_type_only) pos else pos;
     const spec_part = std.mem.trim(u8, stmt[spec_start..from_pos], " \t");
 
     if (is_type_only) {
+        if (isIdentifier(spec_part)) return ParsedImport{ .kind = .type_only, .source = source, .default_name = spec_part };
+        if (startsWith(spec_part, "*")) {
+            const as_start = skipWs(spec_part, 1);
+            if (as_start + 2 >= spec_part.len or !std.mem.eql(u8, spec_part[as_start .. as_start + 2], "as") or !std.ascii.isWhitespace(spec_part[as_start + 2])) return null;
+            const name = std.mem.trim(u8, spec_part[as_start + 2 ..], " \t");
+            if (!isIdentifier(name)) return null;
+            return ParsedImport{ .kind = .type_only, .source = source, .namespace_name = name };
+        }
+        if (spec_part.len == 0 or spec_part[0] != '{') return null;
         // Parse { A, B as C } for type imports
-        const named_types = try parseNamedSpecifiers(spec_part, allocator);
+        const named_types = (try parseNamedSpecifiers(spec_part, allocator)) orelse return null;
         return ParsedImport{
             .kind = .type_only,
             .source = source,
@@ -730,12 +800,17 @@ fn parseImportStatement(stmt: []const u8, allocator: Allocator) !?ParsedImport {
 
                 var is_type_spec = false;
                 var spec_text = s;
-                if (startsWith(s, "type ")) {
-                    is_type_spec = true;
-                    spec_text = std.mem.trim(u8, s[5..], " \t");
+                if (s.len > 4 and startsWith(s, "type") and std.ascii.isWhitespace(s[4])) {
+                    const after_type = std.mem.trim(u8, s[4..], " \t");
+                    const candidate = parseOneSpecifier(s);
+                    const named_type_value = if (candidate) |value| std.mem.eql(u8, value.name, "type") and value.alias != null else false;
+                    if (!named_type_value) {
+                        is_type_spec = true;
+                        spec_text = after_type;
+                    }
                 }
 
-                const spec = parseOneSpecifier(spec_text);
+                const spec = parseOneSpecifier(spec_text) orelse return null;
                 if (is_type_spec) {
                     try named_types.append(allocator, spec);
                 } else {
@@ -759,7 +834,7 @@ fn parseImportStatement(stmt: []const u8, allocator: Allocator) !?ParsedImport {
                 namespace_name = std.mem.trim(u8, p[5..], " \t");
             } else if (isIdentifier(p)) {
                 default_name = p;
-            }
+            } else return null;
         }
     }
 
@@ -773,18 +848,25 @@ fn parseImportStatement(stmt: []const u8, allocator: Allocator) !?ParsedImport {
     };
 }
 
-fn parseOneSpecifier(text: []const u8) NamedSpecifier {
-    // "name as alias" or just "name"
-    if (std.mem.indexOf(u8, text, " as ")) |as_pos| {
-        return NamedSpecifier{
-            .name = std.mem.trim(u8, text[0..as_pos], " \t"),
-            .alias = std.mem.trim(u8, text[as_pos + 4 ..], " \t"),
-        };
+fn parseOneSpecifier(text: []const u8) ?NamedSpecifier {
+    if (text.len == 0) return null;
+    var end: usize = 0;
+    if (text[0] == '\'' or text[0] == '"') {
+        const quoted = extractStringLiteral(text, 0) orelse return null;
+        end = @intFromPtr(quoted.ptr) - @intFromPtr(text.ptr) + quoted.len + 1;
+    } else {
+        while (end < text.len and !std.ascii.isWhitespace(text[end])) end += 1;
+        if (!isIdentifier(text[0..end])) return null;
     }
-    return NamedSpecifier{ .name = text };
+    const alias_start = skipWs(text, end);
+    if (alias_start == text.len) return .{ .name = text[0..end] };
+    if (alias_start + 2 >= text.len or !std.mem.eql(u8, text[alias_start .. alias_start + 2], "as") or !std.ascii.isWhitespace(text[alias_start + 2])) return null;
+    const alias = std.mem.trim(u8, text[alias_start + 2 ..], " \t\r\n");
+    if (!isIdentifier(alias)) return null;
+    return .{ .name = text[0..end], .alias = alias };
 }
 
-fn parseNamedSpecifiers(spec_part: []const u8, allocator: Allocator) ![]NamedSpecifier {
+fn parseNamedSpecifiers(spec_part: []const u8, allocator: Allocator) !?[]NamedSpecifier {
     // Remove surrounding braces
     var inner = spec_part;
     if (inner.len > 0 and inner[0] == '{') inner = inner[1..];
@@ -796,7 +878,7 @@ fn parseNamedSpecifiers(spec_part: []const u8, allocator: Allocator) ![]NamedSpe
     while (spec_iter.next()) |raw| {
         const s = std.mem.trim(u8, raw, " \t");
         if (s.len == 0) continue;
-        try specs.append(allocator, parseOneSpecifier(s));
+        try specs.append(allocator, parseOneSpecifier(s) orelse return null);
     }
     return try specs.toOwnedSlice(allocator);
 }
@@ -1466,6 +1548,55 @@ test "single line no newline" {
 // ===========================================================================
 // Phase 2: Import formatting tests
 // ===========================================================================
+
+test "import sorting preserves default and namespace type-only bindings" {
+    const allocator = std.testing.allocator;
+    const fixtures = [_]struct { source: []const u8, imports: []const []const u8 }{
+        .{ .source = "import type Emitter from 'node:events'\nimport * as Events from 'node:events'\nimport { EventEmitter } from 'node:events'\nexport type Result = Emitter\nexport const result = [Events.EventEmitter, EventEmitter]\n", .imports = &.{ "import type Emitter from 'node:events'", "import * as Events from 'node:events'", "import { EventEmitter } from 'node:events'" } },
+        .{ .source = "import First from 'node:events'\nimport Second from 'node:events'\nexport const result = First === Second\n", .imports = &.{ "import First from 'node:events'", "import Second from 'node:events'" } },
+        .{ .source = "import * as First from 'node:events'\nimport * as Second from 'node:events'\nexport const result = First.EventEmitter === Second.EventEmitter\n", .imports = &.{ "import * as First from 'node:events'", "import * as Second from 'node:events'" } },
+        .{ .source = "import { type as\tvalue } from 'provider'\nexport const result = value\n", .imports = &.{"import { type as value } from 'provider'"} },
+        .{ .source = "import type{EventEmitter} from 'node:events'\nexport type Result = EventEmitter\n", .imports = &.{"import type { EventEmitter } from 'node:events'"} },
+        .{ .source = "import { type EventEmitter as Emitter } from 'node:events'\nexport type Result = Emitter\n", .imports = &.{"import type { EventEmitter as Emitter } from 'node:events'"} },
+        .{ .source = "import { EventEmitter, type EventEmitter as Emitter } from 'node:events'\nexport type Result = Emitter\n", .imports = &.{"import type { EventEmitter as Emitter } from 'node:events'"} },
+        .{ .source = "import { type as value } from 'provider'\nexport const result = value\n", .imports = &.{"import { type as value } from 'provider'"} },
+        .{ .source = "import type Emitter from 'node:events'\nexport type Result = Emitter\n", .imports = &.{"import type Emitter from 'node:events'"} },
+        .{ .source = "import type * as Events from 'node:events'\nexport type Result = Events.EventEmitter\n", .imports = &.{"import type * as Events from 'node:events'"} },
+        .{ .source = "import type First from 'node:events'\nimport type Second from 'node:events'\nexport type Result = [First, Second]\n", .imports = &.{ "import type First from 'node:events'", "import type Second from 'node:events'" } },
+        .{ .source = "import type First from 'node:events'\nimport type { EventEmitter as Named } from 'node:events'\nimport type * as Events from 'node:events'\nexport type Result = [First, Named, Events.EventEmitter]\n", .imports = &.{ "import type First from 'node:events'", "import type { EventEmitter as Named } from 'node:events'", "import type * as Events from 'node:events'" } },
+        .{ .source = "import type * as First from 'node:events'\nimport type * as Second from 'node:events'\nexport type Result = [First.EventEmitter, Second.EventEmitter]\n", .imports = &.{ "import type * as First from 'node:events'", "import type * as Second from 'node:events'" } },
+        .{ .source = "// Constructor type\nimport type Emitter from 'node:events'\n// Namespace type\nimport type * as Events from 'node:events'\nexport type Result = [Emitter, Events.EventEmitter]\n", .imports = &.{ "// Constructor type", "import type Emitter from 'node:events'", "// Namespace type", "import type * as Events from 'node:events'" } },
+        .{ .source = "import type /* Constructor type */ Emitter from 'node:events'\nexport type Result = Emitter\n", .imports = &.{"import type /* Constructor type */ Emitter from 'node:events'"} },
+        .{ .source = "import type Emitter from 'node:events' // Constructor type\nexport type Result = Emitter\n", .imports = &.{"import type Emitter from 'node:events' // Constructor type"} },
+        .{ .source = "import type from 'provider'\nexport const value = type\n", .imports = &.{"import type from 'provider'"} },
+    };
+    for (fixtures) |fixture| {
+        const result = try formatCode(fixture.source, "test.ts", allocator);
+        defer allocator.free(result);
+        for (fixture.imports) |statement| try std.testing.expect(std.mem.indexOf(u8, result, statement) != null);
+        const repeated = try formatCode(result, "test.ts", allocator);
+        defer allocator.free(repeated);
+        try std.testing.expectEqualStrings(result, repeated);
+    }
+}
+
+test "type-only alias ordering is stable across large same-module groups" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var input: std.ArrayList(u8) = .empty;
+    for (0..40) |index| {
+        try input.appendSlice(arena, try std.fmt.allocPrint(arena, "import type Emitter{d} from 'node:events'\n", .{index}));
+    }
+    try input.appendSlice(arena, "export type Result = [Emitter0, Emitter39]\n");
+    const formatted = try formatCode(input.items, "test.ts", arena);
+    for (0..40) |index| {
+        const statement = try std.fmt.allocPrint(arena, "import type Emitter{d} from 'node:events'", .{index});
+        try std.testing.expect(std.mem.indexOf(u8, formatted, statement) != null);
+    }
+    const repeated = try formatCode(formatted, "test.ts", arena);
+    try std.testing.expectEqualStrings(formatted, repeated);
+}
 
 test "import sorting - basic value imports" {
     const allocator = std.testing.allocator;
