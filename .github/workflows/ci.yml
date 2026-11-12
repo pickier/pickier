@@ -29,9 +29,9 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
+        uses: pantry-pm/pantry/packages/action@ada000b82afec8e198f915bb2aafa6791fa01abd # v0.11.199
         with:
-          version: '0.11.198'
+          version: '0.11.199'
 
       - name: Lint
         run: bun run lint
@@ -46,9 +46,9 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
+        uses: pantry-pm/pantry/packages/action@ada000b82afec8e198f915bb2aafa6791fa01abd # v0.11.199
         with:
-          version: '0.11.198'
+          version: '0.11.199'
 
       - name: Typecheck
         run: bun --bun run typecheck
@@ -63,9 +63,9 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
+        uses: pantry-pm/pantry/packages/action@ada000b82afec8e198f915bb2aafa6791fa01abd # v0.11.199
         with:
-          version: '0.11.198'
+          version: '0.11.199'
 
       - name: Unit Test
         run: bun run test
@@ -83,9 +83,9 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
+        uses: pantry-pm/pantry/packages/action@ada000b82afec8e198f915bb2aafa6791fa01abd # v0.11.199
         with:
-          version: '0.11.198'
+          version: '0.11.199'
 
       - name: Native unit tests
         working-directory: packages/zig
@@ -134,9 +134,9 @@ jobs:
 
       # Installs what deps.yaml lists (Bun, Zig) and the package dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
+        uses: pantry-pm/pantry/packages/action@ada000b82afec8e198f915bb2aafa6791fa01abd # v0.11.199
         with:
-          version: '0.11.198'
+          version: '0.11.199'
 
       - name: Build the public library and CLI
         working-directory: packages/pickier
