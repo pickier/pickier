@@ -6,19 +6,26 @@ import { join, resolve } from 'node:path'
 async function verify(): Promise<void> {
   assert(process.argv[2], 'Pass the actual source-built native CLI')
   const cli = resolve(process.argv[2])
-  const root = await mkdtemp(join(tmpdir(), 'pickier-native-read-only-'))
+  const owned = await mkdtemp(join(tmpdir(), 'pickier-native-read-only-'))
+  // The host's tmp directory is outside the project, not an ignored child.
+  const root = join(owned, 'tmp', 'project')
+  await mkdir(root, { recursive: true })
   const original = 'export const x = "hello"  \n\n\n'
   try {
     for (const kind of ['file', 'directory']) {
       const directory = join(root, kind)
       await mkdir(directory)
       const file = join(directory, 'entry.ts')
+      const ignored = join(directory, 'tmp', 'ignored.ts')
+      await mkdir(join(directory, 'tmp'))
+      await writeFile(ignored, original)
       const target = kind === 'file' ? file : directory
       const run = (...flags: string[]) => Bun.spawnSync([cli, 'format', target, ...flags], { cwd: root, timeout: 5000 })
       await writeFile(file, original)
       assert.equal(run('--write').exitCode, 0)
       const formatted = await readFile(file, 'utf8')
       assert.notEqual(formatted, original, 'The real native write control must format the fixture')
+      assert.equal(await readFile(ignored, 'utf8'), original, 'Project tmp descendants must remain ignored')
       for (const guard of ['--dry-run', '--check']) {
         await writeFile(file, original)
         const result = run('--write', guard)
@@ -32,7 +39,7 @@ async function verify(): Promise<void> {
     process.stdout.write('Native format dry-run/check: unchanged file/directory bytes, dirty/clean status and actual write controls PASS\n')
   }
   finally {
-    await rm(root, { recursive: true, force: true })
+    await rm(owned, { recursive: true, force: true })
   }
 }
 

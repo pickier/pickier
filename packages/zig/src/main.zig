@@ -291,12 +291,21 @@ fn walkFiles(
 ) !void {
     const cwd = std.Io.Dir.cwd();
 
+    const project_root = try cwd.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(project_root);
+    // Resolve the selected root once: /tmp and /var may alias their physical
+    // directories on macOS. Keep the caller's paths for I/O and diagnostics.
+    const physical_input = cwd.realPathFileAlloc(io, path, allocator) catch return;
+    defer allocator.free(physical_input);
+    const root_scope = try walker.projectPath(allocator, project_root, physical_input);
+    defer allocator.free(root_scope);
+
     // Try to open as directory
     var dir = cwd.openDir(io, path, .{ .iterate = true }) catch |err| {
         switch (err) {
             error.NotDir => {
                 // It's a file — check if it matches extensions and isn't ignored
-                if (walker.isValidFile(path, extensions, ignores)) {
+                if (walker.isValidFile(root_scope, extensions, ignores)) {
                     try out.append(allocator, try allocator.dupe(u8, path));
                 }
                 return;
@@ -324,8 +333,13 @@ fn walkFiles(
         var iter = iter_dir.iterate();
         while (try iter.next(io)) |entry| {
             const full_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ current_dir, entry.name });
-
-            if (walker.shouldIgnorePath(full_path, ignores)) {
+            const descendant = full_path[path.len + 1 ..];
+            const relative = if (root_scope.len == 0 or std.mem.eql(u8, root_scope, "."))
+                try allocator.dupe(u8, descendant)
+            else
+                try std.fmt.allocPrint(allocator, "{s}/{s}", .{ root_scope, descendant });
+            defer allocator.free(relative);
+            if (walker.shouldIgnorePath(relative, ignores)) {
                 allocator.free(full_path);
                 continue;
             }

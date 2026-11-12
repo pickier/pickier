@@ -3,6 +3,29 @@ const Allocator = std.mem.Allocator;
 const config = @import("config.zig");
 
 // ---------------------------------------------------------------------------
+
+/// Ignore patterns describe project paths, never directories containing it.
+pub fn projectPath(allocator: Allocator, project_root: []const u8, path: []const u8) ![]u8 {
+    const relative = try std.fs.path.relative(allocator, project_root, null, project_root, path);
+    if (@import("builtin").os.tag == .windows) std.mem.replaceScalar(u8, relative, '\\', '/');
+    return relative;
+}
+
+test "project ignores exclude descendants without excluding host ancestors" {
+    const allocator = std.testing.allocator;
+    const root = if (@import("builtin").os.tag == .windows) "C:\\tmp\\project" else "/tmp/project";
+    const source = try std.fs.path.join(allocator, &.{ root, "src", "entry.ts" });
+    defer allocator.free(source);
+    const relative = try projectPath(allocator, root, source);
+    defer allocator.free(relative);
+    try std.testing.expectEqualStrings("src/entry.ts", relative);
+    try std.testing.expect(isValidFile(relative, &.{.ts}, &config.default_ignores));
+    const ignored = try std.fs.path.join(allocator, &.{ root, "tmp", "ignored.ts" });
+    defer allocator.free(ignored);
+    const ignored_relative = try projectPath(allocator, root, ignored);
+    defer allocator.free(ignored_relative);
+    try std.testing.expect(!isValidFile(ignored_relative, &.{.ts}, &config.default_ignores));
+}
 // Ignore pattern matching & file validation (pure logic, no I/O)
 //
 // Directory walking (which requires std.Io) lives in main.zig.
