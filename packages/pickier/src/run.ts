@@ -8,9 +8,9 @@ export type RunOptions = (Partial<LintOptions> & Partial<FormatOptions>) & {
   mode?: 'auto' | 'lint' | 'format'
 }
 
-/** Whether formatting may write: --write, or --fix as its alias. */
+/** Explicit read-only flags take precedence over --write and --fix. */
 function wantsWrite(options: RunOptions): boolean {
-  return options.write === true || options.fix === true
+  return !options.check && !options.dryRun && (options.write === true || options.fix === true)
 }
 
 export async function runUnified(globs: string[], options: RunOptions): Promise<number> {
@@ -74,7 +74,7 @@ export async function runUnified(globs: string[], options: RunOptions): Promise<
   const lintOpts: LintOptions = {
     ...(options as any),
     fix: true,
-    dryRun: !!options.check,
+    dryRun: !!(options.check || options.dryRun),
     ext: options.ext,
   }
   return runLint(globs, lintOpts)

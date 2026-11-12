@@ -387,7 +387,7 @@ fn runFormatMode(
 
         const changed = !std.mem.eql(u8, content, formatted);
 
-        if (opts.check) {
+        if (opts.check or opts.dry_run) {
             if (changed) {
                 if (opts.verbose or cfg.verbose) {
                     writeStderr(io, "Would format: ");
@@ -414,9 +414,9 @@ fn runFormatMode(
     }
 
     // Summary output for check/write modes
-    if ((opts.check or opts.write) and (opts.verbose or cfg.verbose)) {
+    if ((opts.check or opts.dry_run or opts.write) and (opts.verbose or cfg.verbose)) {
         var summary_buf: [256]u8 = undefined;
-        if (opts.check) {
+        if (opts.check or opts.dry_run) {
             const msg = std.fmt.bufPrint(&summary_buf, "Checked {d} files, {d} would be reformatted.\n", .{ files_checked, files_changed }) catch "";
             writeStderr(io, msg);
         } else {
@@ -651,7 +651,7 @@ fn printHelp(io: std.Io) void {
         \\  --check                 Check without writing (format mode)
         \\  --write                 Write changes to files (format mode)
         \\  --fix                   Auto-fix problems (lint mode)
-        \\  --dry-run               Simulate fixes without writing (lint mode)
+        \\  --dry-run               Simulate fixes or formatting without writing
         \\  --reporter <name>       stylish|json|compact (lint mode)
         \\  --max-warnings <n>      Max warnings before non-zero exit (lint mode)
         \\  --ext <exts>            Comma-separated extensions (e.g. ts,js,json)

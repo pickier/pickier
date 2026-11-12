@@ -160,7 +160,7 @@ async function main() {
       let runMode: 'lint' | 'format'
       if (opts.format) {
         runMode = 'format'
-        if (!opts.check) opts.write = true
+        if (!opts.check && !opts.dryRun) opts.write = true
       }
       else {
         runMode = 'lint'
@@ -197,6 +197,7 @@ async function main() {
   cli
     .command('format [...globs]', '[DEPRECATION] Use `pickier [...globs] --format` instead. Format files')
     .option('--write', 'Write changes to files')
+    .option('--dry-run', 'Report formatting without writing')
     .option('--check', 'Check without writing (CI-friendly)')
     .option('--config <path>', 'Path to pickier config')
     .option('--ignore-path <file>', 'Ignore file')
@@ -216,7 +217,7 @@ async function main() {
     .command('run [...globs]', 'Unified mode (auto, lint, or format)')
     .option('--mode <mode>', 'auto|lint|format', { default: 'auto' })
     .option('--fix', 'Auto-fix problems (lint mode)')
-    .option('--dry-run', 'Simulate fixes without writing (lint mode)')
+    .option('--dry-run', 'Simulate fixes or formatting without writing')
     .option('--max-warnings <n>', 'Max warnings before non-zero exit (lint mode)', { default: -1 })
     .option('--reporter <name>', 'stylish|json|compact (lint mode)', { default: 'stylish' })
     .option('--write', 'Write changes to files (format mode)')
