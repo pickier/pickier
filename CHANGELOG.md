@@ -1,3 +1,22 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.92...v0.1.93)
+
+## 🐛 Bug Fixes
+
+- **native**: match ignores within the selected project ([ed3332c](https://github.com/pickier/pickier/commit/ed3332c)) _(by Chris Breuer <chris@stacksjs.com>)_ ([#1417](https://github.com/pickier/pickier/issues/1417), [#1416](https://github.com/pickier/pickier/issues/1416))
+- **cli**: make dry-run and check override write flags ([d000daf](https://github.com/pickier/pickier/commit/d000daf)) _(by Chris Breuer <chris@stacksjs.com>)_ ([#1416](https://github.com/pickier/pickier/issues/1416))
+
+## 💚 Continuous Integration
+
+- adopt qualified Pantry 0.11.198 publisher ([40b864f](https://github.com/pickier/pickier/commit/40b864f)) _(by Chris Breuer <chris@stacksjs.com>)_ ([#1416](https://github.com/pickier/pickier/issues/1416), [#1417](https://github.com/pickier/pickier/issues/1417), [pantry-pm/pantry#320](https://github.com/pantry-pm/pantry/issues/320))
+
+## 🔧 Chores
+
+- release v0.1.93 ([db90fa7](https://github.com/pickier/pickier/commit/db90fa7)) _(by Chris Breuer <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris Breuer <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.91...v0.1.92)
 
 ## 🐛 Bug Fixes
