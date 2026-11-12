@@ -43,9 +43,9 @@ jobs:
       # the native lint engine shipped in the package - and the package
       # dependencies
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@362da3ef0602f51232ab9431da8d05c84c5f49ba # v0.11.197
+        uses: pantry-pm/pantry/packages/action@135940df27586d47f30eb89176d0927513b2e050 # v0.11.198
         with:
-          version: '0.11.197'
+          version: '0.11.198'
 
       # npm can accept an upload before public readback becomes available. A
       # recovery then skips the existing version, including its lifecycle hooks.
