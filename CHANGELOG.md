@@ -1,3 +1,21 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.93...v0.1.94)
+
+## 🐛 Bug Fixes
+
+- **markdown**: preserve wrapped code spans when checking padding ([47ee62e](https://github.com/pickier/pickier/commit/47ee62e)) _(by Chris Breuer <chris@stacksjs.com>)_ ([#1419](https://github.com/pickier/pickier/issues/1419))
+
+## 💚 Continuous Integration
+
+- adopt qualified Pantry 0.11.199 ([6dd2fd3](https://github.com/pickier/pickier/commit/6dd2fd3)) _(by Chris Breuer <chris@stacksjs.com>)_
+
+## 🔧 Chores
+
+- release v0.1.94 ([b4777a7](https://github.com/pickier/pickier/commit/b4777a7)) _(by Chris Breuer <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris Breuer <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.92...v0.1.93)
 
 ## 🐛 Bug Fixes
