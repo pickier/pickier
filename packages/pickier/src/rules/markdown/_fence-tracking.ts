@@ -218,6 +218,14 @@ export function maskInlineCode(line: string): string {
  * https://spec.commonmark.org/0.31.2/#code-spans
  */
 export function maskInlineCodeAcrossLines(lines: string[]): string[] {
+  return mapInlineCodeAcrossLines(lines, segment => segment.replace(/[^\r\n]/g, ' '))
+}
+
+/** Visit complete code spans within each paragraph, preserving source positions. */
+export function mapInlineCodeAcrossLines(
+  lines: string[],
+  onCode: (segment: string, line: number, column: number) => string,
+): string[] {
   const inCode = getCodeBlockLines(lines)
   const out: string[] = []
   let index = 0
@@ -234,10 +242,29 @@ export function maskInlineCodeAcrossLines(lines: string[]): string[] {
       end++
 
     let masked = ''
+    let lineNumber = index + 1
+    let column = 1
+    function advancePosition(segment: string): void {
+      for (const character of segment) {
+        if (character === '\n') {
+          lineNumber++
+          column = 1
+        }
+        else {
+          column += character.length
+        }
+      }
+    }
     eachInlineSegment(
       lines.slice(index, end).join('\n'),
-      (segment) => { masked += segment },
-      (segment) => { masked += segment.replace(/[^\r\n]/g, ' ') },
+      (segment) => {
+        masked += segment
+        advancePosition(segment)
+      },
+      (segment) => {
+        masked += onCode(segment, lineNumber, column)
+        advancePosition(segment)
+      },
     )
     for (const line of masked.split('\n'))
       out.push(line)

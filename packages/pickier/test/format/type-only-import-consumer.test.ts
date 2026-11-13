@@ -148,6 +148,20 @@ const output: string = formatCode('const value = 1', defaultConfig, 'input.ts');
       await check('type-import-fixture')
       const runtime = await run(['-e', "const { sameEmitter } = await import('type-import-fixture'); if (sameEmitter !== true) throw new Error('Formatted runtime imports changed identity')"], consumer)
       expect(runtime.code, runtime.output).toBe(0)
+      // Exercise the actual selected producer's Markdown CLI after both installs.
+      // A wrapped span must not turn later delimiters into false MD038 spans.
+      const markdownFile = join(consumer, 'wrapped.md')
+      const markdown = 'A `LicenseGrant` (`{ project, licenseKey,\ndashboardUrl }`) from `provision` and `usage`.\n'
+      await writeFile(markdownFile, markdown)
+      const validMarkdown = await run([cli, 'lint', markdownFile, '--reporter', 'json'], consumer)
+      expect(validMarkdown.code, validMarkdown.output).toBe(0)
+      expect(JSON.parse(validMarkdown.output).issues.filter((issue: { ruleId: string }) => issue.ruleId === 'markdown/no-space-in-code')).toEqual([])
+      expect(await readFile(markdownFile, 'utf8')).toBe(markdown)
+      await writeFile(markdownFile, 'A `wrapped\nspan` and ` padded ` end.\n')
+      const paddedMarkdown = await run([cli, 'lint', markdownFile, '--reporter', 'json'], consumer)
+      const padding = JSON.parse(paddedMarkdown.output).issues.filter((issue: { ruleId: string }) => issue.ruleId === 'markdown/no-space-in-code')
+      expect(padding).toHaveLength(1)
+      expect(padding[0]).toMatchObject({ line: 2, column: 11 })
     }
     receipt.completed = true
   }

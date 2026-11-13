@@ -1,5 +1,5 @@
 import type { LintIssue, RuleModule } from '../../types'
-import { getCodeBlockLines } from './_fence-tracking'
+import { mapInlineCodeAcrossLines } from './_fence-tracking'
 
 /**
  * MD038 - Spaces inside code span elements
@@ -22,61 +22,37 @@ export const noSpaceInCodeRule: RuleModule = {
   },
   check: (text, ctx) => {
     const issues: LintIssue[] = []
-    const lines = text.split(/\r?\n/)
-    const codeLines = getCodeBlockLines(lines)
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-
-      // Skip fenced/indented code — backtick runs there are content
-      if (codeLines.has(i))
-        continue
-
-      // Find code spans by matching balanced backtick groups (lazy match finds shortest span)
-      const codeSpanPattern = /(`+)([\s\S]*?)\1/g
-      for (const match of line.matchAll(codeSpanPattern)) {
-        const content = match[2]
-        // Only flag if content has both leading and trailing spaces and non-empty trimmed content
-        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0
-          && !(padsBacktick(content) && content === ` ${content.trim()} `)) {
-          issues.push({
-            filePath: ctx.filePath,
-            line: i + 1,
-            column: match.index! + 1,
-            ruleId: 'markdown/no-space-in-code',
-            message: 'Spaces inside code span elements',
-            severity: 'error',
-          })
-        }
+    mapInlineCodeAcrossLines(text.split('\n'), (span, line, column) => {
+      const delimiterLength = span.match(/^`+/)![0].length
+      const content = span.slice(delimiterLength, -delimiterLength)
+      // Only flag if content has both leading and trailing spaces and non-empty trimmed content
+      if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0
+        && !(padsBacktick(content) && content === ` ${content.trim()} `)) {
+        issues.push({
+          filePath: ctx.filePath,
+          line,
+          column,
+          ruleId: 'markdown/no-space-in-code',
+          message: 'Spaces inside code span elements',
+          severity: 'error',
+        })
       }
-    }
+      return span
+    })
 
     return issues
   },
   fix: (text) => {
-    const lines = text.split(/\r?\n/)
-    const codeLines = getCodeBlockLines(lines)
-    const result: string[] = []
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      if (codeLines.has(i)) {
-        result.push(line)
-        continue
+    return mapInlineCodeAcrossLines(text.split('\n'), (span) => {
+      const backticks = span.match(/^`+/)![0]
+      const content = span.slice(backticks.length, -backticks.length)
+      if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0) {
+        // Keep the one space each side that a backtick at either end needs
+        return padsBacktick(content)
+          ? `${backticks} ${content.trim()} ${backticks}`
+          : `${backticks}${content.trim()}${backticks}`
       }
-
-      // Fix spaces inside code spans
-      result.push(line.replace(/(`+)([\s\S]*?)\1/g, (match, backticks: string, content: string) => {
-        if (content.startsWith(' ') && content.endsWith(' ') && content.trim().length > 0) {
-          // Keep the one space each side that a backtick at either end needs
-          return padsBacktick(content)
-            ? `${backticks} ${content.trim()} ${backticks}`
-            : `${backticks}${content.trim()}${backticks}`
-        }
-        return match
-      }))
-    }
-
-    return result.join('\n')
+      return span
+    }).join('\n')
   },
 }
