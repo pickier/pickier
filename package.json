@@ -53,10 +53,10 @@
     "@stacksjs/clarity": "^0.3.24",
     "@stacksjs/gitlint": "^0.1.8",
     "@stacksjs/logsmith": "^0.2.16",
-    "@types/bun": "^1.4.4",
+    "@types/bun": "^1.4.5",
     "buddy-bot": "^0.10.5",
     "bun-git-hooks": "^0.3.3",
-    "@dtsx/bun": "^0.11.55",
+    "@dtsx/bun": "^0.11.56",
     "typescript": "^7.0.2"
   },
   "dependencies": {
