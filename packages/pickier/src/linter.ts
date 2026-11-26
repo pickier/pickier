@@ -848,13 +848,21 @@ async function runPlannedRule(planned: PlannedRule, filePath: string, content: s
       : result
     const elapsed = asynchronous ? performance.now() - started : synchronousElapsed
     if (elapsed > ruleTimeoutMs) {
+      // A synchronous rule cannot be cut short, so by the time it is measured
+      // it has finished and its findings below are complete: running slow on a
+      // busy machine (a CI host under load) says nothing about the code, and
+      // failing the lint for it turned a slow runner into a red build. It is
+      // reported as a warning. An asynchronous rule that misses its deadline
+      // is still an error, because withTimeout gave up on its findings.
       issues.push({
         filePath,
         line: 1,
         column: 1,
         ruleId: `${fullRuleId}-internal` as any,
-        message: `Rule exceeded timeout budget: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms`,
-        severity: 'error',
+        message: asynchronous
+          ? `Rule exceeded timeout budget: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms`
+          : `Rule ran slowly: ${Math.round(elapsed)}ms > ${ruleTimeoutMs}ms budget (its results are complete)`,
+        severity: asynchronous ? 'error' : 'warning',
       })
     }
     trace('rule:end', fullRuleId, Array.isArray(out) ? out.length : 0)

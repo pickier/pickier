@@ -37,8 +37,21 @@ describe('plugin rule execution budget', () => {
 
     expect(fast.filter(issue => issue.ruleId === 'timing/probe-internal')).toEqual([])
     expect(slow.filter(issue => issue.ruleId === 'timing/probe-internal')).toMatchObject([
-      { severity: 'error', message: expect.stringContaining('exceeded timeout budget') },
+      { severity: 'warning', message: expect.stringContaining('ran slowly') },
     ])
+  })
+
+  test('keeps a slow synchronous rule\'s findings, and warns rather than fails', async () => {
+    // It ran to the end, so its findings are complete; a loaded CI host made
+    // this an error and turned a slow runner into a red build.
+    const config = configuration(() => {
+      Bun.sleepSync(budget + 100)
+      return [{ filePath: 'slow.ts', line: 1, column: 1, ruleId: 'timing/probe', message: 'a real finding', severity: 'error' }]
+    })
+    const issues = await lintText('const slow = 1\n', config, 'slow.ts')
+
+    expect(issues.find(issue => issue.ruleId === 'timing/probe')?.message).toBe('a real finding')
+    expect(issues.filter(issue => issue.ruleId === 'timing/probe-internal').map(issue => issue.severity)).toEqual(['warning'])
   })
 
   test('still rejects asynchronous rules that never settle', async () => {
