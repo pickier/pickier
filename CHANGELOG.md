@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/pickier/pickier/compare/v0.1.94...v0.1.95)
+
+## 🐛 Bug Fixes
+
+- **linter**: a slow synchronous rule warns instead of failing the lint ([2b7a9a8](https://github.com/pickier/pickier/commit/2b7a9a8)) _(by Chris)_
+
+## 🔧 Chores
+
+- **deps**: update all non-major dependencies (updated) (#1405) ([7b8a3af](https://github.com/pickier/pickier/commit/7b8a3af)) _(by [github-actions[bot]](https://github.com/github-actions[bot]))_ ([#1405](https://github.com/pickier/pickier/issues/1405))
+- **deps**: update dependency jsdom to 31.0.1 (updated) (#1408) ([a90fb74](https://github.com/pickier/pickier/commit/a90fb74)) _(by [github-actions[bot]](https://github.com/github-actions[bot]))_ ([#1408](https://github.com/pickier/pickier/issues/1408))
+
+## Contributors
+
+- _Chris_
+
 [Compare changes](https://github.com/pickier/pickier/compare/v0.1.93...v0.1.94)
 
 ## 🐛 Bug Fixes
